@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { ArrowUpRight, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Copy, Download, Droplets, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Pencil, Plus, ReceiptText, RefreshCw, Search, Settings, ShieldCheck, Sun, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
+import { ArrowUpRight, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Copy, Download, Droplets, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Pencil, Plus, ReceiptText, RefreshCw, Search, Settings, ShieldCheck, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
 import './App.css'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 
@@ -15,6 +15,7 @@ const defaultLandlordPaymentDetails: LandlordPaymentDetails = { method: 'paybill
 type SubscriptionPaymentDetails = LandlordPaymentDetails
 const defaultSubscriptionPaymentDetails: SubscriptionPaymentDetails = { ...defaultLandlordPaymentDetails }
 const ConfirmedRentPaymentsContext = createContext<RentPaymentRecord[]>([])
+const ConfirmedRentPaymentRefreshContext = createContext<{ refresh: () => Promise<void>; refreshing: boolean; error: string }>({ refresh: async () => {}, refreshing: false, error: '' })
 const TenantDirectoryContext = createContext<TenantRecord[]>([])
 const LandlordPaybillContext = createContext<LandlordPaymentDetails>(defaultLandlordPaymentDetails)
 type UnitRecord = { unit: string; displayName?: string; type: string; tenant: string; status: string; rent: string }
@@ -403,6 +404,8 @@ function App() {
   const [tenantList, setTenantList] = useState<TenantRecord[]>([])
   const [savedRows, setSavedRows] = useState<Record<string, string[]>>({})
   const [directRentPayments, setDirectRentPayments] = useState<RentPaymentRecord[]>([])
+  const [rentPaymentsRefreshing, setRentPaymentsRefreshing] = useState(false)
+  const [rentPaymentsRefreshError, setRentPaymentsRefreshError] = useState('')
   const [selectedTenant, setSelectedTenant] = useState<TenantRecord | null>(null)
   const [invoiceTenant, setInvoiceTenant] = useState<TenantRecord | null>(null)
   const [selectedMaintenance, setSelectedMaintenance] = useState<string | null>(null)
@@ -455,6 +458,29 @@ function App() {
   }
   const effectiveRentPaybill = landlordPaybill.trim() || rentPaybill
   const landlordPaymentDetails: LandlordPaymentDetails = { method: landlordPaymentMethod, paybillNumber: landlordPaybill, tillNumber: landlordTillNumber, bankName: landlordBankName, bankAccountName: landlordBankAccountName, bankAccountNumber: landlordBankAccountNumber }
+  const refreshConfirmedRentPayments = async () => {
+    if (!supabase || !cloudOwnerId) {
+      setRentPaymentsRefreshError('Sign in to a landlord workspace before refreshing confirmed rent payments.')
+      return
+    }
+    setRentPaymentsRefreshing(true)
+    setRentPaymentsRefreshError('')
+    try {
+      const { data, error } = await supabase.from('rent_payments')
+        .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
+        .eq('owner_id', cloudOwnerId)
+        .order('transacted_at', { ascending: false })
+      if (error) {
+        setRentPaymentsRefreshError(`Could not refresh confirmed rent payments: ${error.message}`)
+        return
+      }
+      setDirectRentPayments(data ?? [])
+    } catch (error) {
+      setRentPaymentsRefreshError(`Could not refresh confirmed rent payments: ${error instanceof Error ? error.message : 'Unexpected request failure.'}`)
+    } finally {
+      setRentPaymentsRefreshing(false)
+    }
+  }
   const refreshPlatformPortfolio = async () => {
     if (!supabase || !authUser || sessionUser?.userType !== 'Platform Administrator') {
       setPlatformPortfolioError('Sign in as the Platform Administrator to load all Landlord portfolios.')
@@ -673,15 +699,13 @@ function App() {
         return
       }
       const resolvedWorkspaceRow = workspaceResult.data?.[0] ?? fallbackWorkspaceResult.data?.find(row => row.owner_id === workspaceOwnerId) ?? fallbackWorkspaceResult.data?.find(row => row.data && (Array.isArray(row.data.properties) || Array.isArray(row.data.tenants) || (row.data.units && typeof row.data.units === 'object') || (row.data.records && typeof row.data.records === 'object')))
-      if (effectiveRentPaybill) {
-        const { data: rentPayments, error: rentPaymentsError } = await client.from('rent_payments')
-          .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
-          .eq('owner_id', workspaceOwnerId)
-          .order('transacted_at', { ascending: false })
-        if (!active) return
-        if (rentPaymentsError) setCloudStatus(`Rent payments unavailable: ${rentPaymentsError.message}`)
-        else setDirectRentPayments(rentPayments ?? [])
-      }
+      const { data: rentPayments, error: rentPaymentsError } = await client.from('rent_payments')
+        .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
+        .eq('owner_id', workspaceOwnerId)
+        .order('transacted_at', { ascending: false })
+      if (!active) return
+      if (rentPaymentsError) setCloudStatus(`Rent payments unavailable: ${rentPaymentsError.message}`)
+      else setDirectRentPayments(rentPayments ?? [])
       if (subscriptionResult.data) {
         user.subscription = { plan: subscriptionResult.data.plan as SubscriptionPlan, status: subscriptionResult.data.status as SubscriptionStatus, startDate: subscriptionResult.data.starts_on, expiryDate: subscriptionResult.data.expires_on, amount: subscriptionResult.data.amount }
       }
@@ -963,7 +987,7 @@ function App() {
   }, [cloudOwnerId, propertyList, unitDetails, tenantList, savedRows, invoiceList, completedMaintenance, expenses, applicants, workspaceName, propertyGroup, darkMode, notifEmail, notifWeekly, rentReminderEnabled, rentReminderDays, rentReminderChannel, landlordPaybill])
   useEffect(() => {
     const client = supabase
-    if (!client || !cloudOwnerId || !effectiveRentPaybill) return
+    if (!client || !cloudOwnerId) return
     let active = true
     const loadRentPayments = async () => {
       const { data, error } = await client.from('rent_payments')
@@ -976,7 +1000,7 @@ function App() {
     }
     void loadRentPayments()
     return () => { active = false }
-  }, [cloudOwnerId, effectiveRentPaybill])
+  }, [cloudOwnerId])
   const filteredProperties = useMemo(() => propertyList.filter((property) => property.name.toLowerCase().includes(query.toLowerCase())), [propertyList, query])
   const removeTenant = (tenant: TenantRecord) => {
     if (!window.confirm(`Remove ${tenant.name} from Unit ${tenant.unit}?`)) return
@@ -1292,13 +1316,11 @@ function App() {
         reviewedAt: requestResult.data.reviewed_at ?? undefined,
       } : undefined
       setSessionUser(current => current && current.id === authUser.id ? { ...current, subscription, subscriptionRequest: request } : current)
-      if (rentPaybill) {
-        const { data: rentPayments, error: rentPaymentsError } = await client.from('rent_payments')
-          .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
-          .eq('owner_id', cloudOwnerId ?? authUser.id)
-          .order('transacted_at', { ascending: false })
-        if (active && !rentPaymentsError) setDirectRentPayments(rentPayments ?? [])
-      }
+      const { data: rentPayments, error: rentPaymentsError } = await client.from('rent_payments')
+        .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
+        .eq('owner_id', cloudOwnerId ?? authUser.id)
+        .order('transacted_at', { ascending: false })
+      if (active && !rentPaymentsError) setDirectRentPayments(rentPayments ?? [])
     }
     void refreshSubscription()
     const timer = window.setInterval(refreshSubscription, 20000)
@@ -1544,7 +1566,7 @@ function App() {
   if (homePage && !sessionUser) return <PortalHomePage workspaceName={workspaceName} onOpenRolePage={openRoleLoginPage} onOpenTenantPortal={openTenantPublicPage} onOpenLandlordSignup={openLandlordSignupPage} />
   if (tenantPublicView) return <TenantPublicLoginPage darkMode={darkMode} workspaceName={workspaceName} tenantList={tenantList} tenantPortalForm={tenantPortalForm} tenantPortalError={tenantPortalError} onTenantPortalFormChange={(key, value) => setTenantPortalForm(current => ({ ...current, [key]: value }))} onTenantPortalSubmit={submitTenantPortalLogin} onBackToHome={openHomePage} />
   if (!sessionUser) return <LoginView darkMode={darkMode} workspaceName={workspaceName} authMessage={authMessage} onOpenTenantPortal={openTenantPublicPage} onOpenRolePage={openRoleLoginPage} onOpenLandlordSignup={openLandlordSignupPage} />
-  return <LandlordPaybillContext.Provider value={landlordPaymentDetails}><TenantDirectoryContext.Provider value={tenantList}><ConfirmedRentPaymentsContext.Provider value={directRentPayments}><div className={`app-shell ${darkMode ? 'dark' : ''}`}>
+  return <LandlordPaybillContext.Provider value={landlordPaymentDetails}><TenantDirectoryContext.Provider value={tenantList}><ConfirmedRentPaymentRefreshContext.Provider value={{ refresh: refreshConfirmedRentPayments, refreshing: rentPaymentsRefreshing, error: rentPaymentsRefreshError }}><ConfirmedRentPaymentsContext.Provider value={directRentPayments}><div className={`app-shell ${darkMode ? 'dark' : ''}`}>
     {/* Subscription Warning Banner (7 days before expiry) */}
     {subStatus.isExpiring && (
       <div className="subscription-warning-banner">
@@ -2297,7 +2319,7 @@ function App() {
         )}
     </main>
   </div>
-  </ConfirmedRentPaymentsContext.Provider></TenantDirectoryContext.Provider></LandlordPaybillContext.Provider>
+  </ConfirmedRentPaymentsContext.Provider></ConfirmedRentPaymentRefreshContext.Provider></TenantDirectoryContext.Provider></LandlordPaybillContext.Provider>
 }
 
 function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loading, error, onRefresh }: { workspaces: PlatformLandlordWorkspace[]; landlordAccountCount: number; loading: boolean; error: string; onRefresh: () => void }) {
@@ -2477,7 +2499,7 @@ function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loa
   </section>
 }
 
-function SectionView({ section, rows, completedMaintenance = {}, showConfirmedRentPayments = false, onAdd, onRowClick, onWaterBillUpdate, onGenerateInvoice, onRemoveTenant, onOpenMaintenance, onEditProperty, onDeleteProperty, onViewTenantProfile, onEditTenant, onEditPayment, onDeletePayment, onEditMaintenance, onDeleteMaintenance, onMarkMaintenanceDone }: { section: string; rows: string[]; completedMaintenance?: Record<string, boolean>; showConfirmedRentPayments?: boolean; onAdd: (() => void) | null; onRowClick?: (index: number) => void; onWaterBillUpdate?: (index: number) => void; onGenerateInvoice?: (index: number) => void; onRemoveTenant?: (index: number) => void; onOpenMaintenance?: (index: number) => void; onEditProperty?: (index: number) => void; onDeleteProperty?: (index: number) => void; onViewTenantProfile?: (index: number) => void; onEditTenant?: (index: number) => void; onEditPayment?: (index: number) => void; onDeletePayment?: (index: number) => void; onEditMaintenance?: (index: number) => void; onDeleteMaintenance?: (index: number) => void; onMarkMaintenanceDone?: (index: number) => void }) {
+function SectionView({ section, rows, completedMaintenance = {}, onAdd, onRowClick, onWaterBillUpdate, onGenerateInvoice, onRemoveTenant, onOpenMaintenance, onEditProperty, onDeleteProperty, onViewTenantProfile, onEditTenant, onEditPayment, onDeletePayment, onEditMaintenance, onDeleteMaintenance, onMarkMaintenanceDone }: { section: string; rows: string[]; completedMaintenance?: Record<string, boolean>; showConfirmedRentPayments?: boolean; onAdd: (() => void) | null; onRowClick?: (index: number) => void; onWaterBillUpdate?: (index: number) => void; onGenerateInvoice?: (index: number) => void; onRemoveTenant?: (index: number) => void; onOpenMaintenance?: (index: number) => void; onEditProperty?: (index: number) => void; onDeleteProperty?: (index: number) => void; onViewTenantProfile?: (index: number) => void; onEditTenant?: (index: number) => void; onEditPayment?: (index: number) => void; onDeletePayment?: (index: number) => void; onEditMaintenance?: (index: number) => void; onDeleteMaintenance?: (index: number) => void; onMarkMaintenanceDone?: (index: number) => void }) {
   const directRentPayments = useContext(ConfirmedRentPaymentsContext)
   const tenantDirectory = useContext(TenantDirectoryContext)
   const detail = sectionDetails[section]
@@ -2503,7 +2525,7 @@ function SectionView({ section, rows, completedMaintenance = {}, showConfirmedRe
     {section === 'Tenants' && <TenantSection rows={pageRows} originalIndices={visibleTenantIndices} onWaterBillUpdate={(index) => onWaterBillUpdate?.(index)} onGenerateInvoice={(index) => onGenerateInvoice?.(index)} onRemoveTenant={(index) => onRemoveTenant?.(index)} onViewProfile={(index) => onViewTenantProfile?.(index)} onEditTenant={(index) => onEditTenant?.(index)} />}
     {section === 'Maintenance' && <MaintenanceSection rows={pageRows} completedMaintenance={completedMaintenance} onOpen={(index) => onOpenMaintenance?.(start + index)} onEdit={(index) => onEditMaintenance?.(start + index)} onDelete={(index) => onDeleteMaintenance?.(start + index)} onMarkDone={(index) => onMarkMaintenanceDone?.(start + index)} />}
     {section === 'Payments' && <PaymentSection rows={pageRows} onEdit={(index) => onEditPayment?.(start + index)} onDelete={(index) => onDeletePayment?.(start + index)} />}
-    {section === 'Payments' && showConfirmedRentPayments && <ConfirmedRentPaymentSection payments={directRentPayments} />}
+    {section === 'Payments' && <ConfirmedRentPaymentSection payments={directRentPayments} />}
     {section === 'Documents' && <DocumentSection rows={pageRows} />}
     <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
   </section>
@@ -2625,25 +2647,42 @@ function PaymentSection({ rows, onEdit, onDelete }: { rows: string[]; onEdit?: (
     const property = parts.length >= 5 ? parts[3] ?? '' : ''
     const date = parts.length >= 5 ? parts[4] ?? '' : parts[2] ?? ''
     const period = parts.length >= 5 ? parts[7] ?? '' : ''
-    return <div className="payment-record" key={`${row}-${index}`}>
+    return <div className="payment-record payment-record-manual" key={`${row}-${index}`}>
       <span className="payment-icon"><CircleDollarSign size={18} /></span>
       <div><strong>{amount}</strong><small>{tenant} · {property}{house ? ` · ${house}` : ''}{period ? ` · ${period}` : ''}</small></div>
-      <span className="payment-date">{date}</span>
+      <span className="payment-date payment-date-badge"><CalendarDays size={14} /><span><small>Date paid</small><strong>{date}</strong></span></span>
       <ArrowUpRight size={16} />
-      {(onEdit || onDelete) && <div className="record-actions">{onEdit && <button type="button" className="record-edit-btn" onClick={(e) => { e.stopPropagation(); onEdit(index) }} title="Edit"><span className="record-action-icon">✏️</span><span className="record-action-label">Edit</span></button>}{onDelete && <button type="button" className="record-delete-btn" onClick={(e) => { e.stopPropagation(); onDelete(index) }} title="Delete"><span className="record-action-icon">🗑️</span><span className="record-action-label">Delete</span></button>}</div>}
+      {(onEdit || onDelete) && <div className="record-actions manual-payment-actions">{onEdit && <button type="button" className="record-edit-btn" onClick={(e) => { e.stopPropagation(); onEdit(index) }} title="Edit payment"><span className="record-action-icon">✏️</span><span className="record-action-label">Edit</span></button>}{onDelete && <button type="button" className="record-delete-btn" onClick={(e) => { e.stopPropagation(); onDelete(index) }} title="Delete payment"><span className="record-action-icon">🗑️</span><span className="record-action-label">Delete</span></button>}</div>}
     </div>
   })}</div>
 }
 
 function ConfirmedRentPaymentSection({ payments }: { payments: RentPaymentRecord[] }) {
+  const pageSize = 10
+  const [page, setPage] = useState(1)
+  const { refresh, refreshing, error } = useContext(ConfirmedRentPaymentRefreshContext)
+  const pageCount = Math.max(1, Math.ceil(payments.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+  const visiblePayments = payments.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   return <section className="confirmed-rent-payments">
-    <div className="archive-heading"><div><p className="eyebrow">M-Pesa Paybill</p><h3>Confirmed rent payments</h3></div><span>{payments.length} received</span></div>
-    {payments.length ? <div className="record-stack">{payments.map(payment => <article className="payment-record" key={payment.mpesa_receipt}>
+    <div className="archive-heading">
+      <div><p className="eyebrow">M-Pesa Paybill</p><h3>Confirmed rent payments</h3></div>
+      <div className="confirmed-rent-payment-actions">
+        <span>{payments.length} received</span>
+        <button type="button" className="filter-button" onClick={() => void refresh()} disabled={refreshing}>
+          <RefreshCw size={15} className={refreshing ? 'platform-refresh-spinning' : undefined} />
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
+    </div>
+    {error && <p className="settings-error" role="alert">{error}</p>}
+    {payments.length ? <div className="record-stack">{visiblePayments.map(payment => <article className="payment-record payment-record-confirmed" key={payment.mpesa_receipt}>
       <span className="payment-icon"><CircleDollarSign size={18} /></span>
       <div><strong>KSh {Number(payment.amount).toLocaleString()}</strong><small>{payment.tenant_name} · {payment.property_name} · Unit {payment.unit_name} · Ref {payment.account_reference}</small></div>
-      <span className="payment-date">{new Date(payment.transacted_at).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-      <small className="rent-payment-receipt">{payment.mpesa_receipt}</small>
+      <span className="payment-date payment-date-badge"><CalendarDays size={14} /><span><small>Date received</small><strong>{new Date(payment.transacted_at).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })}</strong></span></span>
+      <div className="rent-payment-receipt"><small>Transaction reference</small><strong>{payment.mpesa_receipt}</strong></div>
     </article>)}</div> : <p className="overview-empty">No confirmed Paybill rent payments yet.</p>}
+    {payments.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}
   </section>
 }
 
@@ -4293,7 +4332,7 @@ function WorkspaceHistoryPanel({ ownerId, users }: { ownerId: string; users: Acc
             <span><strong>{new Date(`${backup.backup_date}T00:00:00`).toLocaleDateString()}</strong><small>Saved {new Date(backup.created_at).toLocaleTimeString()}</small></span>
             <div className="workspace-backup-actions">
               <button type="button" className="filter-button" disabled={Boolean(restoringBackup || deletingBackup)} onClick={() => void restoreBackup(backup)}>{restoringBackup === backup.id ? 'Restoring...' : 'Restore'}</button>
-              <button type="button" className="card-delete-btn workspace-backup-delete" disabled={Boolean(restoringBackup || deletingBackup)} onClick={() => void deleteBackup(backup)} aria-label={`Delete backup from ${backup.backup_date}`} title="Delete backup">{deletingBackup === backup.id ? 'Deleting...' : 'Delete'}</button>
+              <button type="button" className="card-delete-btn workspace-backup-delete" disabled={Boolean(restoringBackup || deletingBackup)} onClick={() => void deleteBackup(backup)} aria-label={`Delete backup from ${backup.backup_date}`} title="Delete backup">{deletingBackup === backup.id ? 'Deleting...' : <><Trash2 size={14} />Delete</>}</button>
             </div>
           </article>)}</div> : <p className="overview-empty">No daily backups are available yet.</p>}
           {backupCount > pageSize && <Pagination page={backupPage} pageCount={Math.ceil(backupCount / pageSize)} onPageChange={setBackupPage} />}

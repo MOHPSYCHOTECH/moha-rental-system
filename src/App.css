@@ -109,13 +109,8 @@ input, select { font-family: inherit; font-size: inherit; }
 .workspace-history-refresh { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; }
 .workspace-history-refresh:disabled { opacity: .65; cursor: wait; }
 .workspace-backup-actions { display: flex; align-items: center; gap: 7px; }
-.workspace-backup-delete { min-height: 34px; padding: 6px 10px; border: 1px solid #e4c6bd; border-radius: 7px; background: var(--surface); color: #9c432f; font-size: 11px; font-weight: 700; }
-.workspace-backup-delete:hover:not(:disabled) { background: #fff3ef; border-color: #d89f91; }
-.workspace-backup-delete:disabled { opacity: .55; cursor: wait; }
 .workspace-history-group .pagination { margin-top: 14px; }
 .workspace-history-group .pagination button { min-height: 32px; padding: 6px 10px; }
-.dark .workspace-backup-delete { background: var(--surface); }
-.dark .workspace-backup-delete:hover:not(:disabled) { background: rgba(186, 94, 69, .15); }
 
 .brand > span:last-child { font-size: 13px; font-weight: 700; line-height: 1.3; color: #f1f5f9; }
 
@@ -579,7 +574,24 @@ nav[aria-label="Main navigation"] { padding: 12px 12px 0; flex: 1; }
 .activity-item > div { flex: 1; }
 .activity-item strong { display: block; font-size: 13px; color: var(--text-1); font-weight: 600; }
 .activity-item small { display: block; font-size: 11px; color: var(--text-2); margin-top: 2px; }
-.activity-item time { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+.activity-item {
+  min-width: 0;
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .035);
+}
+.activity-item:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15, 23, 42, .07); }
+.activity-item time {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
 
 .activity-icon {
   width: 36px;
@@ -592,6 +604,9 @@ nav[aria-label="Main navigation"] { padding: 12px 12px 0; flex: 1; }
 .activity-icon.green { background: #d1fae5; color: #059669; }
 .activity-icon.orange { background: #fff7ed; color: #ea580c; }
 .activity-icon.blue { background: #e0f2fe; color: #0284c7; }
+.dark .activity-icon.green { background: rgba(16, 185, 129, .16); color: #6ee7b7; }
+.dark .activity-icon.orange { background: rgba(249, 115, 22, .16); color: #fdba74; }
+.dark .activity-icon.blue { background: rgba(14, 165, 233, .16); color: #7dd3fc; }
 
 .overview-empty { padding: 28px 16px; text-align: center; color: var(--text-3); font-size: 13px; }
 
@@ -1019,6 +1034,77 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
 .payment-record strong { display: block; font-size: 15px; font-weight: 700; color: var(--text-1); margin-bottom: 3px; }
 .payment-record small { display: block; font-size: 11px; color: var(--text-2); }
 .payment-date { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+.payment-record .payment-date-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+}
+.payment-date-badge > svg { flex: 0 0 auto; }
+.payment-date-badge > span { min-width: 0; }
+.payment-record .payment-date-badge small { color: #0284c7; font-size: 9px; font-weight: 700; line-height: 1.2; text-transform: uppercase; letter-spacing: .35px; }
+.payment-record .payment-date-badge strong { margin: 2px 0 0; color: #0c4a6e; font-size: 11px; line-height: 1.25; }
+.payment-record-manual > .manual-payment-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.payment-record-manual .record-actions .record-edit-btn,
+.payment-record-manual .record-actions .record-delete-btn {
+  width: auto;
+  min-width: 72px;
+  height: 34px;
+  gap: 6px;
+  padding: 0 9px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.payment-record-manual .record-edit-btn { color: #0369a1; background: #f0f9ff; border-color: #bae6fd; }
+.payment-record-manual .record-delete-btn { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+.payment-record-manual .record-action-label { display: inline; }
+.payment-record-manual .record-action-icon { font-size: 12px; }
+.payment-record-confirmed > .rent-payment-receipt {
+  flex: 0 1 170px;
+  min-width: 125px;
+  padding: 7px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.payment-record-confirmed .rent-payment-receipt small {
+  margin-bottom: 3px;
+  color: var(--text-3);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: .35px;
+  text-transform: uppercase;
+}
+.payment-record-confirmed .rent-payment-receipt strong {
+  margin: 0;
+  color: var(--text-1);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.dark .payment-record .payment-date-badge { color: #7dd3fc; background: rgba(14,165,233,.1); border-color: rgba(56,189,248,.3); }
+.dark .payment-record .payment-date-badge small { color: #7dd3fc; }
+.dark .payment-record .payment-date-badge strong { color: #e0f2fe; }
+.dark .payment-record-manual .record-edit-btn { color: #7dd3fc; background: rgba(14,165,233,.1); border-color: rgba(56,189,248,.3); }
+.dark .payment-record-manual .record-delete-btn { color: #fca5a5; background: rgba(239,68,68,.1); border-color: rgba(248,113,113,.28); }
+.dark .payment-record-confirmed > .rent-payment-receipt { background: var(--surface-2); border-color: var(--border); }
 
 .document-record {
   display: flex;
@@ -1497,6 +1583,9 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
 }
 .archive-heading h3 { font-size: 18px; font-weight: 700; color: var(--text-1); margin-top: 4px; }
 .archive-heading > span { padding: 6px 12px; background: #e0f2fe; color: #0369a1; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.confirmed-rent-payment-actions { display: flex; align-items: center; gap: 10px; }
+.confirmed-rent-payment-actions > span { padding: 6px 12px; background: #e0f2fe; color: #0369a1; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.confirmed-rent-payment-actions .filter-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 
 .invoice-list { display: flex; flex-direction: column; gap: 10px; }
 .invoice-list-item {
@@ -4575,6 +4664,30 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
   background: rgba(239, 68, 68, 0.1);
 }
 
+.card-delete-btn.workspace-backup-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  min-width: 82px;
+  height: auto;
+  min-height: 36px;
+  padding: 6px 11px;
+  border-color: #e9b9ad;
+  border-radius: 8px;
+  background: #fff5f2;
+  color: #a33f2c;
+  font-size: 11px;
+  font-weight: 700;
+  transition: background .16s, border-color .16s, color .16s, box-shadow .16s;
+}
+.card-delete-btn.workspace-backup-delete:hover:not(:disabled) { background: #fee9e3; border-color: #d88f7d; color: #8f2f20; }
+.card-delete-btn.workspace-backup-delete:focus-visible { outline: 3px solid rgba(220, 89, 62, .25); outline-offset: 2px; }
+.card-delete-btn.workspace-backup-delete:disabled { opacity: .55; cursor: wait; }
+.dark .card-delete-btn.workspace-backup-delete { background: rgba(220, 89, 62, .12); border-color: rgba(248, 150, 126, .32); color: #fca58f; }
+.dark .card-delete-btn.workspace-backup-delete:hover:not(:disabled) { background: rgba(220, 89, 62, .22); border-color: rgba(248, 150, 126, .55); color: #ffc0ae; }
+
 .maintenance-record-wrapper, .payment-record-wrapper {
   position: relative;
   display: flex;
@@ -5469,6 +5582,7 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
 .rent-paybill-setup .filter-button:disabled { opacity: .55; cursor: not-allowed; }
 .rent-paybill-setup-message { grid-column: 1 / -1; margin: 0; }
 .confirmed-rent-payments { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.confirmed-rent-payments .pagination { margin-top: 14px; }
 .rent-payment-receipt { color: var(--text-3); font-size: 10px; }
 .dark .rent-paybill-setup { background: var(--surface-2); border-color: var(--border); }
 
