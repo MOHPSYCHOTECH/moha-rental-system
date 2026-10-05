@@ -30,7 +30,7 @@ type AccessUser = { id: string; name: string; username: string; userType: 'Platf
 type PlatformAdminAccountRow = { user_id: string; display_name: string | null; email: string | null; phone: string | null; user_type: string; owner_id: string | null; signup_status: string | null; requested_plan: string | null; account_role: string; account_active: boolean }
 type AdminSubscriptionPaymentQueueRow = { request_id: string; user_id: string; plan: SubscriptionRequestPlan; amount: number; mpesa_code: string; payment_method: LandlordPaymentMethod; status: 'pending'; submitted_at: string; reviewed_at: string | null; profile_name: string; profile_email: string | null; profile_phone: string | null; user_type: string; account_role: string; account_active: boolean }
 type SubscriptionPaymentHistoryFilter = 'approved' | 'rejected' | 'all'
-type SettingsSection = 'workspace' | 'rent-collection' | 'notifications' | 'account' | 'team-invites' | 'subscription-method' | 'rent-callbacks' | 'landlord-approvals' | 'users' | 'subscription-payments' | 'workspace-history'
+type SettingsSection = 'workspace' | 'rent-collection' | 'notifications' | 'account' | 'team-invites' | 'subscription-method' | 'landlord-approvals' | 'users' | 'subscription-payments' | 'workspace-history'
 type AdminSubscriptionPaymentHistoryRow = Omit<AdminSubscriptionPaymentQueueRow, 'status'> & { status: 'approved' | 'rejected' }
 type AdminSubscriptionPaymentHistoryResult = { total_count: number; requests: AdminSubscriptionPaymentHistoryRow[] }
 type TenantPortalSession = { name: string; property: string; unit: string; email: string; portalCode: string }
@@ -1867,15 +1867,57 @@ function App() {
               onUpdateUser={async (updatedUser, originalUser) => {
                 if (!supabase) throw new Error('Supabase is not configured.')
                 if (updatedUser.email !== originalUser.email) {
-                  const { error } = await supabase.functions.invoke('admin-manage-user', { body: { action: 'update-email', userId: updatedUser.id, email: updatedUser.email } })
-                  if (error) throw new Error(error.message)
+                  const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+                  if (sessionError) throw new Error(`Could not verify your sign-in: ${sessionError.message}`)
+                  if (!session) throw new Error('Your sign-in session has expired. Sign out and sign in again.')
+                  const { error } = await supabase.functions.invoke('admin-manage-user', {
+                    body: { action: 'update-email', userId: updatedUser.id, email: updatedUser.email },
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                  })
+                  if (error) {
+                    const context = 'context' in error ? error.context : undefined
+                    if (context instanceof Response) {
+                      const responseText = await context.clone().text()
+                      let detail = responseText
+                      try {
+                        const responseBody = JSON.parse(responseText) as { error?: unknown; message?: unknown }
+                        if (typeof responseBody.error === 'string') detail = responseBody.error
+                        else if (typeof responseBody.message === 'string') detail = responseBody.message
+                      } catch {
+                        detail = responseText || error.message
+                      }
+                      throw new Error(detail || `${error.message} (HTTP ${context.status})`)
+                    }
+                    throw new Error(error.message)
+                  }
                 }
                 await persistCloudUserAccess(updatedUser)
               }}
               onDeleteUser={async (id) => {
                 if (!supabase) throw new Error('Supabase is not configured.')
-                const { error } = await supabase.functions.invoke('admin-manage-user', { body: { action: 'delete', userId: id } })
-                if (error) throw new Error(error.message)
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+                if (sessionError) throw new Error(`Could not verify your sign-in: ${sessionError.message}`)
+                if (!session) throw new Error('Your sign-in session has expired. Sign out and sign in again.')
+                const { error } = await supabase.functions.invoke('admin-manage-user', {
+                  body: { action: 'delete', userId: id },
+                  headers: { Authorization: `Bearer ${session.access_token}` },
+                })
+                if (error) {
+                  const context = 'context' in error ? error.context : undefined
+                  if (context instanceof Response) {
+                    const responseText = await context.clone().text()
+                    let detail = responseText
+                    try {
+                      const responseBody = JSON.parse(responseText) as { error?: unknown; message?: unknown }
+                      if (typeof responseBody.error === 'string') detail = responseBody.error
+                      else if (typeof responseBody.message === 'string') detail = responseBody.message
+                    } catch {
+                      detail = responseText || error.message
+                    }
+                    throw new Error(detail || `${error.message} (HTTP ${context.status})`)
+                  }
+                  throw new Error(error.message)
+                }
                 setUsers(current => current.filter(user => user.id !== id))
               }}
               onDisconnect={async (id) => { const user = users.find(item => item.id === id); if (user) await persistCloudUserAccess({ ...user, active: false }) }}
@@ -3436,6 +3478,7 @@ function SettingsView({
   // Edit / reset
   const [editingUser, setEditingUser] = useState<AccessUser | null>(null)
   const [savingUser, setSavingUser] = useState(false)
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<{ name: string; username: string; email: string; phone: string; userType: AccessUser['userType']; role: AccessUser['role'] }>({ name: '', username: '', email: '', phone: '', userType: 'Landlord', role: 'Administrator' })
   const [resetTarget, setResetTarget] = useState<AccessUser | null>(null)
   const [resetMessage, setResetMessage] = useState('')
@@ -3569,8 +3612,11 @@ function SettingsView({
   const confirmDelete = async (user: AccessUser) => {
     if (user.id === sessionUser.id) { alert('You cannot delete your own account.'); return }
     if (!window.confirm(`Delete "${user.name}" (@${user.username})? This cannot be undone.`)) return
+    setCreateError('')
+    setDeletingUserId(user.id)
     try { await onDeleteUser(user.id) }
     catch (error) { setCreateError(error instanceof Error ? error.message : 'Could not delete account.') }
+    finally { setDeletingUserId(null) }
   }
 
   const updateUserActive = async (user: AccessUser, active: boolean) => {
@@ -3677,7 +3723,6 @@ function SettingsView({
           ...(canManageTeam ? [{ id: 'users', label: 'User directory' }] : []),
           ...(isPlatformAdmin ? [
             { id: 'subscription-method', label: 'Subscription collection' },
-            { id: 'rent-callbacks', label: 'Rent Paybill setup' },
             { id: 'landlord-approvals', label: 'Landlord approvals' },
             { id: 'subscription-payments', label: 'Subscription payments' },
           ] : []),
@@ -3725,6 +3770,22 @@ function SettingsView({
           </>}
           <button className="save-settings" type="submit">{wsSaved ? '✓ Saved!' : 'Save rent collection'}</button>
         </form>
+        <div className="rent-paybill-setup">
+          <div><strong>Direct Paybill rent collection</strong><small>{landlordPaymentMethod === 'paybill' && landlordPaybill ? `Configured Paybill: ${landlordPaybill}` : 'Select Paybill and save a rent Paybill number to register direct rent collection.'}</small></div>
+          <button className="filter-button" type="button" disabled={landlordPaymentMethod !== 'paybill' || !landlordPaybill || registeringPaybill} onClick={async () => {
+            setRegisteringPaybill(true)
+            setPaybillSetupMessage('Registering with Safaricom...')
+            try {
+              await onRegisterRentPaybillCallbacks()
+              setPaybillSetupMessage('Safaricom callback URLs registered successfully.')
+            } catch (error) {
+              setPaybillSetupMessage(error instanceof Error ? error.message : 'Could not register Paybill callbacks.')
+            } finally {
+              setRegisteringPaybill(false)
+            }
+          }}>{registeringPaybill ? 'Registering...' : 'Register Safaricom callbacks'}</button>
+          {paybillSetupMessage && <small className="rent-paybill-setup-message" role="status">{paybillSetupMessage}</small>}
+        </div>
       </div>}
 
       {/* Notifications */}
@@ -3768,7 +3829,7 @@ function SettingsView({
       </div>}
 
       {/* System Access — admin only */}
-      {canManageTeam && ['team-invites', 'subscription-method', 'rent-callbacks', 'landlord-approvals', 'users', 'subscription-payments'].includes(activeSettingsSection) && (
+      {canManageTeam && ['team-invites', 'subscription-method', 'landlord-approvals', 'users', 'subscription-payments'].includes(activeSettingsSection) && (
         <div className="settings-group access-group" id="settings-team">
           {activeSettingsSection === 'team-invites' && <div className="access-heading">
             <div>
@@ -3779,23 +3840,6 @@ function SettingsView({
           </div>}
 
           {isPlatformAdmin && activeSettingsSection === 'subscription-method' && <PlatformSubscriptionPaymentSettings userId={sessionUser.id} onSaved={onSaveSubscriptionPaymentDetails} />}
-
-          {isPlatformAdmin && activeSettingsSection === 'rent-callbacks' && <div className="rent-paybill-setup">
-            <div><strong>Direct Paybill rent collection</strong><small>{landlordPaybill ? `Configured Paybill: ${landlordPaybill}` : 'Add a landlord Paybill in the workspace settings to show tenant payment instructions.'}</small></div>
-            <button className="filter-button" type="button" disabled={!landlordPaybill || registeringPaybill} onClick={async () => {
-              setRegisteringPaybill(true)
-              setPaybillSetupMessage('Registering with Safaricom...')
-              try {
-                await onRegisterRentPaybillCallbacks()
-                setPaybillSetupMessage('Safaricom callback URLs registered successfully.')
-              } catch (error) {
-                setPaybillSetupMessage(error instanceof Error ? error.message : 'Could not register Paybill callbacks.')
-              } finally {
-                setRegisteringPaybill(false)
-              }
-            }}>{registeringPaybill ? 'Registering...' : 'Register Safaricom callbacks'}</button>
-            {paybillSetupMessage && <small className="rent-paybill-setup-message">{paybillSetupMessage}</small>}
-          </div>}
 
           {/* ── STEP 1: Choose user type ── */}
           {activeSettingsSection === 'team-invites' && createStep === 1 && (
@@ -3899,6 +3943,7 @@ function SettingsView({
             </div>
           </div>
 
+          {createError && <p className="settings-error" role="alert">{createError}</p>}
           <div className="user-list">
             {visibleUsers.map(user => (
               <div className="user-row" key={user.id}>
@@ -3927,13 +3972,13 @@ function SettingsView({
                 </div>
                 <span className={`access-status ${user.active ? 'connected' : 'disconnected'}`}>{user.active ? 'Active' : 'Suspended'}</span>
                 <div className="user-actions">
-                  <button className="user-action-btn edit" title="Edit user" onClick={() => startEdit(user)}>✏️</button>
-                  <button className="user-action-btn key" title="Send password reset email" onClick={() => { setResetTarget(user); setResetMessage('') }}>🔑</button>
+                  <button type="button" className="user-action-btn edit" title="Edit user" aria-label={`Edit ${user.name}`} onClick={() => startEdit(user)}>✏️</button>
+                  <button type="button" className="user-action-btn key" title="Send password reset email" aria-label={`Send password reset email to ${user.name}`} onClick={() => { setResetTarget(user); setResetMessage('') }}>🔑</button>
                   {user.active
-                    ? <button className="user-action-btn suspend" title="Suspend" onClick={() => updateUserActive(user, false)} disabled={user.id === sessionUser.id}>⏸</button>
-                    : <button className="user-action-btn restore" title="Restore" onClick={() => updateUserActive(user, true)}>▶️</button>}
+                    ? <button type="button" className="user-action-btn suspend" title="Suspend" aria-label={`Suspend ${user.name}`} onClick={() => updateUserActive(user, false)} disabled={user.id === sessionUser.id}>⏸</button>
+                    : <button type="button" className="user-action-btn restore" title="Restore" aria-label={`Restore ${user.name}`} onClick={() => updateUserActive(user, true)}>▶️</button>}
                   {user.id !== sessionUser.id && (
-                    <button className="user-action-btn delete" title="Delete" onClick={() => confirmDelete(user)}>🗑️</button>
+                    <button type="button" className="user-action-btn delete" title={deletingUserId === user.id ? 'Deleting user' : 'Delete'} aria-label={`Delete ${user.name}`} disabled={deletingUserId !== null} onClick={() => void confirmDelete(user)}>{deletingUserId === user.id ? '…' : '🗑️'}</button>
                   )}
                 </div>
               </div>

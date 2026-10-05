@@ -69,7 +69,7 @@ Deno.serve(async (request) => {
     return json({ error: `Safaricom OAuth failed for ${configuredEnvironment}. Verify the Daraja consumer key and secret belong to an app for this same environment.` }, 502)
   }
 
-  const callbackBase = new URL(`/functions/v1/mpesa-rent-c2b/callback/${encodeURIComponent(callbackToken)}`, `${supabaseUrl.replace(/\/+$/, '')}/`).toString()
+  const callbackBase = new URL(`/functions/v1/rent-callback/${encodeURIComponent(callbackToken)}`, `${supabaseUrl.replace(/\/+$/, '')}/`).toString()
   const registerResponse = await fetch(`${host}/mpesa/c2b/v1/registerurl`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${authBody.access_token}`, 'Content-Type': 'application/json' },

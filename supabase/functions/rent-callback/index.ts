@@ -30,7 +30,7 @@ Deno.serve(async (request) => {
   const expectedToken = Deno.env.get('MPESA_C2B_CALLBACK_TOKEN')?.trim()
   const expectedShortcode = Deno.env.get('MPESA_RENT_SHORTCODE')?.trim()
   const url = new URL(request.url)
-  const callbackMatch = url.pathname.match(/\/callback\/([^/]+)\/(validation|confirmation)$/)
+  const callbackMatch = url.pathname.match(/\/(?:callback\/)?([^/]+)\/(validation|confirmation)$/)
   let pathToken: string | null = null
   try {
     pathToken = callbackMatch ? decodeURIComponent(callbackMatch[1]) : null

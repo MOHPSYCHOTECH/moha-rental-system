@@ -5523,8 +5523,72 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
   .sm-summary { gap: 7px; padding: 10px; }
   .sm-summary span { font-size: 8px; }
   .sm-summary strong { font-size: 11px; }
-  .subscription-payment-row { grid-template-columns: 1fr; gap: 10px; align-items: stretch; }
-  .subscription-payment-actions { justify-content: flex-start; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) { min-width: 0; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-review-heading { align-items: flex-start; gap: 8px; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-review-heading > div { min-width: 0; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-review-heading h3,
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-review-heading p { overflow-wrap: anywhere; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-review-count { flex: 0 0 auto; }
+  .settings-page #settings-subscription-payments .subscription-history-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .settings-page #settings-subscription-payments .subscription-history-controls button {
+    min-width: 0;
+    min-height: 38px;
+    padding: 7px 8px;
+    white-space: normal;
+    line-height: 1.25;
+  }
+  .settings-page #settings-subscription-payments .subscription-history-refresh { margin-left: 0; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-list { gap: 9px; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 11px;
+    align-items: stretch;
+    min-width: 0;
+    padding: 13px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--surface-2);
+  }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-person { align-items: flex-start; min-width: 0; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-person > div,
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-details { min-width: 0; overflow-wrap: anywhere; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-person strong { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-person small { line-height: 1.5; overflow-wrap: anywhere; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-details {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 9px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-details > span { grid-column: 1; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-details > strong { grid-column: 2; grid-row: 1; align-self: center; text-align: right; overflow-wrap: anywhere; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-details > small { grid-column: 1 / -1; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-actions {
+    display: grid;
+    grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr);
+    gap: 8px;
+    width: 100%;
+  }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-payment-actions button {
+    min-width: 0;
+    min-height: 42px;
+    padding: 8px 9px;
+    white-space: normal;
+    line-height: 1.25;
+  }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-history-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-history-row .subscription-payment-person,
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-history-row .subscription-payment-details { grid-column: 1 / -1; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-history-status { grid-column: 1 / -1; justify-self: start; }
+  .settings-page :is(#settings-subscription-payments, #settings-landlord-approvals) .subscription-review-empty { overflow-wrap: anywhere; }
+  .settings-page .landlord-signup-review { margin-top: 18px; padding: 14px; background: var(--surface); }
   .rent-paybill-setup { grid-template-columns: 1fr; }
   .rent-paybill-setup .filter-button { width: 100%; }
 }

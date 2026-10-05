@@ -16,7 +16,7 @@
     "deno-editor.d.ts",
     "admin-manage-user/index.ts",
     "mpesa-register-c2b/index.ts",
-    "mpesa-rent-c2b/index.ts",
+    "rent-callback/index.ts",
     "process-rent-invoices/index.ts"
   ]
 }
