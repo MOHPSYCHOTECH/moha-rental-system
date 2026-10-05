@@ -31,6 +31,7 @@ type AccessUser = { id: string; name: string; username: string; userType: 'Platf
 type PlatformAdminAccountRow = { user_id: string; display_name: string | null; email: string | null; phone: string | null; user_type: string; owner_id: string | null; signup_status: string | null; requested_plan: string | null; account_role: string; account_active: boolean }
 type AdminSubscriptionPaymentQueueRow = { request_id: string; user_id: string; plan: SubscriptionRequestPlan; amount: number; mpesa_code: string; payment_method: LandlordPaymentMethod; status: 'pending'; submitted_at: string; reviewed_at: string | null; profile_name: string; profile_email: string | null; profile_phone: string | null; user_type: string; account_role: string; account_active: boolean }
 type SubscriptionPaymentHistoryFilter = 'approved' | 'rejected' | 'all'
+type PublicPlatformStats = { landlord_count: number; tenant_count: number; total_collected: number }
 type SettingsSection = 'workspace' | 'rent-collection' | 'notifications' | 'account' | 'team-invites' | 'subscription-method' | 'landlord-approvals' | 'users' | 'subscription-payments' | 'workspace-history'
 type AdminSubscriptionPaymentHistoryRow = Omit<AdminSubscriptionPaymentQueueRow, 'status'> & { status: 'approved' | 'rejected' }
 type AdminSubscriptionPaymentHistoryResult = { total_count: number; requests: AdminSubscriptionPaymentHistoryRow[] }
@@ -5054,13 +5055,83 @@ function LandlordApprovalStatusPage({ workspaceName, registration, onRefresh, on
 
 function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onOpenLandlordSignup }: { workspaceName: string; onOpenRolePage: (role: 'Landlord' | 'Administrator' | 'Caretaker') => void; onOpenTenantPortal: () => void; onOpenLandlordSignup: () => void }) {
   const [activeContent, setActiveContent] = useState<'home' | 'portals' | 'about' | 'pricing' | 'contact'>('home')
+  const [publicStats, setPublicStats] = useState<PublicPlatformStats | null>(null)
+  const [displayedStats, setDisplayedStats] = useState<PublicPlatformStats>({ landlord_count: 0, tenant_count: 0, total_collected: 0 })
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [statsError, setStatsError] = useState('')
+  const [statsRetry, setStatsRetry] = useState(0)
   const isHome = activeContent === 'home'
+  useEffect(() => {
+    let active = true
+    const loadPublicStats = async () => {
+      setStatsLoading(true)
+      setStatsError('')
+      if (!supabase) {
+        setStatsError('Live totals are temporarily unavailable.')
+        setStatsLoading(false)
+        return
+      }
+      try {
+        const { data, error } = await supabase.rpc('get_public_platform_stats')
+        if (error) throw new Error(error.message)
+        const payload: unknown = Array.isArray(data) ? data[0] : data
+        if (typeof payload !== 'object' || payload === null || !('landlord_count' in payload) || !('tenant_count' in payload) || !('total_collected' in payload)) {
+          throw new Error('The public stats response was empty or incomplete.')
+        }
+        const row = payload
+        const stats = {
+          landlord_count: Number(row.landlord_count),
+          tenant_count: Number(row.tenant_count),
+          total_collected: Number(row.total_collected),
+        }
+        if (Object.values(stats).some(value => !Number.isFinite(value) || value < 0)) {
+          throw new Error('The public stats response contained invalid totals.')
+        }
+        if (active) setPublicStats(stats)
+      } catch {
+        if (active) setStatsError('Live totals are temporarily unavailable.')
+      } finally {
+        if (active) setStatsLoading(false)
+      }
+    }
+    void loadPublicStats()
+    return () => { active = false }
+  }, [statsRetry])
+  useEffect(() => {
+    if (!publicStats) return
+    const target = publicStats
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduceMotion) {
+      setDisplayedStats(target)
+      return
+    }
+    const duration = 1400
+    let frame = 0
+    let startTime = 0
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const progress = Math.min((timestamp - startTime) / duration, 1)
+      const easedProgress = 1 - (1 - progress) ** 3
+      setDisplayedStats({
+        landlord_count: Math.round(target.landlord_count * easedProgress),
+        tenant_count: Math.round(target.tenant_count * easedProgress),
+        total_collected: Math.round(target.total_collected * easedProgress),
+      })
+      if (progress < 1) frame = window.requestAnimationFrame(animate)
+    }
+    frame = window.requestAnimationFrame(animate)
+    return () => window.cancelAnimationFrame(frame)
+  }, [publicStats])
   const portals = [
     { title: 'Landlord', description: 'Manage properties, tenants, and rent collection.', icon: Building2, onSelect: () => onOpenRolePage('Landlord'), accent: 'landlord' },
     { title: 'Administrator', description: 'Manage workspace access, users, and settings.', icon: ShieldCheck, onSelect: () => onOpenRolePage('Administrator'), accent: 'administrator' },
     { title: 'Caretaker', description: 'Handle maintenance and day-to-day property care.', icon: Wrench, onSelect: () => onOpenRolePage('Caretaker'), accent: 'caretaker' },
     { title: 'Tenant', description: 'Existing tenants: view rent statements and payment history.', icon: Users, onSelect: onOpenTenantPortal, accent: 'tenant' },
   ]
+  const showContent = (content: typeof activeContent) => {
+    setActiveContent(content)
+    window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  }
 
   return <main className="portal-home">
     <header className="portal-home-header">
@@ -5069,11 +5140,11 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         <span><strong>MOHA</strong><small>{workspaceName}</small></span>
       </div>
       <nav className="portal-home-nav" aria-label="Public information">
-        <button type="button" className={isHome ? 'active' : ''} aria-pressed={isHome} onClick={() => setActiveContent('home')}>Home</button>
-        <button type="button" className={activeContent === 'portals' ? 'active' : ''} aria-pressed={activeContent === 'portals'} onClick={() => setActiveContent('portals')}>Portals</button>
-        <button type="button" className={activeContent === 'about' ? 'active' : ''} aria-pressed={activeContent === 'about'} onClick={() => setActiveContent('about')}>About Us</button>
-        <button type="button" className={activeContent === 'pricing' ? 'active' : ''} aria-pressed={activeContent === 'pricing'} onClick={() => setActiveContent('pricing')}>Pricing</button>
-        <button type="button" className={activeContent === 'contact' ? 'active' : ''} aria-pressed={activeContent === 'contact'} onClick={() => setActiveContent('contact')}>Contact</button>
+        <button type="button" className={isHome ? 'active' : ''} aria-pressed={isHome} onClick={() => showContent('home')}>Home</button>
+        <button type="button" className={activeContent === 'portals' ? 'active' : ''} aria-pressed={activeContent === 'portals'} onClick={() => showContent('portals')}>Portals</button>
+        <button type="button" className={activeContent === 'about' ? 'active' : ''} aria-pressed={activeContent === 'about'} onClick={() => showContent('about')}>About Us</button>
+        <button type="button" className={activeContent === 'pricing' ? 'active' : ''} aria-pressed={activeContent === 'pricing'} onClick={() => showContent('pricing')}>Pricing</button>
+        <button type="button" className={activeContent === 'contact' ? 'active' : ''} aria-pressed={activeContent === 'contact'} onClick={() => showContent('contact')}>Contact</button>
       </nav>
       <button type="button" className="portal-home-header-signup" onClick={onOpenLandlordSignup}>Landlord sign up <ArrowUpRight size={15} /></button>
     </header>
@@ -5084,7 +5155,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         <h1 id="portal-home-title">A better way to care for every property.</h1>
         <p>Explore how Moha helps bring everyday rental management into one practical workspace.</p>
         <div className="portal-home-hero-actions">
-          <button type="button" onClick={() => setActiveContent('portals')}>Choose a portal <ArrowUpRight size={16} /></button>
+          <button type="button" onClick={() => showContent('portals')}>Choose a portal <ArrowUpRight size={16} /></button>
           <button type="button" onClick={onOpenLandlordSignup}>Create landlord account</button>
         </div>
       </div>
@@ -5094,7 +5165,46 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       </div>
     </section>}
 
-    {(isHome || activeContent === 'portals') && <section className="portal-home-portals" id="portal-access" aria-labelledby="portal-home-portals-title">
+    {isHome && <section className="portal-home-stats" aria-label="Moha platform totals">
+      <div className="portal-home-stat">
+        <span className="portal-home-stat-icon"><Building2 size={21} /></span>
+        <div><strong aria-label={publicStats ? `${publicStats.landlord_count} landlords served` : 'Landlords served'}>
+          <span aria-hidden="true">{publicStats ? displayedStats.landlord_count.toLocaleString('en-KE') : '—'}</span>
+        </strong><small>Landlords served</small></div>
+      </div>
+      <div className="portal-home-stat">
+        <span className="portal-home-stat-icon tenants"><Users size={21} /></span>
+        <div><strong aria-label={publicStats ? `${publicStats.tenant_count} tenants managed` : 'Tenants managed'}>
+          <span aria-hidden="true">{publicStats ? displayedStats.tenant_count.toLocaleString('en-KE') : '—'}</span>
+        </strong><small>Tenants managed</small></div>
+      </div>
+      <div className="portal-home-stat">
+        <span className="portal-home-stat-icon collected"><CircleDollarSign size={21} /></span>
+        <div><strong aria-label={publicStats ? `KSh ${publicStats.total_collected.toLocaleString('en-KE')} total collected` : 'Total collected'}>
+          <span aria-hidden="true">{publicStats ? `KSh ${displayedStats.total_collected.toLocaleString('en-KE')}` : '—'}</span>
+        </strong><small>Total rent collected</small></div>
+      </div>
+      {statsError && <div className="portal-home-stats-message" role="status">{statsError}<button type="button" onClick={() => setStatsRetry(current => current + 1)}>Try again</button></div>}
+      {statsLoading && <span className="portal-home-stats-loading" role="status">Loading live totals…</span>}
+    </section>}
+
+    {isHome && <section className="portal-home-overview" aria-labelledby="portal-home-overview-title">
+      <div className="portal-home-section-heading">
+        <div><p className="portal-home-eyebrow">A CLEARER WAY TO MANAGE</p><h2 id="portal-home-overview-title">Everything you need, in one place</h2></div>
+        <button type="button" className="portal-home-text-link" onClick={() => showContent('about')}>Discover Moha <ArrowUpRight size={16} /></button>
+      </div>
+      <div className="portal-home-overview-grid">
+        <article><span className="portal-home-overview-icon"><Building2 size={22} /></span><h3>Your properties, organized</h3><p>Keep units, occupancy, and resident details together in one clear workspace.</p></article>
+        <article><span className="portal-home-overview-icon payments"><CircleDollarSign size={22} /></span><h3>Rent, made easier to track</h3><p>Review recorded payments and give residents access to their rent history.</p></article>
+        <article><span className="portal-home-overview-icon operations"><ClipboardList size={22} /></span><h3>Daily work, connected</h3><p>Bring maintenance, team coordination, and property operations together.</p></article>
+      </div>
+      <div className="portal-home-overview-cta">
+        <div><strong>Ready to see Moha in action?</strong><span>Choose the right portal or explore plans for your rental business.</span></div>
+        <div><button type="button" className="portal-home-overview-secondary" onClick={() => showContent('pricing')}>View plans</button><button type="button" className="portal-home-overview-primary" onClick={() => showContent('portals')}>Explore portals <ArrowUpRight size={16} /></button></div>
+      </div>
+    </section>}
+
+    {activeContent === 'portals' && <section className="portal-home-portals" id="portal-access" aria-labelledby="portal-home-portals-title">
       <div className="portal-home-section-heading">
         <div><p className="portal-home-eyebrow">PORTAL ACCESS</p><h2 id="portal-home-portals-title">Choose your portal</h2></div>
         <span>Secure access for every member of your property community</span>
@@ -5113,7 +5223,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       <p className="portal-home-tenant-note">Tenant access is for existing residents. Your landlord provides the email and portal code needed to sign in; tenant accounts are not created from this page.</p>
     </section>}
 
-    {(isHome || activeContent === 'about') && <section className="portal-home-information" id="why-moha" aria-labelledby="why-moha-title">
+    {activeContent === 'about' && <section className="portal-home-information" id="why-moha" aria-labelledby="why-moha-title">
       <div className="portal-home-section-heading">
         <div><p className="portal-home-eyebrow">WHY MOHA RENTAL MANAGEMENT SYSTEM</p><h2 id="why-moha-title">Why choose Moha Rental Management System?</h2></div>
         <span>Tools for landlords, teams, and residents to stay organized.</span>
@@ -5126,7 +5236,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       </div>
     </section>}
 
-    {(isHome || activeContent === 'about') && <section className={`portal-home-about ${activeContent === 'about' ? 'focused' : ''}`} id="about-moha" aria-labelledby="about-moha-title">
+    {activeContent === 'about' && <section className="portal-home-about focused" id="about-moha" aria-labelledby="about-moha-title">
       <div className="portal-home-about-copy">
         <p className="portal-home-eyebrow">ABOUT MOHA RENTAL MANAGEMENT SYSTEM</p>
         <h2 id="about-moha-title">About Moha Rental Management System</h2>
@@ -5138,7 +5248,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       </div>
     </section>}
 
-    {(isHome || activeContent === 'pricing') && <section className="portal-home-pricing" id="pricing" aria-labelledby="pricing-title">
+    {activeContent === 'pricing' && <section className="portal-home-pricing" id="pricing" aria-labelledby="pricing-title">
       <div className="portal-home-section-heading">
         <div><p className="portal-home-eyebrow">SIMPLE PLANS</p><h2 id="pricing-title">Pricing that grows with your rental business</h2></div>
         <span>Choose a plan during landlord registration. Paid subscriptions are activated after payment verification.</span>
@@ -5188,11 +5298,27 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       <p className="portal-home-pricing-note">Access to a new landlord workspace begins after administrator approval. Silver plans require payment and administrator verification.</p>
     </section>}
 
-    {(isHome || activeContent === 'contact') && <section className="portal-home-contact" id="contact-moha" aria-labelledby="contact-moha-title">
+    {activeContent === 'contact' && <section className="portal-home-contact" id="contact-moha" aria-labelledby="contact-moha-title">
       <div><p className="portal-home-eyebrow">CONTACT</p><h2 id="contact-moha-title">Questions about Moha?</h2><p>Get in touch for information about the platform or help choosing the right portal.</p></div>
       <div className="portal-home-contact-links">
         <a href="mailto:mohammedhussein3562@gmail.com"><strong>Email</strong><span>mohammedhussein3562@gmail.com</span></a>
         <a href="tel:0112800325"><strong>Phone</strong><span>0112 800 325</span></a>
+      </div>
+      <div className="portal-home-team" aria-labelledby="portal-home-team-title">
+        <div className="portal-home-team-heading">
+          <div><p className="portal-home-eyebrow">THE PEOPLE BEHIND MOHA</p><h3 id="portal-home-team-title">Our team</h3></div>
+          <span>Here to make rental management work better for you.</span>
+        </div>
+        <div className="portal-home-team-grid">
+          <article className="portal-home-team-card">
+            <span className="portal-home-team-avatar" aria-hidden="true">HM</span>
+            <div><h4>Hussein Mohamed</h4><p>Front &amp; Back End Developer</p></div>
+          </article>
+          <article className="portal-home-team-card">
+            <span className="portal-home-team-avatar administrator" aria-hidden="true">MN</span>
+            <div><h4>Mary Nduruchi</h4><p>Administrator</p></div>
+          </article>
+        </div>
       </div>
     </section>}
 
@@ -5205,11 +5331,11 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         </div>
         <nav className="portal-home-footer-nav" aria-label="Footer navigation">
           <strong>Explore</strong>
-          <button type="button" onClick={() => setActiveContent('home')}>Home</button>
-          <button type="button" onClick={() => setActiveContent('portals')}>Portals</button>
-          <button type="button" onClick={() => setActiveContent('about')}>About Us</button>
-          <button type="button" onClick={() => setActiveContent('pricing')}>Pricing</button>
-          <button type="button" onClick={() => setActiveContent('contact')}>Contact</button>
+          <button type="button" onClick={() => showContent('home')}>Home</button>
+          <button type="button" onClick={() => showContent('portals')}>Portals</button>
+          <button type="button" onClick={() => showContent('about')}>About Us</button>
+          <button type="button" onClick={() => showContent('pricing')}>Pricing</button>
+          <button type="button" onClick={() => showContent('contact')}>Contact</button>
         </nav>
         <div className="portal-home-footer-contact">
           <strong>Get in touch</strong>

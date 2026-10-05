@@ -26,6 +26,10 @@ The app already reads its Supabase URL and publishable key from `.env`. Never ad
 
 Enable email/password sign-up in Supabase Authentication and configure the deployed site URL and redirect URLs before publishing `/landlord-signup`. New landlords select Test, Silver Monthly, or Silver Yearly and confirm their email if email confirmation is enabled. Registration remains inactive until the Platform Administrator approves it under Settings → Team access → Landlord registrations awaiting approval. Approval starts the one-month Test plan when selected; paid Silver subscriptions still require payment and admin verification. Rejecting a request keeps that account unable to access a workspace.
 
+## Public homepage totals
+
+Run `supabase/public_platform_stats.sql` in the Supabase SQL Editor after `supabase/user_hierarchy.sql`, `supabase/landlord_public_signup.sql`, and `supabase/rent_c2b.sql`. The homepage calls `get_public_platform_stats()` when it opens and animates the returned figures from zero. The function returns only aggregate totals: approved active Landlord accounts, tenant entries in their workspace listings, and recorded manual plus Safaricom-confirmed rent payments. It does not return tenant names, landlord identities, or transaction details. If the SQL function has not been installed or cannot be reached, the homepage shows that the totals are unavailable instead of displaying fabricated values.
+
 ## Subscription plans
 
 Landlords can start the Test plan once per account for one month at no cost. Silver costs KSh 500 monthly or KSh 4,500 yearly. Both include property, unit, and tenant management; rent, water, and payment tracking; invoices; the tenant portal; WhatsApp reminders; maintenance; expenses; applicant management; monthly CSV reports; and team access. Yearly Silver also includes priority support, advanced reports, and backup features. Silver payment references remain subject to manual platform-admin verification.
