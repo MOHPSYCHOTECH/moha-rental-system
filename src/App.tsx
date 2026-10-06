@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
+import { jsPDF } from 'jspdf'
 import { ArrowUpRight, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Copy, Download, Droplets, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Pencil, Plus, ReceiptText, RefreshCw, Search, Settings, ShieldCheck, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
 import './App.css'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
@@ -9,6 +10,8 @@ type PropertyRecord = { name: string; address: string; units: number; occupied: 
 type TenantRecord = { name: string; unit: string; unitDisplayName?: string; unitType: string; property: string; rent: string; lease: string; leaseEnd?: string; movedIn?: string; rentAccountRef?: string; portalCode?: string; status: string; waterBill?: string; waterBillUpdatedAt?: string; email?: string; phone?: string; idNumber?: string }
 type InvoiceRecord = { id: string; tenantName: string; email?: string; property: string; unit: string; unitType: string; rent: string; waterBill: string; issuedAt: string; movedIn?: string }
 type RentPaymentRecord = { id: string; owner_id: string; account_reference: string; mpesa_receipt: string; amount: number; transacted_at: string; phone?: string; tenant_name: string; property_name: string; unit_name: string }
+type ManualPaymentReceipt = { amount: string; tenant: string; house: string; property: string; date: string; method: string; reference: string; period: string; tenantPhone?: string }
+type RentalDocumentData = { fileName: string; title: string; workspaceName: string; recipient: string; property: string; unit: string; details: Array<{ label: string; value: string }>; totalLabel?: string; total?: string; note?: string }
 type LandlordPaymentMethod = 'paybill' | 'till' | 'bank_transfer'
 type LandlordPaymentDetails = { method: LandlordPaymentMethod; paybillNumber: string; tillNumber: string; bankName: string; bankAccountName: string; bankAccountNumber: string }
 const defaultLandlordPaymentDetails: LandlordPaymentDetails = { method: 'paybill', paybillNumber: '', tillNumber: '', bankName: '', bankAccountName: '', bankAccountNumber: '' }
@@ -171,6 +174,226 @@ function normalizeKenyanPhone(phone?: string) {
 
 function getTenantUnitLabel(tenant: Pick<TenantRecord, 'unit' | 'unitDisplayName'>) {
   return tenant.unitDisplayName || tenant.unit
+}
+
+function buildManualPaymentReceipt(row: string, tenants: TenantRecord[]): ManualPaymentReceipt {
+  const [amount = '', tenant = '', house = '', property = '', date = '', method = 'Payment', reference = '', period = ''] = row.split(' · ')
+  const unit = house.replace(/^House\s+/i, '')
+  const matchedTenant = tenants.find(item =>
+    item.name === tenant &&
+    item.property === property &&
+    (item.unit === unit || getTenantUnitLabel(item) === unit),
+  )
+  return { amount, tenant, house, property, date, method, reference, period, tenantPhone: matchedTenant?.phone }
+}
+
+function buildConfirmedPaymentReceipt(payment: RentPaymentRecord, tenants: TenantRecord[]): ManualPaymentReceipt {
+  const matchedTenant = tenants.find(item =>
+    item.name === payment.tenant_name &&
+    item.property === payment.property_name &&
+    (item.unit === payment.unit_name || getTenantUnitLabel(item) === payment.unit_name),
+  )
+  const parsedDate = new Date(payment.transacted_at)
+  return {
+    amount: `KSh ${Number(payment.amount).toLocaleString()}`,
+    tenant: payment.tenant_name,
+    house: `House ${payment.unit_name}`,
+    property: payment.property_name,
+    date: Number.isNaN(parsedDate.getTime()) ? payment.transacted_at : localDateString(parsedDate),
+    method: 'M-Pesa',
+    reference: payment.mpesa_receipt,
+    period: '',
+    tenantPhone: payment.phone || matchedTenant?.phone,
+  }
+}
+
+function formatPaymentReceiptDate(date: string) {
+  const parsed = new Date(`${date}T00:00:00`)
+  return date && !Number.isNaN(parsed.getTime())
+    ? parsed.toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })
+    : date || 'Not provided'
+}
+
+function createRentalDocumentFile(data: RentalDocumentData) {
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pageWidth = pdf.internal.pageSize.getWidth()
+  const pageHeight = pdf.internal.pageSize.getHeight()
+  const margin = 18
+  const contentWidth = pageWidth - margin * 2
+  let y = 63
+  pdf.setProperties({ title: data.title, subject: `${data.title} for ${data.recipient}`, author: data.workspaceName })
+  pdf.setFillColor(20, 56, 47)
+  pdf.rect(0, 0, pageWidth, 49, 'F')
+  pdf.setFillColor(16, 185, 129)
+  pdf.rect(margin, 14, 2, 21, 'F')
+  pdf.setTextColor(255, 255, 255)
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(10)
+  pdf.text(data.workspaceName, margin + 7, 18)
+  pdf.setFontSize(20)
+  pdf.text(data.title, margin + 7, 28)
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(9)
+  pdf.text(`Issued ${new Date().toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })}`, margin + 7, 37)
+
+  const drawSectionHeading = (label: string) => {
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(9)
+    pdf.setTextColor(100, 116, 139)
+    pdf.text(label.toUpperCase(), margin, y)
+    y += 7
+  }
+  const drawDetail = (label: string, value: string) => {
+    const wrapped = pdf.splitTextToSize(value || 'Not provided', contentWidth - 4)
+    const blockHeight = Math.max(11, wrapped.length * 4.5 + 6)
+    if (y + blockHeight > pageHeight - 32) {
+      pdf.addPage()
+      y = 22
+    }
+    pdf.setDrawColor(226, 232, 240)
+    pdf.line(margin, y + blockHeight, pageWidth - margin, y + blockHeight)
+    pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(9)
+    pdf.setTextColor(100, 116, 139)
+    pdf.text(label, margin, y + 4)
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(10)
+    pdf.setTextColor(30, 41, 59)
+    pdf.text(wrapped, margin, y + 9)
+    y += blockHeight
+  }
+
+  drawSectionHeading('Tenant')
+  drawDetail('Name', data.recipient)
+  drawDetail('Property', data.property)
+  drawDetail('Unit', data.unit)
+  y += 9
+  drawSectionHeading('Document details')
+  for (const item of data.details) drawDetail(item.label, item.value)
+  if (data.totalLabel && data.total) {
+    y += 8
+    pdf.setFillColor(236, 253, 245)
+    pdf.roundedRect(margin, y, contentWidth, 22, 3, 3, 'F')
+    pdf.setTextColor(4, 120, 87)
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(10)
+    pdf.text(data.totalLabel, margin + 5, y + 9)
+    pdf.setFontSize(15)
+    pdf.text(data.total, pageWidth - margin - 5, y + 15, { align: 'right' })
+    y += 30
+  }
+  if (data.note) {
+    const noteLines = pdf.splitTextToSize(data.note, contentWidth)
+    if (y + noteLines.length * 5 > pageHeight - 24) {
+      pdf.addPage()
+      y = 22
+    }
+    pdf.setTextColor(71, 85, 105)
+    pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(9)
+    pdf.text(noteLines, margin, y + 4)
+  }
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(8)
+  pdf.setTextColor(148, 163, 184)
+  pdf.text('Generated by Moha Rental Management System', margin, pageHeight - 12)
+  return new File([pdf.output('blob')], data.fileName, { type: 'application/pdf' })
+}
+
+async function shareRentalDocument(data: RentalDocumentData, tenantPhone: string | undefined, shareMessage: string): Promise<'shared' | 'downloaded' | 'cancelled'> {
+  const file = createRentalDocumentFile(data)
+  if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: data.title, text: shareMessage })
+      return 'shared'
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return 'cancelled'
+      throw error
+    }
+  }
+
+  const downloadUrl = URL.createObjectURL(file)
+  const downloadLink = document.createElement('a')
+  downloadLink.href = downloadUrl
+  downloadLink.download = file.name
+  document.body.appendChild(downloadLink)
+  downloadLink.click()
+  downloadLink.remove()
+  window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60_000)
+  const phone = normalizeWhatsAppPhone(tenantPhone)
+  const fallbackMessage = `${shareMessage}\n\nAttach the downloaded PDF document (${file.name}) before sending.`
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(fallbackMessage)}`, '_blank', 'noopener,noreferrer')
+  return 'downloaded'
+}
+
+function buildPaymentReceiptDocument(receipt: ManualPaymentReceipt, workspaceName: string): RentalDocumentData {
+  return {
+    fileName: `payment-receipt-${receipt.reference || receipt.date}.pdf`.replace(/[^a-zA-Z0-9._-]/g, '-'),
+    title: 'Rent Payment Receipt',
+    workspaceName,
+    recipient: receipt.tenant,
+    property: receipt.property,
+    unit: receipt.house.replace(/^House\s+/i, ''),
+    details: [
+      { label: 'Amount paid', value: receipt.amount },
+      { label: 'Date paid', value: formatPaymentReceiptDate(receipt.date) },
+      { label: 'Payment method', value: receipt.method },
+      { label: 'Transaction / receipt reference', value: receipt.reference || 'Not provided' },
+      ...(receipt.period && receipt.period !== 'Period not set' ? [{ label: 'Payment period', value: receipt.period }] : []),
+    ],
+    totalLabel: 'AMOUNT RECEIVED',
+    total: receipt.amount,
+    note: 'Thank you. Please keep this receipt for your records.',
+  }
+}
+
+function shareManualPaymentReceipt(receipt: ManualPaymentReceipt, workspaceName: string) {
+  const message = `Rent payment receipt from ${workspaceName} for ${receipt.tenant}, ${receipt.property}, Unit ${receipt.house.replace(/^House\s+/i, '')}. Amount: ${receipt.amount}.`
+  return shareRentalDocument(buildPaymentReceiptDocument(receipt, workspaceName), receipt.tenantPhone, message)
+}
+
+function documentShareStatus(result: 'shared' | 'downloaded' | 'cancelled', documentLabel: string) {
+  if (result === 'shared') return `${documentLabel} shared.`
+  if (result === 'downloaded') return `${documentLabel} PDF downloaded. Attach it in the opened WhatsApp chat before sending.`
+  return ''
+}
+
+function buildRentReminderDocument({ workspaceName, tenant, rent, waterBill, paymentDetails, dueDate, invoiceNumber }: {
+  workspaceName: string
+  tenant: TenantRecord
+  rent: string | number
+  waterBill: string | number
+  paymentDetails: LandlordPaymentDetails
+  dueDate: string
+  invoiceNumber?: string
+}): RentalDocumentData {
+  const rentAmount = Number(String(rent).replace(/[^0-9.]/g, '')) || 0
+  const waterAmount = Number(String(waterBill).replace(/[^0-9.]/g, '')) || 0
+  const total = rentAmount + waterAmount
+  const title = invoiceNumber ? 'Rent Invoice' : 'Rent Payment Reminder'
+  return {
+    fileName: `${invoiceNumber || `rent-reminder-${tenant.unit}`}.pdf`.replace(/[^a-zA-Z0-9._-]/g, '-'),
+    title,
+    workspaceName,
+    recipient: tenant.name,
+    property: tenant.property,
+    unit: getTenantUnitLabel(tenant),
+    details: [
+      ...(invoiceNumber ? [{ label: 'Invoice number', value: invoiceNumber }] : []),
+      { label: 'Due date', value: dueDate },
+      { label: 'Monthly rent', value: `KSh ${rentAmount.toLocaleString()}` },
+      { label: 'Water bill', value: `KSh ${waterAmount.toLocaleString()}` },
+      ...buildPaymentInstructionLines(paymentDetails, tenant).map(line => {
+        const separator = line.indexOf(':')
+        return { label: separator >= 0 ? line.slice(0, separator) : 'Payment instructions', value: separator >= 0 ? line.slice(separator + 1).trim() : line }
+      }),
+    ],
+    totalLabel: 'TOTAL AMOUNT DUE',
+    total: `KSh ${total.toLocaleString()}`,
+    note: invoiceNumber
+      ? 'If you have already paid, please contact us so we can update our records.'
+      : 'If you have already paid, please disregard this reminder.',
+  }
 }
 
 function getPaybillAccountReference(tenant: Pick<TenantRecord, 'property' | 'unit' | 'unitDisplayName'>) {
@@ -399,6 +622,7 @@ function App() {
   const [authMessage, setAuthMessage] = useState('')
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false)
   const [modalType, setModalType] = useState<ModalType | null>(null)
+  const [manualPaymentReceipt, setManualPaymentReceipt] = useState<ManualPaymentReceipt | null>(null)
   const [selectedProperty, setSelectedProperty] = useState<string | null>(null)
   const [propertyList, setPropertyList] = useState<PropertyRecord[]>(properties)
   const [unitDetails, setUnitDetails] = useState<Record<string, UnitRecord[]>>({})
@@ -1095,13 +1319,26 @@ function App() {
     if (updatedAt && !Number.isNaN(updatedAt.getTime()) && updatedAt >= cycle.periodStart) return []
     return [{ id: `${tenant.property}-${tenant.unit}`, tenant, dueLabel: cycle.dueDate.toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }) }]
   }), [tenantList])
-  const sendRentReminder = (tenant: TenantRecord) => {
+  const shareRentReminderOnWhatsApp = (tenant: TenantRecord) => {
     const dueDate = getNextMonthlyRentDueDate(tenant.movedIn).toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' })
     const message = buildRentWhatsAppMessage({ workspaceName, tenant, rent: tenant.rent, waterBill: tenant.waterBill ?? '0', paymentDetails: landlordPaymentDetails, dueDate })
     const cleanedPhone = normalizeWhatsAppPhone(tenant.phone)
-    const encodedMessage = encodeURIComponent(message)
-    const reminderUrl = rentReminderChannel === 'Email' && tenant.email ? `mailto:${tenant.email}?subject=${encodeURIComponent('Rent reminder')}&body=${encodedMessage}` : `https://wa.me/${cleanedPhone}?text=${encodedMessage}`
-    window.open(reminderUrl, '_blank', 'noopener,noreferrer')
+    const documentData = buildRentReminderDocument({ workspaceName, tenant, rent: tenant.rent, waterBill: tenant.waterBill ?? '0', paymentDetails: landlordPaymentDetails, dueDate })
+    void shareRentalDocument(documentData, cleanedPhone, message).then(result => {
+      if (result === 'shared') setCloudStatus('Choose WhatsApp in the share sheet to send the rent reminder PDF.')
+      else if (result === 'downloaded') setCloudStatus('Rent reminder PDF downloaded. Attach it in the opened WhatsApp chat.')
+    }).catch(error => {
+      setCloudStatus(`Could not share rent reminder document: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    })
+  }
+  const sendRentReminder = (tenant: TenantRecord, forceWhatsApp = false) => {
+    if (!forceWhatsApp && rentReminderChannel === 'Email' && tenant.email) {
+      const dueDate = getNextMonthlyRentDueDate(tenant.movedIn).toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' })
+      const message = buildRentWhatsAppMessage({ workspaceName, tenant, rent: tenant.rent, waterBill: tenant.waterBill ?? '0', paymentDetails: landlordPaymentDetails, dueDate })
+      window.open(`mailto:${tenant.email}?subject=${encodeURIComponent('Rent reminder')}&body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
+      return
+    }
+    shareRentReminderOnWhatsApp(tenant)
   }
   const generateInvoice = (tenant: TenantRecord) => {
     const invoice: InvoiceRecord = { id: `INV-${tenant.unit.replace(/\s/g, '')}-${Date.now().toString().slice(-6)}`, tenantName: tenant.name, email: tenant.email, property: tenant.property, unit: tenant.unit, unitType: tenant.unitType, rent: tenant.rent, waterBill: tenant.waterBill ?? '0', issuedAt: new Date().toISOString(), movedIn: tenant.movedIn }
@@ -1555,10 +1792,31 @@ function App() {
   if (showPasswordRecovery) return <PasswordRecoveryView darkMode={darkMode} onSave={saveRecoveredPassword} />
   if (pendingLandlordApproval) return <LandlordApprovalStatusPage workspaceName={workspaceName} registration={pendingLandlordApproval} onRefresh={() => window.location.reload()} onBack={signOut} />
   if (tenantPortalSession && tenantPortalStatement) return <TenantStatementPage tenant={tenantPortalStatement.tenant} workspaceName={workspaceName} propertyGroup={propertyGroup} statement={tenantPortalStatement} onBack={() => { setTenantPortalSession(null); setTenantPublicView(false) }} onSendReminder={(message) => {
-    const phone = tenantPortalStatement.tenant.phone?.replace(/\D/g, '') || ''
-    const reminderText = message || `Hello ${tenantPortalStatement.tenant.name}, this is a reminder from ${workspaceName}. Your rent balance is KSh ${tenantPortalStatement.balance.toLocaleString()} for ${tenantPortalStatement.tenant.property}, Unit ${getTenantUnitLabel(tenantPortalStatement.tenant)}.`
-    const url = tenantPortalStatement.tenant.email ? `mailto:${tenantPortalStatement.tenant.email}?subject=${encodeURIComponent('Rent reminder')}&body=${encodeURIComponent(reminderText)}` : `https://wa.me/${phone}?text=${encodeURIComponent(reminderText)}`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    const tenant = tenantPortalStatement.tenant
+    const reminderText = message || `Hello ${tenant.name}, this is a reminder from ${workspaceName}. Your rent balance is KSh ${tenantPortalStatement.balance.toLocaleString()} for ${tenant.property}, Unit ${getTenantUnitLabel(tenant)}.`
+    if (tenant.email) {
+      const url = `mailto:${tenant.email}?subject=${encodeURIComponent('Rent reminder')}&body=${encodeURIComponent(reminderText)}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+      return
+    }
+    const dueDate = getNextMonthlyRentDueDate(tenant.movedIn).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })
+    const documentData: RentalDocumentData = {
+      ...buildRentReminderDocument({ workspaceName, tenant, rent: tenantPortalStatement.amountDue, waterBill: 0, paymentDetails: landlordPaymentDetails, dueDate }),
+      title: 'Rent Balance Statement',
+      fileName: `rent-balance-${tenant.unit}.pdf`.replace(/[^a-zA-Z0-9._-]/g, '-'),
+      details: [
+        { label: 'Current rent due', value: `KSh ${tenantPortalStatement.amountDue.toLocaleString()}` },
+        { label: 'Total paid', value: `KSh ${tenantPortalStatement.totalPaid.toLocaleString()}` },
+        { label: 'Outstanding balance', value: `KSh ${tenantPortalStatement.balance.toLocaleString()}` },
+      ],
+      totalLabel: 'OUTSTANDING BALANCE',
+      total: `KSh ${tenantPortalStatement.balance.toLocaleString()}`,
+    }
+    void shareRentalDocument(documentData, tenant.phone, reminderText).then(result => {
+      if (result !== 'cancelled') setCloudStatus(documentShareStatus(result, 'Rent balance statement'))
+    }).catch(error => {
+      setCloudStatus(`Could not share rent balance document: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    })
   }} />
   if (!authReady) return <main className="login-shell"><p>Connecting to Supabase...</p></main>
   if (authUser && !sessionUser) return <main className="login-shell"><p>Loading Supabase profile...</p></main>
@@ -1951,7 +2209,88 @@ function App() {
                 if (error) throw new Error(error.message)
                 setCloudStatus(`Password reset email sent to ${email}`)
               }}
-            /> : <AccessDeniedView section="Settings" />) : activeSection === 'Help center' ? <HelpCenterView /> : activeSection === 'Documents' ? <DocumentsView invoices={invoiceList} legacyRows={savedRows.Documents ?? sectionDetails.Documents.rows} canAdd={can.addDocument} onAdd={() => setModalType('document')} onReopenInvoice={(invoice) => { const tenant = tenantList.find(t => t.unit === invoice.unit && t.property === invoice.property); if (tenant) { setInvoiceTenant(tenant); setActiveInvoice(invoice) } }} /> : activeSection === 'Operations' ? <OperationsCenter tenants={tenantList} properties={propertyList} payments={savedRows.Payments ?? []} expenses={expenses} applicants={applicants} workspaceName={workspaceName} onAddExpense={(expense) => setExpenses((current) => [expense, ...current])} onAddApplicant={(applicant) => setApplicants((current) => [applicant, ...current])} onGenerateInvoice={generateInvoice} onEditExpense={(expense) => setEditingExpense(expense)} onDeleteExpense={(id) => { if (window.confirm('Delete this expense?')) setExpenses(c => c.filter(e => e.id !== id)) }} onToggleExpensePaid={(id) => setExpenses(current => current.map(expense => expense.id === id ? { ...expense, paid: !expense.paid } : expense))} onApplicantAction={(id, action) => { if (action === 'approve') setApplicants(c => c.map(a => a.id === id ? { ...a, stage: 'Approved' } : a)); else if (action === 'reject') { if (window.confirm('Remove this applicant?')) setApplicants(c => c.filter(a => a.id !== id)) } else if (action === 'schedule') setApplicants(c => c.map(a => a.id === id ? { ...a, stage: 'Applied' } : a)); else if (action === 'convert') { const app = applicants.find(a => a.id === id); if (app) { setEditingApplicant(app); setModalType('tenant') } } }} /> : activeSection !== 'Overview'             ? <SectionView section={activeSection} rows={activeSection === 'Properties' ? propertyList.map((property) => `${property.name} · ${property.units} units · ${property.occupied} occupied`) : activeSection === 'Tenants' ? tenantList.map((tenant) => `${tenant.name} · Unit ${tenant.unit} · ${tenant.unitType} · KSh ${tenant.rent} · ${tenant.property} · ${tenant.waterBill ?? '0'}`) : activeSection === 'Payments' ? savedRows.Payments ?? [] : savedRows[activeSection] ?? sectionDetails[activeSection].rows} completedMaintenance={completedMaintenance} showConfirmedRentPayments={Boolean(effectiveRentPaybill)} onRowClick={activeSection === 'Properties' ? (index) => setSelectedProperty(propertyList[index].name) : undefined} onWaterBillUpdate={activeSection === 'Tenants' && can.addTenant ? (index) => { setSelectedTenant(tenantList[index]); setModalType('waterBill') } : undefined} onGenerateInvoice={activeSection === 'Tenants' ? (index) => generateInvoice(tenantList[index]) : undefined} onRemoveTenant={activeSection === 'Tenants' && can.removeTenantAccess ? (index) => removeTenant(tenantList[index]) : undefined} onOpenMaintenance={activeSection === 'Maintenance' ? (index) => setSelectedMaintenance((savedRows.Maintenance ?? sectionDetails.Maintenance.rows)[index]) : undefined} onEditProperty={activeSection === 'Properties' && can.addProperty ? (index) => setEditingProperty(propertyList[index]) : undefined} onDeleteProperty={activeSection === 'Properties' && can.addProperty ? (index) => deleteProperty(propertyList[index].name) : undefined} onViewTenantProfile={activeSection === 'Tenants' ? (index) => setViewingTenant(tenantList[index]) : undefined} onEditTenant={activeSection === 'Tenants' && can.addTenant ? (index) => setEditingTenant(tenantList[index]) : undefined} onEditPayment={activeSection === 'Payments' && can.addPayment ? (index) => setEditingPaymentIdx(index) : undefined} onDeletePayment={activeSection === 'Payments' && can.addPayment ? (index) => deletePayment(index) : undefined} onEditMaintenance={activeSection === 'Maintenance' && can.addMaintenance ? (index) => setEditingMaintenanceIdx(index) : undefined}             onDeleteMaintenance={activeSection === 'Maintenance' && can.addMaintenance ? (index) => deleteMaintenance(index) : undefined} onMarkMaintenanceDone={activeSection === 'Maintenance' && can.addMaintenance ? (index) => markMaintenanceDone(index) : undefined} onAdd={activeSection === 'Properties' && can.addProperty ? () => setModalType('property') : activeSection === 'Tenants' && can.addTenant ? () => setModalType('tenant') : activeSection === 'Maintenance' && can.addMaintenance ? () => setModalType('maintenance') : activeSection === 'Payments' && can.addPayment ? () => setModalType('payment') : null} /> : null}
+            /> : <AccessDeniedView section="Settings" />) : activeSection === 'Help center'
+              ? <HelpCenterView />
+              : activeSection === 'Documents'
+                ? <DocumentsView
+                    invoices={invoiceList}
+                    legacyRows={savedRows.Documents ?? sectionDetails.Documents.rows}
+                    canAdd={can.addDocument}
+                    onAdd={() => setModalType('document')}
+                    onReopenInvoice={(invoice) => {
+                      const tenant = tenantList.find(item => item.unit === invoice.unit && item.property === invoice.property)
+                      if (tenant) {
+                        setInvoiceTenant(tenant)
+                        setActiveInvoice(invoice)
+                      }
+                    }}
+                  />
+                : activeSection === 'Operations'
+                  ? <OperationsCenter
+                      tenants={tenantList}
+                      properties={propertyList}
+                      payments={savedRows.Payments ?? []}
+                      expenses={expenses}
+                      applicants={applicants}
+                      workspaceName={workspaceName}
+                      onAddExpense={(expense) => setExpenses(current => [expense, ...current])}
+                      onAddApplicant={(applicant) => setApplicants(current => [applicant, ...current])}
+                      onGenerateInvoice={generateInvoice}
+                      onSendRentReminder={sendRentReminder}
+                      onEditExpense={(expense) => setEditingExpense(expense)}
+                      onDeleteExpense={(id) => { if (window.confirm('Delete this expense?')) setExpenses(current => current.filter(expense => expense.id !== id)) }}
+                      onToggleExpensePaid={(id) => setExpenses(current => current.map(expense => expense.id === id ? { ...expense, paid: !expense.paid } : expense))}
+                      onApplicantAction={(id, action) => {
+                        if (action === 'approve') setApplicants(current => current.map(applicant => applicant.id === id ? { ...applicant, stage: 'Approved' } : applicant))
+                        else if (action === 'reject') {
+                          if (window.confirm('Remove this applicant?')) setApplicants(current => current.filter(applicant => applicant.id !== id))
+                        } else if (action === 'schedule') setApplicants(current => current.map(applicant => applicant.id === id ? { ...applicant, stage: 'Applied' } : applicant))
+                        else if (action === 'convert') {
+                          const applicant = applicants.find(item => item.id === id)
+                          if (applicant) {
+                            setEditingApplicant(applicant)
+                            setModalType('tenant')
+                          }
+                        }
+                      }}
+                    />
+                  : activeSection !== 'Overview'
+                    ? <SectionView
+                        section={activeSection}
+                        rows={activeSection === 'Properties'
+                          ? propertyList.map(property => `${property.name} · ${property.units} units · ${property.occupied} occupied`)
+                          : activeSection === 'Tenants'
+                            ? tenantList.map(tenant => `${tenant.name} · Unit ${tenant.unit} · ${tenant.unitType} · KSh ${tenant.rent} · ${tenant.property} · ${tenant.waterBill ?? '0'}`)
+                            : activeSection === 'Payments'
+                              ? savedRows.Payments ?? []
+                              : savedRows[activeSection] ?? sectionDetails[activeSection].rows}
+                        completedMaintenance={completedMaintenance}
+                        showConfirmedRentPayments={Boolean(effectiveRentPaybill)}
+                        onRowClick={activeSection === 'Properties' ? index => setSelectedProperty(propertyList[index].name) : undefined}
+                        onWaterBillUpdate={activeSection === 'Tenants' && can.addTenant ? index => { setSelectedTenant(tenantList[index]); setModalType('waterBill') } : undefined}
+                        onGenerateInvoice={activeSection === 'Tenants' ? index => generateInvoice(tenantList[index]) : undefined}
+                        onRemoveTenant={activeSection === 'Tenants' && can.removeTenantAccess ? index => removeTenant(tenantList[index]) : undefined}
+                        onOpenMaintenance={activeSection === 'Maintenance' ? index => setSelectedMaintenance((savedRows.Maintenance ?? sectionDetails.Maintenance.rows)[index]) : undefined}
+                        onEditProperty={activeSection === 'Properties' && can.addProperty ? index => setEditingProperty(propertyList[index]) : undefined}
+                        onDeleteProperty={activeSection === 'Properties' && can.addProperty ? index => deleteProperty(propertyList[index].name) : undefined}
+                        onViewTenantProfile={activeSection === 'Tenants' ? index => setViewingTenant(tenantList[index]) : undefined}
+                        onEditTenant={activeSection === 'Tenants' && can.addTenant ? index => setEditingTenant(tenantList[index]) : undefined}
+                        onEditPayment={activeSection === 'Payments' && can.addPayment ? index => setEditingPaymentIdx(index) : undefined}
+                        onDeletePayment={activeSection === 'Payments' && can.addPayment ? index => deletePayment(index) : undefined}
+                        onEditMaintenance={activeSection === 'Maintenance' && can.addMaintenance ? index => setEditingMaintenanceIdx(index) : undefined}
+                        onDeleteMaintenance={activeSection === 'Maintenance' && can.addMaintenance ? index => deleteMaintenance(index) : undefined}
+                        onMarkMaintenanceDone={activeSection === 'Maintenance' && can.addMaintenance ? index => markMaintenanceDone(index) : undefined}
+                        onAdd={activeSection === 'Properties' && can.addProperty
+                          ? () => setModalType('property')
+                          : activeSection === 'Tenants' && can.addTenant
+                            ? () => setModalType('tenant')
+                            : activeSection === 'Maintenance' && can.addMaintenance
+                              ? () => setModalType('maintenance')
+                              : activeSection === 'Payments' && can.addPayment
+                                ? () => setModalType('payment')
+                                : null}
+                      />
+                    : null}
         {canAccessSystem && modalType && <AddModal type={modalType} properties={propertyList} unitDetails={unitDetails} initialValues={modalType === 'waterBill' && selectedTenant ? { amount: selectedTenant.waterBill ?? '' } : modalType === 'tenant' && editingApplicant ? { name: editingApplicant.name, phone: editingApplicant.phone, property: editingApplicant.property, unit: editingApplicant.unit } : undefined} onClose={() => { setModalType(null); setEditingApplicant(null) }} onSave={(values, sendPortalWhatsApp, unitMix) => {
           if (modalType === 'property') {
             const mix = unitMix.map((item) => ({ type: item.type.trim(), count: Number(item.count), rent: Number(item.rent) }))
@@ -1994,12 +2333,15 @@ function App() {
             const maintenanceUnit = modalType === 'maintenance' ? (unitDetails[values.property] ?? []).find((unit) => unit.unit === values.houseNumber) : undefined
             const paymentUnit = modalType === 'payment' ? (unitDetails[values.property] ?? []).find((unit) => unit.unit === values.houseNumber) : undefined
             const paymentAmount = paymentUnit?.rent.replace(/[^0-9.]/g, '') ?? values.amount
-            const summary = modalType === 'maintenance' ? `${values.maintenanceType} · ${values.issue} · ${maintenanceUnit?.tenant ?? 'Vacant'} · House ${values.houseNumber} · ${values.property} · ${values.priority} priority` : modalType === 'payment' ? `KSh ${Number(paymentAmount).toLocaleString()} · ${paymentUnit?.tenant ?? 'Vacant'} · House ${values.houseNumber} · ${values.property} · ${values.date} · ${values.paymentMethod || 'Payment'} · ${values.reference || 'No reference'} · ${values.period || 'Period not set'}` : modalType === 'document' ? `${values.name} · ${values.property} · ${values.date}` : `${values.name} · Unit ${values.unit} · ${values.property}`
-            setSavedRows((current) => ({ ...current, [section]: [...(current[section] ?? sectionDetails[section].rows), summary] }))
+              const paymentReference = values.reference.trim() || `RCP-${Date.now().toString(36).toUpperCase()}`
+              const summary = modalType === 'maintenance' ? `${values.maintenanceType} · ${values.issue} · ${maintenanceUnit?.tenant ?? 'Vacant'} · House ${values.houseNumber} · ${values.property} · ${values.priority} priority` : modalType === 'payment' ? `KSh ${Number(paymentAmount).toLocaleString()} · ${paymentUnit?.tenant ?? 'Vacant'} · House ${values.houseNumber} · ${values.property} · ${values.date} · ${values.paymentMethod || 'Payment'} · ${paymentReference} · ${values.period || 'Period not set'}` : modalType === 'document' ? `${values.name} · ${values.property} · ${values.date}` : `${values.name} · Unit ${values.unit} · ${values.property}`
+              setSavedRows((current) => ({ ...current, [section]: [...(current[section] ?? sectionDetails[section].rows), summary] }))
+              if (modalType === 'payment') setManualPaymentReceipt(buildManualPaymentReceipt(summary, tenantList))
           }
           setModalType(null)
           setEditingApplicant(null)
         }} />}
+        {canAccessSystem && manualPaymentReceipt && <PaymentReceiptModal receipt={manualPaymentReceipt} workspaceName={workspaceName} onClose={() => setManualPaymentReceipt(null)} onShare={() => shareManualPaymentReceipt(manualPaymentReceipt, workspaceName)} />}
         {canAccessSystem && invoiceTenant && activeInvoice && <InvoiceModal tenant={invoiceTenant} invoice={activeInvoice} workspaceName={workspaceName} paymentDetails={landlordPaymentDetails} onEmailChange={(email) => { setInvoiceTenant((current) => current ? { ...current, email } : current); setTenantList((current) => current.map((tenant) => tenant.name === invoiceTenant.name && tenant.unit === invoiceTenant.unit && tenant.property === invoiceTenant.property ? { ...tenant, email } : tenant)) }} onClose={() => { setInvoiceTenant(null); setActiveInvoice(null) }} />}
         {canAccessSystem && selectedMaintenance && <MaintenanceDetailsModal row={selectedMaintenance} isDone={Boolean(completedMaintenance[selectedMaintenance])} onMarkDone={() => setCompletedMaintenance((current) => ({ ...current, [selectedMaintenance]: true }))} onClose={() => setSelectedMaintenance(null)} />}
         {canAccessSystem && showResetSelf && (
@@ -2639,8 +2981,56 @@ function MaintenanceDetailsModal({ row, isDone, onMarkDone, onClose }: { row: st
   </div>
 }
 
+function PaymentReceiptModal({ receipt, workspaceName, onClose, onShare }: { receipt: ManualPaymentReceipt; workspaceName: string; onClose: () => void; onShare: () => Promise<'shared' | 'downloaded' | 'cancelled'> }) {
+  const [shareStatus, setShareStatus] = useState('')
+  const shareReceipt = () => {
+    void onShare().then(result => setShareStatus(documentShareStatus(result, 'Receipt'))).catch(error => {
+      setShareStatus(`Could not share receipt PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    })
+  }
+  useEffect(() => {
+    document.body.classList.add('printing-payment-receipt')
+    return () => document.body.classList.remove('printing-payment-receipt')
+  }, [])
+  return <div className="modal-backdrop receipt-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+    <section className="receipt-print-area" aria-label="Payment receipt">
+      <div className="payment-receipt-header">
+        <span className="payment-receipt-icon"><ReceiptText size={22} /></span>
+        <div><p className="eyebrow">Payment received</p><h2>Rent Payment Receipt</h2><strong>{workspaceName}</strong></div>
+      </div>
+      <dl className="payment-receipt-details">
+        <div><dt>Received from</dt><dd>{receipt.tenant}</dd></div>
+        <div><dt>Amount paid</dt><dd className="payment-receipt-amount">{receipt.amount}</dd></div>
+        <div><dt>Property</dt><dd>{receipt.property}</dd></div>
+        <div><dt>Unit</dt><dd>{receipt.house.replace(/^House\s+/i, '')}</dd></div>
+        <div><dt>Date paid</dt><dd>{formatPaymentReceiptDate(receipt.date)}</dd></div>
+        <div><dt>Payment method</dt><dd>{receipt.method}</dd></div>
+        <div><dt>Transaction / receipt reference</dt><dd>{receipt.reference || 'Not provided'}</dd></div>
+        {receipt.period && receipt.period !== 'Period not set' && <div><dt>Payment period</dt><dd>{receipt.period}</dd></div>}
+      </dl>
+      <p className="payment-receipt-thanks">Thank you. Please keep this receipt for your records.</p>
+      {shareStatus && <p className="share-message" role="status">{shareStatus}</p>}
+      <div className="modal-actions payment-receipt-actions">
+        <button type="button" className="cancel-button" onClick={onClose}>Close</button>
+        <button type="button" className="whatsapp-record-action" onClick={shareReceipt}><MessageCircle size={16} /> WhatsApp</button>
+        <button type="button" className="primary-button" onClick={() => window.print()}><Download size={16} /> Print / Save PDF</button>
+      </div>
+    </section>
+  </div>
+}
+
 function PaymentSection({ rows, onEdit, onDelete }: { rows: string[]; onEdit?: (index: number) => void; onDelete?: (index: number) => void }) {
-  return <div className="record-stack">{rows.map((row, index) => {
+  const tenantDirectory = useContext(TenantDirectoryContext)
+  const [receipt, setReceipt] = useState<ManualPaymentReceipt | null>(null)
+  const [shareStatus, setShareStatus] = useState('')
+  const shareReceipt = (payment: ManualPaymentReceipt) => {
+    void shareManualPaymentReceipt(payment, 'Moha Rental Management System').then(result => {
+      setShareStatus(documentShareStatus(result, 'Receipt'))
+    }).catch(error => {
+      setShareStatus(`Could not share receipt PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    })
+  }
+  return <><div className="record-stack">{rows.map((row, index) => {
     const parts = row.split(' · ')
     const amount = parts[0]
     const tenant = parts[1] ?? ''
@@ -2653,14 +3043,22 @@ function PaymentSection({ rows, onEdit, onDelete }: { rows: string[]; onEdit?: (
       <div><strong>{amount}</strong><small>{tenant} · {property}{house ? ` · ${house}` : ''}{period ? ` · ${period}` : ''}</small></div>
       <span className="payment-date payment-date-badge"><CalendarDays size={14} /><span><small>Date paid</small><strong>{date}</strong></span></span>
       <ArrowUpRight size={16} />
-      {(onEdit || onDelete) && <div className="record-actions manual-payment-actions">{onEdit && <button type="button" className="record-edit-btn" onClick={(e) => { e.stopPropagation(); onEdit(index) }} title="Edit payment"><span className="record-action-icon">✏️</span><span className="record-action-label">Edit</span></button>}{onDelete && <button type="button" className="record-delete-btn" onClick={(e) => { e.stopPropagation(); onDelete(index) }} title="Delete payment"><span className="record-action-icon">🗑️</span><span className="record-action-label">Delete</span></button>}</div>}
+      <div className="record-actions manual-payment-actions receipt-payment-actions">
+        <button type="button" className="receipt-record-action" onClick={() => setReceipt(buildManualPaymentReceipt(row, tenantDirectory))} title="View or print receipt"><ReceiptText size={14} /><span>Receipt</span></button>
+        <button type="button" className="whatsapp-record-action" onClick={() => shareReceipt(buildManualPaymentReceipt(row, tenantDirectory))} title="Share receipt PDF on WhatsApp"><MessageCircle size={14} /><span>WhatsApp</span></button>
+        {onEdit && <button type="button" className="record-edit-btn" onClick={(e) => { e.stopPropagation(); onEdit(index) }} title="Edit payment"><span className="record-action-icon">✏️</span><span className="record-action-label">Edit</span></button>}
+        {onDelete && <button type="button" className="record-delete-btn" onClick={(e) => { e.stopPropagation(); onDelete(index) }} title="Delete payment"><span className="record-action-icon">🗑️</span><span className="record-action-label">Delete</span></button>}
+      </div>
     </div>
-  })}</div>
+  })}</div>{shareStatus && <p className="share-message" role="status">{shareStatus}</p>}{receipt && <PaymentReceiptModal receipt={receipt} workspaceName="Moha Rental Management System" onClose={() => setReceipt(null)} onShare={() => shareManualPaymentReceipt(receipt, 'Moha Rental Management System')} />}</>
 }
 
 function ConfirmedRentPaymentSection({ payments }: { payments: RentPaymentRecord[] }) {
   const pageSize = 10
   const [page, setPage] = useState(1)
+  const [receipt, setReceipt] = useState<ManualPaymentReceipt | null>(null)
+  const [shareStatus, setShareStatus] = useState('')
+  const tenantDirectory = useContext(TenantDirectoryContext)
   const { refresh, refreshing, error } = useContext(ConfirmedRentPaymentRefreshContext)
   const pageCount = Math.max(1, Math.ceil(payments.length / pageSize))
   const currentPage = Math.min(page, pageCount)
@@ -2677,13 +3075,25 @@ function ConfirmedRentPaymentSection({ payments }: { payments: RentPaymentRecord
       </div>
     </div>
     {error && <p className="settings-error" role="alert">{error}</p>}
-    {payments.length ? <div className="record-stack">{visiblePayments.map(payment => <article className="payment-record payment-record-confirmed" key={payment.mpesa_receipt}>
+    {payments.length ? <div className="record-stack">{visiblePayments.map(payment => {
+      const receiptDetails = buildConfirmedPaymentReceipt(payment, tenantDirectory)
+      return <article className="payment-record payment-record-confirmed" key={payment.mpesa_receipt}>
       <span className="payment-icon"><CircleDollarSign size={18} /></span>
       <div><strong>KSh {Number(payment.amount).toLocaleString()}</strong><small>{payment.tenant_name} · {payment.property_name} · Unit {payment.unit_name} · Ref {payment.account_reference}</small></div>
       <span className="payment-date payment-date-badge"><CalendarDays size={14} /><span><small>Date received</small><strong>{new Date(payment.transacted_at).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })}</strong></span></span>
       <div className="rent-payment-receipt"><small>Transaction reference</small><strong>{payment.mpesa_receipt}</strong></div>
-    </article>)}</div> : <p className="overview-empty">No confirmed Paybill rent payments yet.</p>}
+      <div className="record-actions receipt-payment-actions">
+        <button type="button" className="receipt-record-action" onClick={() => setReceipt(receiptDetails)} title="View or print receipt"><ReceiptText size={14} /><span>Receipt</span></button>
+        <button type="button" className="whatsapp-record-action" onClick={() => {
+          void shareManualPaymentReceipt(receiptDetails, 'Moha Rental Management System').then(result => setShareStatus(documentShareStatus(result, 'Receipt'))).catch(error => {
+            setShareStatus(`Could not share receipt PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+          })
+        }} title="Share receipt PDF on WhatsApp"><MessageCircle size={14} /><span>WhatsApp</span></button>
+      </div>
+    </article>})}</div> : <p className="overview-empty">No confirmed Paybill rent payments yet.</p>}
+    {shareStatus && <p className="share-message" role="status">{shareStatus}</p>}
     {payments.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}
+    {receipt && <PaymentReceiptModal receipt={receipt} workspaceName="Moha Rental Management System" onClose={() => setReceipt(null)} onShare={() => shareManualPaymentReceipt(receipt, 'Moha Rental Management System')} />}
   </section>
 }
 
@@ -2874,14 +3284,13 @@ function InvoiceModal({ tenant, invoice, workspaceName, paymentDetails, onEmailC
   }
 
   const shareInvoice = () => {
-    const phone = normalizeWhatsAppPhone(tenant.phone)
-    if (!phone) {
-      setShareMessage('No valid registered mobile number. Update the tenant phone number first.')
-      return
-    }
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(shareText)}`
-    window.open(url, '_blank', 'noopener,noreferrer')
-    setShareMessage(`WhatsApp opened for ${tenant.name}. Review the invoice and tap Send.`)
+    const documentData = buildRentReminderDocument({ workspaceName, tenant, rent: tenant.rent, waterBill: tenant.waterBill ?? '0', paymentDetails, dueDate: dueDateStr, invoiceNumber })
+    void shareRentalDocument(documentData, tenant.phone, shareText).then(result => {
+      if (result === 'shared') setShareMessage('Choose WhatsApp in the share sheet to send the invoice PDF document.')
+      else if (result === 'downloaded') setShareMessage('Invoice PDF downloaded. Attach it in the opened WhatsApp chat before sending.')
+    }).catch(error => {
+      setShareMessage(`Could not share the invoice document: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    })
   }
 
   const emailInvoice = () => {
@@ -3317,12 +3726,31 @@ const defaultRoleForType: Record<AccessUser['userType'], AccessUser['role']> = {
 }
 
 function TenantPortalView({ tenants, workspaceName, propertyGroup, paymentRows, directRentPayments }: { tenants: TenantRecord[]; workspaceName: string; propertyGroup: string; paymentRows: string[]; directRentPayments: RentPaymentRecord[] }) {
+  const paymentDetails = useContext(LandlordPaybillContext)
   const [selectedTenantKey, setSelectedTenantKey] = useState(tenants[0] ? `${tenants[0].name}::${tenants[0].property}::${tenants[0].unit}` : '')
   const [tenantPage, setTenantPage] = useState(1)
   const [historyPage, setHistoryPage] = useState(1)
   const [serviceRequestPage, setServiceRequestPage] = useState(1)
+  const [reminderShareStatus, setReminderShareStatus] = useState('')
   const pageSize = 12
   const selectedTenant = tenants.find(tenant => `${tenant.name}::${tenant.property}::${tenant.unit}` === selectedTenantKey) ?? tenants[0] ?? null
+  const shareTenantReminder = (reminder: { label: string; dueLabel: string }) => {
+    if (!selectedTenant) return
+    const message = `Hello ${selectedTenant.name}, ${reminder.label} for ${selectedTenant.property}, Unit ${getTenantUnitLabel(selectedTenant)}. Please settle your balance with the property office.`
+    const documentData = buildRentReminderDocument({
+      workspaceName,
+      tenant: selectedTenant,
+      rent: selectedTenant.rent,
+      waterBill: selectedTenant.waterBill ?? '0',
+      paymentDetails,
+      dueDate: reminder.dueLabel,
+    })
+    void shareRentalDocument(documentData, selectedTenant.phone, message).then(result => {
+      setReminderShareStatus(documentShareStatus(result, 'Rent reminder'))
+    }).catch(error => {
+      setReminderShareStatus(`Could not share rent reminder PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    })
+  }
 
   const getDueDate = (tenant: TenantRecord) => {
     return getNextMonthlyRentDueDate(tenant.movedIn)
@@ -3405,8 +3833,9 @@ function TenantPortalView({ tenants, workspaceName, propertyGroup, paymentRows, 
         <div style={{ marginTop: 20 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 14 }}>Reminders</h3>
           <div className="mini-ledger">
-            {statement.reminders.map((reminder) => <div key={reminder.label}><span><strong>{reminder.label}</strong><small>{reminder.dueLabel}</small></span><button type="button" className="reminder-button" onClick={() => window.open(`https://wa.me/${(selectedTenant.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${selectedTenant.name}, ${reminder.label} for ${selectedTenant.property}, Unit ${getTenantUnitLabel(selectedTenant)}. Please settle your balance with the property office.`)}`, '_blank', 'noopener,noreferrer')}>WhatsApp</button></div>)}
+            {statement.reminders.map((reminder) => <div key={reminder.label}><span><strong>{reminder.label}</strong><small>{reminder.dueLabel}</small></span><button type="button" className="reminder-button" disabled={!normalizeWhatsAppPhone(selectedTenant.phone)} title={selectedTenant.phone ? 'Share the rent reminder as a PDF document' : 'Add a valid tenant phone number first'} onClick={() => shareTenantReminder(reminder)}>WhatsApp</button></div>)}
           </div>
+          {reminderShareStatus && <p className="share-message" role="status">{reminderShareStatus}</p>}
         </div>
         <div style={{ marginTop: 20 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 14 }}>Payment history</h3>
@@ -4344,9 +4773,8 @@ function WorkspaceHistoryPanel({ ownerId, users }: { ownerId: string; users: Acc
   </div>
 }
 
-function OperationsCenter({ tenants, properties, payments, expenses, applicants, workspaceName, onAddExpense, onAddApplicant, onGenerateInvoice, onEditExpense, onDeleteExpense, onToggleExpensePaid, onApplicantAction }: { tenants: TenantRecord[]; properties: PropertyRecord[]; payments: string[]; expenses: ExpenseRecord[]; applicants: ApplicantRecord[]; workspaceName: string; onAddExpense: (expense: ExpenseRecord) => void; onAddApplicant: (applicant: ApplicantRecord) => void; onGenerateInvoice: (tenant: TenantRecord) => void; onEditExpense?: (expense: ExpenseRecord) => void; onDeleteExpense?: (id: string) => void; onToggleExpensePaid?: (id: string) => void; onApplicantAction?: (id: string, action: 'approve' | 'reject' | 'schedule' | 'convert') => void }) {
+function OperationsCenter({ tenants, properties, payments, expenses, applicants, workspaceName, onAddExpense, onAddApplicant, onGenerateInvoice, onSendRentReminder, onEditExpense, onDeleteExpense, onToggleExpensePaid, onApplicantAction }: { tenants: TenantRecord[]; properties: PropertyRecord[]; payments: string[]; expenses: ExpenseRecord[]; applicants: ApplicantRecord[]; workspaceName: string; onAddExpense: (expense: ExpenseRecord) => void; onAddApplicant: (applicant: ApplicantRecord) => void; onGenerateInvoice: (tenant: TenantRecord) => void; onSendRentReminder: (tenant: TenantRecord, forceWhatsApp?: boolean) => void; onEditExpense?: (expense: ExpenseRecord) => void; onDeleteExpense?: (id: string) => void; onToggleExpensePaid?: (id: string) => void; onApplicantAction?: (id: string, action: 'approve' | 'reject' | 'schedule' | 'convert') => void }) {
   const directRentPayments = useContext(ConfirmedRentPaymentsContext)
-  const paymentDetails = useContext(LandlordPaybillContext)
   const [expenseForm, setExpenseForm] = useState({ category: 'Repairs', property: '', amount: '', date: new Date().toISOString().slice(0, 10), note: '' })
   const [applicantForm, setApplicantForm] = useState({ name: '', phone: '', property: '', unit: '', stage: 'Viewing' as ApplicantRecord['stage'] })
   const [exportMonth, setExportMonth] = useState(() => new Date().toISOString().slice(0, 7))
@@ -4611,8 +5039,6 @@ function OperationsCenter({ tenants, properties, payments, expenses, applicants,
             <div className="due-list">
               {visibleRentTrackerTenants.map((tenant) => {
                 const paid = isPaid(tenant)
-                const dueDate = getNextMonthlyRentDueDate(tenant.movedIn).toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' })
-                const message = buildRentWhatsAppMessage({ workspaceName, tenant, rent: tenant.rent, waterBill: tenant.waterBill ?? '0', paymentDetails, dueDate })
                 const phone = normalizeWhatsAppPhone(tenant.phone)
                 return (
                   <div key={tenant.property + '-' + tenant.unit} className="rent-tracker-row">
@@ -4622,7 +5048,7 @@ function OperationsCenter({ tenants, properties, payments, expenses, applicants,
                     </span>
                     <span className={'payment-state ' + (paid ? 'paid' : 'due')}>{paid ? 'Paid' : 'Due'}</span>
                     <div className="rent-tracker-actions">
-                      <button type="button" className="reminder-button" disabled={!phone} title={phone ? 'Send complete rent details to the registered tenant number' : 'Add a valid tenant phone number first'} onClick={() => window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')}>WhatsApp</button>
+                      <button type="button" className="reminder-button" disabled={!phone} title={phone ? `Share ${workspaceName} rent reminder as a PDF document` : 'Add a valid tenant phone number first'} onClick={() => onSendRentReminder(tenant, true)}>WhatsApp</button>
                       <button type="button" className="receipt-button" onClick={() => onGenerateInvoice(tenant)}>Invoice</button>
                     </div>
                   </div>

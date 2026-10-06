@@ -6703,6 +6703,123 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
   .portal-home-footer-bottom { flex-direction: column; gap: 4px; font-size: 12px; }
 }
 
+.payment-record .receipt-payment-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.payment-record-manual .receipt-payment-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.receipt-payment-actions .receipt-record-action,
+.receipt-payment-actions .whatsapp-record-action,
+.payment-receipt-actions .whatsapp-record-action {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease;
+}
+.receipt-payment-actions .receipt-record-action {
+  color: #0369a1;
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+.receipt-payment-actions .receipt-record-action:hover { background: #e0f2fe; }
+.receipt-payment-actions .whatsapp-record-action,
+.payment-receipt-actions .whatsapp-record-action {
+  color: #15803d;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.receipt-payment-actions .whatsapp-record-action:hover,
+.payment-receipt-actions .whatsapp-record-action:hover { background: #dcfce7; }
+.dark .receipt-payment-actions .receipt-record-action { color: #7dd3fc; background: rgba(14,165,233,.1); border-color: rgba(56,189,248,.3); }
+.dark .receipt-payment-actions .whatsapp-record-action,
+.dark .payment-receipt-actions .whatsapp-record-action { color: #86efac; background: rgba(34,197,94,.1); border-color: rgba(74,222,128,.28); }
+
+.receipt-modal-backdrop { z-index: 1200; }
+.receipt-print-area {
+  width: min(100%, 560px);
+  max-height: min(90vh, 850px);
+  overflow-y: auto;
+  padding: 30px;
+  color: var(--text-1);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+}
+.payment-receipt-header { display: flex; align-items: center; gap: 14px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.payment-receipt-icon { width: 48px; height: 48px; display: grid; flex: 0 0 auto; place-items: center; color: #047857; background: #d1fae5; border-radius: 13px; }
+.payment-receipt-header .eyebrow { margin: 0 0 4px; }
+.payment-receipt-header h2 { margin: 0 0 4px; color: var(--text-1); font-size: 21px; }
+.payment-receipt-header strong { color: var(--text-2); font-size: 12px; }
+.payment-receipt-details { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; margin: 8px 0 0; }
+.payment-receipt-details > div { min-width: 0; padding: 13px 0; border-bottom: 1px solid var(--border); }
+.payment-receipt-details dt { margin-bottom: 4px; color: var(--text-3); font-size: 11px; font-weight: 650; }
+.payment-receipt-details dd { margin: 0; color: var(--text-1); font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.payment-receipt-details .payment-receipt-amount { color: #047857; font-size: 18px; }
+.payment-receipt-thanks { margin: 18px 0 0; color: var(--text-2); font-size: 12px; }
+.payment-receipt-actions { justify-content: flex-end; gap: 8px; margin-top: 22px; }
+
+@media (max-width: 600px) {
+  .payment-record-manual .receipt-payment-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; }
+  .payment-record-confirmed .receipt-payment-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; width: 100%; }
+  .receipt-payment-actions .receipt-record-action,
+  .receipt-payment-actions .whatsapp-record-action,
+  .payment-record-manual .receipt-payment-actions .record-edit-btn,
+  .payment-record-manual .receipt-payment-actions .record-delete-btn { width: 100%; min-width: 0; }
+  .receipt-print-area { padding: 22px 18px; }
+  .payment-receipt-details { grid-template-columns: 1fr; }
+  .payment-receipt-actions { flex-wrap: wrap; }
+}
+
+@media print {
+  body.printing-payment-receipt { background: #fff; }
+  body.printing-payment-receipt * { visibility: hidden !important; }
+  body.printing-payment-receipt .receipt-modal-backdrop,
+  body.printing-payment-receipt .receipt-print-area,
+  body.printing-payment-receipt .receipt-print-area * { visibility: visible !important; }
+  body.printing-payment-receipt .receipt-modal-backdrop {
+    position: absolute !important;
+    inset: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body.printing-payment-receipt .receipt-print-area {
+    width: 100% !important;
+    max-height: none !important;
+    margin: 0 auto !important;
+    padding: 18px !important;
+    overflow: visible !important;
+    color: #111827 !important;
+    background: #fff !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  body.printing-payment-receipt .payment-receipt-actions { display: none !important; }
+}
+
 .portal-home {
   --portal-green: #17483d;
   --portal-ink: #18392f;
