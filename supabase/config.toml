@@ -1,6 +1,9 @@
 [functions.mpesa-rent-c2b]
 verify_jwt = false
 
+[functions.rent-callback]
+verify_jwt = false
+
 [functions.mpesa-register-c2b]
 verify_jwt = true
 

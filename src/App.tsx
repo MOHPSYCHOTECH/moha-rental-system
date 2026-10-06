@@ -10,14 +10,17 @@ type PropertyRecord = { name: string; address: string; units: number; occupied: 
 type TenantRecord = { name: string; unit: string; unitDisplayName?: string; unitType: string; property: string; rent: string; lease: string; leaseEnd?: string; movedIn?: string; rentAccountRef?: string; portalCode?: string; status: string; waterBill?: string; waterBillUpdatedAt?: string; email?: string; phone?: string; idNumber?: string }
 type InvoiceRecord = { id: string; tenantName: string; email?: string; property: string; unit: string; unitType: string; rent: string; waterBill: string; issuedAt: string; movedIn?: string }
 type RentPaymentRecord = { id: string; owner_id: string; account_reference: string; mpesa_receipt: string; amount: number; transacted_at: string; phone?: string; tenant_name: string; property_name: string; unit_name: string }
+type RentPayoutRecord = { id: string; owner_id: string; mpesa_receipt: string; amount: number; status: 'pending' | 'paid' | 'needs_review' | 'queued' | 'processing' | 'completed' | 'failed' | 'timeout'; payment_method?: 'mpesa' | 'bank_transfer' | 'cash' | null; payout_reference?: string | null; paid_by?: string | null; paid_at?: string | null; requested_at: string }
 type ManualPaymentReceipt = { amount: string; tenant: string; house: string; property: string; date: string; method: string; reference: string; period: string; tenantPhone?: string }
 type RentalDocumentData = { fileName: string; title: string; workspaceName: string; recipient: string; property: string; unit: string; details: Array<{ label: string; value: string }>; totalLabel?: string; total?: string; note?: string }
 type LandlordPaymentMethod = 'paybill' | 'till' | 'bank_transfer'
-type LandlordPaymentDetails = { method: LandlordPaymentMethod; paybillNumber: string; tillNumber: string; bankName: string; bankAccountName: string; bankAccountNumber: string }
+type RentCollectionMode = 'own' | 'moha_paybill'
+type LandlordPaymentDetails = { method: LandlordPaymentMethod; paybillNumber: string; tillNumber: string; bankName: string; bankAccountName: string; bankAccountNumber: string; collectionMode?: RentCollectionMode; platformPaybill?: boolean }
 const defaultLandlordPaymentDetails: LandlordPaymentDetails = { method: 'paybill', paybillNumber: '', tillNumber: '', bankName: '', bankAccountName: '', bankAccountNumber: '' }
 type SubscriptionPaymentDetails = LandlordPaymentDetails
 const defaultSubscriptionPaymentDetails: SubscriptionPaymentDetails = { ...defaultLandlordPaymentDetails }
 const ConfirmedRentPaymentsContext = createContext<RentPaymentRecord[]>([])
+const RentPayoutsContext = createContext<RentPayoutRecord[]>([])
 const ConfirmedRentPaymentRefreshContext = createContext<{ refresh: () => Promise<void>; refreshing: boolean; error: string }>({ refresh: async () => {}, refreshing: false, error: '' })
 const TenantDirectoryContext = createContext<TenantRecord[]>([])
 const LandlordPaybillContext = createContext<LandlordPaymentDetails>(defaultLandlordPaymentDetails)
@@ -42,11 +45,13 @@ type TenantPortalSession = { name: string; property: string; unit: string; email
 type ExpenseRecord = { id: string; category: string; property: string; amount: number; date: string; note: string; paid?: boolean }
 type ApplicantRecord = { id: string; name: string; phone: string; property: string; unit: string; stage: 'Viewing' | 'Applied' | 'Approved' | 'Moved in' }
 type RentReminderChannel = 'WhatsApp' | 'Email'
-type RentalWorkspaceSettings = { workspaceName: string; propertyGroup: string; darkMode: boolean; notifEmail: boolean; notifWeekly: boolean; rentReminderEnabled: boolean; rentReminderDays: number; rentReminderChannel: RentReminderChannel; landlordPaybill: string; landlordPaymentMethod: LandlordPaymentMethod; landlordTillNumber: string; landlordBankName: string; landlordBankAccountName: string; landlordBankAccountNumber: string }
+type RentalWorkspaceSettings = { workspaceName: string; propertyGroup: string; darkMode: boolean; notifEmail: boolean; notifWeekly: boolean; rentReminderEnabled: boolean; rentReminderDays: number; rentReminderChannel: RentReminderChannel; rentCollectionMode: RentCollectionMode; landlordPaybill: string; landlordPaymentMethod: LandlordPaymentMethod; landlordTillNumber: string; landlordBankName: string; landlordBankAccountName: string; landlordBankAccountNumber: string }
 type RentalWorkspaceData = { properties: PropertyRecord[]; units: Record<string, UnitRecord[]>; tenants: TenantRecord[]; records: Record<string, string[]>; invoices: InvoiceRecord[]; maintenance: Record<string, boolean>; expenses: ExpenseRecord[]; applicants: ApplicantRecord[]; settings?: RentalWorkspaceSettings }
 type PlatformCaretakerAssignment = { caretakerId: string; caretakerName: string; caretakerEmail?: string; property: string; unit: string }
 type PlatformCaretaker = { id: string; name: string; email?: string }
-type PlatformLandlordWorkspace = { landlord: AccessUser; data: Partial<RentalWorkspaceData>; directPayments: RentPaymentRecord[]; caretakers: PlatformCaretaker[]; caretakerAssignments: PlatformCaretakerAssignment[]; updatedAt?: string }
+type PlatformLandlordWorkspace = { landlord: AccessUser; data: Partial<RentalWorkspaceData>; directPayments: RentPaymentRecord[]; rentPayouts: RentPayoutRecord[]; caretakers: PlatformCaretaker[]; caretakerAssignments: PlatformCaretakerAssignment[]; updatedAt?: string }
+type PlatformRentPayoutEntry = { landlord: AccessUser; payment: RentPaymentRecord; payout: RentPayoutRecord | null }
+type ManualRentPayoutDetails = { ownerId: string; receipt: string; method: 'mpesa' | 'bank_transfer' | 'cash'; reference: string; paidAt: string }
 const properties: PropertyRecord[] = []
 type ModalType = 'property' | 'tenant' | 'maintenance' | 'payment' | 'document' | 'waterBill'
 const modalConfig: Record<ModalType, { title: string; description: string; fields: { key: string; label: string; placeholder: string; type?: string }[] }> = {
@@ -76,9 +81,15 @@ function readStorage<T>(key: string, fallback: T): T {
   }
 }
 
-const defaultWorkspaceSettings: RentalWorkspaceSettings = { workspaceName: 'Moha Rental Management System', propertyGroup: 'Atlas Properties', darkMode: false, notifEmail: true, notifWeekly: true, rentReminderEnabled: true, rentReminderDays: 3, rentReminderChannel: 'WhatsApp', landlordPaybill: import.meta.env.VITE_MPESA_RENT_PAYBILL ?? '', landlordPaymentMethod: 'paybill', landlordTillNumber: '', landlordBankName: '', landlordBankAccountName: '', landlordBankAccountNumber: '' }
 const rentPaybill = import.meta.env.VITE_MPESA_RENT_PAYBILL ?? ''
-const legacyWorkspaceKeys = ['hearthwise-properties', 'hearthwise-units', 'hearthwise-tenants', 'hearthwise-records', 'hearthwise-invoices', 'hearthwise-maintenance-completed', 'hearthwise-expenses', 'hearthwise-applicants', 'moha-workspace-name', 'moha-property-group', 'moha-dark-mode', 'moha-notif-email', 'moha-notif-weekly', 'moha-landlord-paybill']
+const defaultWorkspaceSettings: RentalWorkspaceSettings = { workspaceName: 'Moha Rental Management System', propertyGroup: 'Atlas Properties', darkMode: false, notifEmail: true, notifWeekly: true, rentReminderEnabled: true, rentReminderDays: 3, rentReminderChannel: 'WhatsApp', rentCollectionMode: 'own', landlordPaybill: '', landlordPaymentMethod: 'paybill', landlordTillNumber: '', landlordBankName: '', landlordBankAccountName: '', landlordBankAccountNumber: '' }
+function resolveRentCollectionMode(settings?: Partial<RentalWorkspaceSettings>): RentCollectionMode {
+  if (settings?.rentCollectionMode === 'own' || settings?.rentCollectionMode === 'moha_paybill') return settings.rentCollectionMode
+  if (settings?.landlordPaymentMethod && settings.landlordPaymentMethod !== 'paybill') return 'own'
+  if (settings?.landlordPaybill?.trim() && settings.landlordPaybill.trim() !== rentPaybill.trim()) return 'own'
+  return rentPaybill.trim() ? 'moha_paybill' : 'own'
+}
+const legacyWorkspaceKeys = ['hearthwise-properties', 'hearthwise-units', 'hearthwise-tenants', 'hearthwise-records', 'hearthwise-invoices', 'hearthwise-maintenance-completed', 'hearthwise-expenses', 'hearthwise-applicants', 'moha-workspace-name', 'moha-property-group', 'moha-dark-mode', 'moha-notif-email', 'moha-notif-weekly', 'moha-landlord-paybill', 'moha-rent-collection-mode', 'moha-landlord-payout-phone']
 
 function readLegacyWorkspace(): RentalWorkspaceData {
   return {
@@ -99,6 +110,7 @@ function readLegacyWorkspace(): RentalWorkspaceData {
       rentReminderEnabled: readStorage('moha-rent-reminder-enabled', defaultWorkspaceSettings.rentReminderEnabled),
       rentReminderDays: readStorage('moha-rent-reminder-days', defaultWorkspaceSettings.rentReminderDays),
       rentReminderChannel: readStorage('moha-rent-reminder-channel', defaultWorkspaceSettings.rentReminderChannel),
+      rentCollectionMode: readStorage('moha-rent-collection-mode', defaultWorkspaceSettings.rentCollectionMode),
       landlordPaybill: readStorage('moha-landlord-paybill', defaultWorkspaceSettings.landlordPaybill),
       landlordPaymentMethod: readStorage('moha-landlord-payment-method', defaultWorkspaceSettings.landlordPaymentMethod),
       landlordTillNumber: readStorage('moha-landlord-till-number', defaultWorkspaceSettings.landlordTillNumber),
@@ -449,7 +461,7 @@ function buildPaymentInstructionLines(paymentDetails: LandlordPaymentDetails, te
   ]
   return [
     `Paybill number: ${paymentDetails.paybillNumber.trim() || 'Not configured'}`,
-    `Account number: ${getPaybillAccountReference(tenant) || tenant.rentAccountRef || 'Not assigned'}`,
+    `Account number: ${paymentDetails.platformPaybill ? tenant.rentAccountRef || 'Not assigned' : getPaybillAccountReference(tenant) || tenant.rentAccountRef || 'Not assigned'}`,
   ]
 }
 
@@ -551,6 +563,7 @@ function toDatabaseUserType(value: AccessUser['userType']) {
 
 function App() {
   const [activeSection, setActiveSection] = useState('Overview')
+  const [settingsSectionShortcut, setSettingsSectionShortcut] = useState<SettingsSection | null>(null)
   const [query, setQuery] = useState('')
   const [overviewRevenuePage, setOverviewRevenuePage] = useState(1)
   const [overviewActivityPage, setOverviewActivityPage] = useState(1)
@@ -563,7 +576,7 @@ function App() {
   const [selfPasswordMsg, setSelfPasswordMsg] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false)
-  const [subscriptionForm, setSubscriptionForm] = useState<{ plan: PaidSubscriptionPlan; mpesaCode: string; amount: number }>({ plan: 'silver_monthly', mpesaCode: '', amount: 500 })
+  const [subscriptionForm, setSubscriptionForm] = useState<{ plan: PaidSubscriptionPlan; mpesaCode: string; amount: number }>({ plan: 'silver_monthly', mpesaCode: '', amount: 1350 })
   const [subscriptionFeedback, setSubscriptionFeedback] = useState('')
   const [subscriptionPaymentDetails, setSubscriptionPaymentDetails] = useState<SubscriptionPaymentDetails>(defaultSubscriptionPaymentDetails)
   const [subscriptionPaymentSettingsError, setSubscriptionPaymentSettingsError] = useState('')
@@ -629,6 +642,7 @@ function App() {
   const [tenantList, setTenantList] = useState<TenantRecord[]>([])
   const [savedRows, setSavedRows] = useState<Record<string, string[]>>({})
   const [directRentPayments, setDirectRentPayments] = useState<RentPaymentRecord[]>([])
+  const [rentPayouts, setRentPayouts] = useState<RentPayoutRecord[]>([])
   const [rentPaymentsRefreshing, setRentPaymentsRefreshing] = useState(false)
   const [rentPaymentsRefreshError, setRentPaymentsRefreshError] = useState('')
   const [selectedTenant, setSelectedTenant] = useState<TenantRecord | null>(null)
@@ -641,6 +655,7 @@ function App() {
   const [applicants, setApplicants] = useState<ApplicantRecord[]>([])
   const [workspaceName, setWorkspaceName] = useState(defaultWorkspaceSettings.workspaceName)
   const [propertyGroup, setPropertyGroup] = useState(defaultWorkspaceSettings.propertyGroup)
+  const [rentCollectionMode, setRentCollectionMode] = useState<RentCollectionMode>(defaultWorkspaceSettings.rentCollectionMode)
   const [landlordPaybill, setLandlordPaybill] = useState(defaultWorkspaceSettings.landlordPaybill)
   const [landlordPaymentMethod, setLandlordPaymentMethod] = useState<LandlordPaymentMethod>(defaultWorkspaceSettings.landlordPaymentMethod)
   const [landlordTillNumber, setLandlordTillNumber] = useState(defaultWorkspaceSettings.landlordTillNumber)
@@ -681,31 +696,48 @@ function App() {
     } : defaultSubscriptionPaymentDetails)
     setSubscriptionPaymentSettingsLoading(false)
   }
-  const effectiveRentPaybill = landlordPaybill.trim() || rentPaybill
-  const landlordPaymentDetails: LandlordPaymentDetails = { method: landlordPaymentMethod, paybillNumber: landlordPaybill, tillNumber: landlordTillNumber, bankName: landlordBankName, bankAccountName: landlordBankAccountName, bankAccountNumber: landlordBankAccountNumber }
-  const refreshConfirmedRentPayments = async () => {
+  const effectiveRentPaybill = rentCollectionMode === 'moha_paybill' ? rentPaybill.trim() : ''
+  const landlordPaymentDetails: LandlordPaymentDetails = rentCollectionMode === 'moha_paybill'
+    ? { method: 'paybill', paybillNumber: rentPaybill.trim(), tillNumber: '', bankName: '', bankAccountName: '', bankAccountNumber: '', collectionMode: rentCollectionMode, platformPaybill: true }
+    : { method: landlordPaymentMethod, paybillNumber: landlordPaybill, tillNumber: landlordTillNumber, bankName: landlordBankName, bankAccountName: landlordBankAccountName, bankAccountNumber: landlordBankAccountNumber, collectionMode: rentCollectionMode }
+  const refreshConfirmedRentPayments = useCallback(async (silent = false) => {
     if (!supabase || !cloudOwnerId) {
-      setRentPaymentsRefreshError('Sign in to a landlord workspace before refreshing confirmed rent payments.')
+      if (!silent) setRentPaymentsRefreshError('Sign in to a landlord workspace before refreshing confirmed rent payments.')
       return
     }
-    setRentPaymentsRefreshing(true)
+    if (!silent) setRentPaymentsRefreshing(true)
     setRentPaymentsRefreshError('')
     try {
-      const { data, error } = await supabase.from('rent_payments')
-        .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
-        .eq('owner_id', cloudOwnerId)
-        .order('transacted_at', { ascending: false })
+      const [paymentsResult, payoutsResult] = await Promise.all([
+        supabase.from('rent_payments')
+          .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
+          .eq('owner_id', cloudOwnerId)
+          .order('transacted_at', { ascending: false }),
+        supabase.from('rent_payouts')
+          .select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at')
+          .eq('owner_id', cloudOwnerId)
+          .order('requested_at', { ascending: false }),
+      ])
+      const { data, error } = paymentsResult
       if (error) {
         setRentPaymentsRefreshError(`Could not refresh confirmed rent payments: ${error.message}`)
         return
       }
+      const { data: payoutData, error: payoutError } = payoutsResult
+      if (payoutError) {
+        setRentPaymentsRefreshError(`Rent payments refreshed, but landlord payout status could not be loaded: ${payoutError.message}`)
+        setDirectRentPayments(data ?? [])
+        setRentPayouts([])
+        return
+      }
       setDirectRentPayments(data ?? [])
+      setRentPayouts(payoutData ?? [])
     } catch (error) {
       setRentPaymentsRefreshError(`Could not refresh confirmed rent payments: ${error instanceof Error ? error.message : 'Unexpected request failure.'}`)
     } finally {
-      setRentPaymentsRefreshing(false)
+      if (!silent) setRentPaymentsRefreshing(false)
     }
-  }
+  }, [cloudOwnerId])
   const refreshPlatformPortfolio = async () => {
     if (!supabase || !authUser || sessionUser?.userType !== 'Platform Administrator') {
       setPlatformPortfolioError('Sign in as the Platform Administrator to load all Landlord portfolios.')
@@ -784,7 +816,11 @@ function App() {
     const paymentsResult = rentPaybill
       ? await supabase.from('rent_payments').select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name').in('owner_id', landlordIds).order('transacted_at', { ascending: false })
       : { data: [], error: null }
-    if (paymentsResult.error) setCloudStatus(`Confirmed rent payments unavailable in portfolio: ${paymentsResult.error.message}`)
+    if (paymentsResult.error) setPlatformPortfolioError(`Confirmed tenant rent payments are unavailable. Check rent_c2b.sql access policies. Details: ${paymentsResult.error.message}`)
+    const payoutsResult = rentPaybill
+      ? await supabase.from('rent_payouts').select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at').in('owner_id', landlordIds).order('requested_at', { ascending: false })
+      : { data: [], error: null }
+    if (payoutsResult.error) setPlatformPortfolioError(`Landlord payout records unavailable. Run supabase/manual_rent_payouts.sql. Details: ${payoutsResult.error.message}`)
     const activeAssignments = assignmentsResult.data ?? []
     const caretakerProfilesResult = await supabase.from('profiles').select('user_id, display_name, email, owner_id').eq('user_type', 'caretaker').in('owner_id', landlordIds)
     if (assignmentsResult.error || caretakerProfilesResult.error) {
@@ -804,6 +840,7 @@ function App() {
         landlord,
         data: (workspaceRow?.data ?? row?.data ?? {}) as Partial<RentalWorkspaceData>,
         directPayments: ((paymentsResult.data ?? []) as RentPaymentRecord[]).filter(payment => payment.owner_id === landlord.id),
+        rentPayouts: ((payoutsResult.data ?? []) as RentPayoutRecord[]).filter(payout => payout.owner_id === landlord.id),
         caretakers: (caretakerProfilesResult.data ?? []).filter(caretaker => caretaker.owner_id === landlord.id).map(caretaker => ({
           id: caretaker.user_id,
           name: caretaker.display_name || caretaker.email || 'Caretaker',
@@ -823,6 +860,18 @@ function App() {
       }
     }))
     setPlatformPortfolioLoading(false)
+  }
+  const recordManualRentPayout = async (details: ManualRentPayoutDetails) => {
+    if (!supabase) throw new Error('Supabase is not configured.')
+    const { error } = await supabase.rpc('record_manual_rent_payout', {
+      p_owner_id: details.ownerId,
+      p_mpesa_receipt: details.receipt,
+      p_payment_method: details.method,
+      p_payout_reference: details.reference.trim(),
+      p_paid_at: details.paidAt,
+    })
+    if (error) throw new Error(error.message)
+    await refreshPlatformPortfolio()
   }
   useEffect(() => {
     if (!supabase) { setAuthReady(true); return }
@@ -854,11 +903,17 @@ function App() {
       setPlatformLandlordWorkspaces([])
       setPlatformPortfolioLoading(false)
       setPlatformPortfolioError('')
+      setDirectRentPayments([])
+      setRentPayouts([])
+      setRentPaymentsRefreshError('')
       return
     }
     let active = true
     cloudHydrated.current = false
     setCloudOwnerId(null)
+    setDirectRentPayments([])
+    setRentPayouts([])
+    setRentPaymentsRefreshError('')
     setCloudStatus('Loading Supabase account and workspace')
     const hydrateCloudWorkspace = async () => {
       const [profileResult, roleResult] = await Promise.all([
@@ -924,13 +979,23 @@ function App() {
         return
       }
       const resolvedWorkspaceRow = workspaceResult.data?.[0] ?? fallbackWorkspaceResult.data?.find(row => row.owner_id === workspaceOwnerId) ?? fallbackWorkspaceResult.data?.find(row => row.data && (Array.isArray(row.data.properties) || Array.isArray(row.data.tenants) || (row.data.units && typeof row.data.units === 'object') || (row.data.records && typeof row.data.records === 'object')))
-      const { data: rentPayments, error: rentPaymentsError } = await client.from('rent_payments')
-        .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
-        .eq('owner_id', workspaceOwnerId)
-        .order('transacted_at', { ascending: false })
+      const [rentPaymentsResult, rentPayoutsResult] = await Promise.all([
+        client.from('rent_payments')
+          .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
+          .eq('owner_id', workspaceOwnerId)
+          .order('transacted_at', { ascending: false }),
+        client.from('rent_payouts')
+          .select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at')
+          .eq('owner_id', workspaceOwnerId)
+          .order('requested_at', { ascending: false }),
+      ])
       if (!active) return
+      const { data: rentPayments, error: rentPaymentsError } = rentPaymentsResult
       if (rentPaymentsError) setCloudStatus(`Rent payments unavailable: ${rentPaymentsError.message}`)
       else setDirectRentPayments(rentPayments ?? [])
+      const { data: rentPayoutsData, error: rentPayoutsError } = rentPayoutsResult
+      if (rentPayoutsError) setRentPaymentsRefreshError(`Landlord payout status could not be loaded: ${rentPayoutsError.message}`)
+      else setRentPayouts(rentPayoutsData ?? [])
       if (subscriptionResult.data) {
         user.subscription = { plan: subscriptionResult.data.plan as SubscriptionPlan, status: subscriptionResult.data.status as SubscriptionStatus, startDate: subscriptionResult.data.starts_on, expiryDate: subscriptionResult.data.expires_on, amount: subscriptionResult.data.amount }
       }
@@ -1047,12 +1112,18 @@ function App() {
                   : { data: [], error: null }
                 if (!active) return
                 if (directPaymentsResult.error) setCloudStatus(`Confirmed rent payments unavailable in portfolio: ${directPaymentsResult.error.message}`)
+                const directPayoutsResult = rentPaybill
+                  ? await client.from('rent_payouts').select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at').in('owner_id', landlordIds).order('requested_at', { ascending: false })
+                  : { data: [], error: null }
+                if (!active) return
+                if (directPayoutsResult.error) setPlatformPortfolioError(`Landlord payout records unavailable. Run supabase/manual_rent_payouts.sql. Details: ${directPayoutsResult.error.message}`)
                 setPlatformLandlordWorkspaces(landlords.map(landlord => {
                   const row = workspaceRows.find(workspace => workspace.owner_id === landlord.id)
                   return {
                     landlord,
                     data: (row?.data ?? {}) as Partial<RentalWorkspaceData>,
                     directPayments: (directPaymentsResult.data ?? []).filter(payment => payment.owner_id === landlord.id) as RentPaymentRecord[],
+                    rentPayouts: (directPayoutsResult.data ?? []).filter(payout => payout.owner_id === landlord.id) as RentPayoutRecord[],
                     caretakers: accountProfiles.filter(profile => profile.user_type === 'caretaker' && profile.owner_id === landlord.id).map(profile => ({
                       id: profile.user_id,
                       name: profile.display_name || profile.email || 'Caretaker',
@@ -1101,7 +1172,8 @@ function App() {
         const settings = { ...defaultWorkspaceSettings, ...cloudData.settings }
         setWorkspaceName(settings.workspaceName)
         setPropertyGroup(settings.propertyGroup)
-        setLandlordPaybill(settings.landlordPaybill || defaultWorkspaceSettings.landlordPaybill)
+        setRentCollectionMode(resolveRentCollectionMode(cloudData.settings))
+        setLandlordPaybill(settings.landlordPaybill ?? '')
         setLandlordPaymentMethod(settings.landlordPaymentMethod ?? 'paybill')
         setLandlordTillNumber(settings.landlordTillNumber ?? '')
         setLandlordBankName(settings.landlordBankName ?? '')
@@ -1139,7 +1211,8 @@ function App() {
           const settings = { ...defaultWorkspaceSettings, ...legacyData.settings }
           setWorkspaceName(settings.workspaceName)
           setPropertyGroup(settings.propertyGroup)
-          setLandlordPaybill(settings.landlordPaybill || defaultWorkspaceSettings.landlordPaybill)
+          setRentCollectionMode(resolveRentCollectionMode(legacyData.settings))
+          setLandlordPaybill(settings.landlordPaybill ?? '')
           setLandlordPaymentMethod(settings.landlordPaymentMethod ?? 'paybill')
           setLandlordTillNumber(settings.landlordTillNumber ?? '')
           setLandlordBankName(settings.landlordBankName ?? '')
@@ -1168,9 +1241,35 @@ function App() {
   }, [authUser?.id])
   useEffect(() => {
     const client = supabase
+    if (!client || !cloudOwnerId || sessionUser?.userType !== 'Landlord' || rentCollectionMode !== 'moha_paybill') return
+    let active = true
+    const channel = client.channel(`landlord-payout-status-${cloudOwnerId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'rent_payouts',
+        filter: `owner_id=eq.${cloudOwnerId}`,
+      }, () => {
+        if (active) void refreshConfirmedRentPayments(true)
+      })
+      .subscribe()
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refreshConfirmedRentPayments(true)
+    }
+    const refreshInterval = window.setInterval(refreshWhenVisible, 30_000)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      active = false
+      window.clearInterval(refreshInterval)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+      void client.removeChannel(channel)
+    }
+  }, [cloudOwnerId, refreshConfirmedRentPayments, rentCollectionMode, sessionUser?.userType])
+  useEffect(() => {
+    const client = supabase
     if (!client || !cloudHydrated.current || !cloudOwnerId) return
     const syncWorkspace = async () => {
-      const data: RentalWorkspaceData = { properties: propertyList, units: unitDetails, tenants: tenantList, records: savedRows, invoices: invoiceList, maintenance: completedMaintenance, expenses, applicants, settings: { workspaceName, propertyGroup, darkMode, notifEmail, notifWeekly, rentReminderEnabled, rentReminderDays, rentReminderChannel, landlordPaybill, landlordPaymentMethod, landlordTillNumber, landlordBankName, landlordBankAccountName, landlordBankAccountNumber } }
+      const data: RentalWorkspaceData = { properties: propertyList, units: unitDetails, tenants: tenantList, records: savedRows, invoices: invoiceList, maintenance: completedMaintenance, expenses, applicants, settings: { workspaceName, propertyGroup, darkMode, notifEmail, notifWeekly, rentReminderEnabled, rentReminderDays, rentReminderChannel, rentCollectionMode, landlordPaybill, landlordPaymentMethod, landlordTillNumber, landlordBankName, landlordBankAccountName, landlordBankAccountNumber } }
       const { error } = await client.from('rental_workspaces').upsert({ owner_id: cloudOwnerId, data }, { onConflict: 'owner_id' })
       if (error) setCloudStatus(`Cloud error: ${error.message}`)
       else {
@@ -1178,7 +1277,7 @@ function App() {
         if (effectiveRentPaybill) {
           const accountRows = tenantList.filter(tenant => tenant.rentAccountRef).map(tenant => ({
             account_reference: tenant.rentAccountRef!,
-            paybill_reference: getPaybillAccountReference(tenant),
+            paybill_reference: tenant.rentAccountRef!,
             owner_id: cloudOwnerId,
             tenant_key: `${tenant.property}::${tenant.unit}`,
             tenant_name: tenant.name,
@@ -1202,15 +1301,23 @@ function App() {
               if (accountError) accountSyncMessage = `Paybill reference sync error: ${accountError.message}`
             }
           }
-        }
+        } else {
+            const { error: deactivateError } = await client.from('rent_payment_accounts')
+              .update({ active: false, paybill_reference: null, updated_at: new Date().toISOString() })
+              .eq('owner_id', cloudOwnerId)
+              .eq('active', true)
+            if (deactivateError) accountSyncMessage = `Could not disable shared Paybill references: ${deactivateError.message}`
+          }
         setCloudStatus(accountSyncMessage || 'Cloud synced just now')
         removeLegacyWorkspace()
       }
     }
     const timer = window.setTimeout(syncWorkspace, 700)
     return () => window.clearTimeout(timer)
-  }, [cloudOwnerId, propertyList, unitDetails, tenantList, savedRows, invoiceList, completedMaintenance, expenses, applicants, workspaceName, propertyGroup, darkMode, notifEmail, notifWeekly, rentReminderEnabled, rentReminderDays, rentReminderChannel, landlordPaybill])
+  }, [cloudOwnerId, propertyList, unitDetails, tenantList, savedRows, invoiceList, completedMaintenance, expenses, applicants, workspaceName, propertyGroup, darkMode, notifEmail, notifWeekly, rentReminderEnabled, rentReminderDays, rentReminderChannel, rentCollectionMode, effectiveRentPaybill, landlordPaybill, landlordPaymentMethod, landlordTillNumber, landlordBankName, landlordBankAccountName, landlordBankAccountNumber])
   useEffect(() => {
+    setDirectRentPayments([])
+    setRentPayouts([])
     const client = supabase
     if (!client || !cloudOwnerId) return
     let active = true
@@ -1221,7 +1328,16 @@ function App() {
         .order('transacted_at', { ascending: false })
       if (!active) return
       if (error) setCloudStatus(`Rent payments unavailable: ${error.message}`)
-      else setDirectRentPayments(data ?? [])
+      else {
+        setDirectRentPayments(data ?? [])
+        const { data: payoutData, error: payoutError } = await client.from('rent_payouts')
+          .select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at, completed_at')
+          .eq('owner_id', cloudOwnerId)
+          .order('requested_at', { ascending: false })
+        if (!active) return
+        if (payoutError) setCloudStatus(`Rent payouts unavailable: ${payoutError.message}`)
+        else setRentPayouts(payoutData ?? [])
+      }
     }
     void loadRentPayments()
     return () => { active = false }
@@ -1418,11 +1534,11 @@ function App() {
   }, [])
   const registerRentPaybillCallbacks = async () => {
     if (!supabase) throw new Error('Supabase is not configured.')
-    if (!rentPaybill) throw new Error('Set VITE_MPESA_RENT_PAYBILL in .env and restart Vite first.')
+    if (!rentPaybill.trim()) throw new Error('Set VITE_MPESA_RENT_PAYBILL in .env and restart Vite first.')
     const { data, error } = await supabase.functions.invoke('mpesa-register-c2b', { body: {} })
     if (error) {
-      let detail = error.message
       const response = (error as { context?: unknown }).context
+      let detail = error.message
       if (response instanceof Response) {
         try {
           const body = await response.clone().json()
@@ -1432,8 +1548,6 @@ function App() {
           if (bodyText) detail = bodyText
         }
       }
-      if (/404|not found/i.test(detail)) detail = 'Supabase Edge Function "mpesa-register-c2b" was not found. Confirm the CLI is linked to the correct project and deploy it with: supabase functions deploy mpesa-register-c2b'
-      if (/failed to send a request|failed to fetch|networkerror/i.test(detail)) detail = 'The browser could not reach the callback registration function. Check the Supabase project URL, network connection, and function deployment, then retry.'
       throw new Error(detail)
     }
     setCloudStatus(data?.message ?? 'Safaricom Paybill callbacks registered')
@@ -1623,7 +1737,11 @@ function App() {
   ]
   const initials = sessionUser?.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() ?? ''
   const today = new Intl.DateTimeFormat('en-KE', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(new Date())
-  const navigate = (section: string) => { setActiveSection(section); setSelectedProperty(null) }
+  const navigate = (section: string) => {
+    if (section === 'Settings') setSettingsSectionShortcut(null)
+    setActiveSection(section)
+    setSelectedProperty(null)
+  }
   const openTenantPublicPage = () => {
     const next = '/tenant'
     window.history.pushState({}, '', next)
@@ -1646,12 +1764,14 @@ function App() {
   const handleSaveWorkspace = (name: string, group: string, paymentDetails: LandlordPaymentDetails) => {
     setWorkspaceName(name)
     setPropertyGroup(group)
+    setRentCollectionMode(paymentDetails.collectionMode ?? 'own')
     setLandlordPaybill(paymentDetails.paybillNumber)
     setLandlordPaymentMethod(paymentDetails.method)
     setLandlordTillNumber(paymentDetails.tillNumber)
     setLandlordBankName(paymentDetails.bankName)
     setLandlordBankAccountName(paymentDetails.bankAccountName)
     setLandlordBankAccountNumber(paymentDetails.bankAccountNumber)
+    localStorage.setItem('moha-rent-collection-mode', JSON.stringify(paymentDetails.collectionMode ?? 'own'))
     localStorage.setItem('moha-landlord-paybill', JSON.stringify(paymentDetails.paybillNumber.trim()))
     localStorage.setItem('moha-landlord-payment-method', JSON.stringify(paymentDetails.method))
     localStorage.setItem('moha-landlord-till-number', JSON.stringify(paymentDetails.tillNumber.trim()))
@@ -1825,7 +1945,7 @@ function App() {
   if (homePage && !sessionUser) return <PortalHomePage workspaceName={workspaceName} onOpenRolePage={openRoleLoginPage} onOpenTenantPortal={openTenantPublicPage} onOpenLandlordSignup={openLandlordSignupPage} />
   if (tenantPublicView) return <TenantPublicLoginPage darkMode={darkMode} workspaceName={workspaceName} tenantList={tenantList} tenantPortalForm={tenantPortalForm} tenantPortalError={tenantPortalError} onTenantPortalFormChange={(key, value) => setTenantPortalForm(current => ({ ...current, [key]: value }))} onTenantPortalSubmit={submitTenantPortalLogin} onBackToHome={openHomePage} />
   if (!sessionUser) return <LoginView darkMode={darkMode} workspaceName={workspaceName} authMessage={authMessage} onOpenTenantPortal={openTenantPublicPage} onOpenRolePage={openRoleLoginPage} onOpenLandlordSignup={openLandlordSignupPage} />
-  return <LandlordPaybillContext.Provider value={landlordPaymentDetails}><TenantDirectoryContext.Provider value={tenantList}><ConfirmedRentPaymentRefreshContext.Provider value={{ refresh: refreshConfirmedRentPayments, refreshing: rentPaymentsRefreshing, error: rentPaymentsRefreshError }}><ConfirmedRentPaymentsContext.Provider value={directRentPayments}><div className={`app-shell ${darkMode ? 'dark' : ''}`}>
+  return <LandlordPaybillContext.Provider value={landlordPaymentDetails}><TenantDirectoryContext.Provider value={tenantList}><ConfirmedRentPaymentRefreshContext.Provider value={{ refresh: refreshConfirmedRentPayments, refreshing: rentPaymentsRefreshing, error: rentPaymentsRefreshError }}><ConfirmedRentPaymentsContext.Provider value={directRentPayments}><RentPayoutsContext.Provider value={rentPayouts}><div className={`app-shell ${darkMode ? 'dark' : ''}${isPlatformAdministrator ? ' platform-admin-shell' : ''}`}>
     {/* Subscription Warning Banner (7 days before expiry) */}
     {subStatus.isExpiring && (
       <div className="subscription-warning-banner">
@@ -1847,7 +1967,23 @@ function App() {
     <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
       <div className="brand"><span className="brand-mark"><MohaLogo size={20} /></span><span>{workspaceName}</span></div>
       <div className="workspace-switcher"><span className="workspace-dot"><MohaLogo size={18} /></span><span><strong>{workspaceName}</strong><small>{propertyGroup}</small></span><ChevronDown size={15} /></div>
-      <nav aria-label="Main navigation"><p className="nav-label">Workspace</p>{navItems.map(({ label, icon: Icon, count }) => <button key={label} className={`nav-item ${activeSection === label ? 'active' : ''}`} onClick={() => { navigate(label); setSidebarOpen(false) }}><Icon size={18} /><span>{label}</span>{count && <em>{count}</em>}</button>)}<p className="nav-label nav-label-spaced">Manage</p>{can.viewSettings && <button className={`nav-item ${activeSection === 'Settings' ? 'active' : ''}`} onClick={() => { navigate('Settings'); setSidebarOpen(false) }}><Settings size={18} /><span>Settings</span></button>}<button className={`nav-item ${activeSection === 'Help center' ? 'active' : ''}`} onClick={() => { navigate('Help center'); setSidebarOpen(false) }}><LifeBuoy size={18} /><span>Help center</span></button></nav>
+      <nav aria-label="Main navigation">
+        <p className="nav-label">Workspace</p>
+        {navItems.map(({ label, icon: Icon, count }) => <button key={label} className={`nav-item ${activeSection === label ? 'active' : ''}`} onClick={() => { navigate(label); setSidebarOpen(false) }}><Icon size={18} /><span>{label}</span>{count && <em>{count}</em>}</button>)}
+        {isPlatformAdministrator && <>
+          <p className="nav-label nav-label-spaced">Quick links</p>
+          <button className={`nav-item ${activeSection === 'User directory' ? 'active' : ''}`} onClick={() => { setSettingsSectionShortcut('users'); navigate('User directory'); setSidebarOpen(false) }}><Users size={18} /><span>User directory</span></button>
+          <button className={`nav-item ${activeSection === 'Landlord workspaces' ? 'active' : ''}`} onClick={() => { navigate('Landlord workspaces'); setSidebarOpen(false) }}><Building2 size={18} /><span>Landlord workspaces</span></button>
+          <button className={`nav-item ${activeSection === 'Landlord approvals' ? 'active' : ''}`} onClick={() => { setSettingsSectionShortcut('landlord-approvals'); navigate('Landlord approvals'); setSidebarOpen(false) }}><ShieldCheck size={18} /><span>Landlord approvals</span></button>
+          <button className={`nav-item ${activeSection === 'Subscription payments' ? 'active' : ''}`} onClick={() => { setSettingsSectionShortcut('subscription-payments'); navigate('Subscription payments'); setSidebarOpen(false) }}><ReceiptText size={18} /><span>Subscription payments</span></button>
+          <button className={`nav-item ${activeSection === 'Landlord payouts' ? 'active' : ''}`} onClick={() => { navigate('Landlord payouts'); setSidebarOpen(false) }}><WalletCards size={18} /><span>Landlord payouts</span></button>
+        </>}
+        {can.viewSettings && <>
+          <p className="nav-label nav-label-spaced">Manage</p>
+          <button className={`nav-item ${activeSection === 'Settings' ? 'active' : ''}`} onClick={() => { setSettingsSectionShortcut(null); navigate('Settings'); setSidebarOpen(false) }}><Settings size={18} /><span>Settings</span></button>
+        </>}
+        <button className={`nav-item ${activeSection === 'Help center' ? 'active' : ''}`} onClick={() => { navigate('Help center'); setSidebarOpen(false) }}><LifeBuoy size={18} /><span>Help center</span></button>
+      </nav>
       <div className="sidebar-footer"><div className="avatar">{initials}</div><div><strong>{sessionUser.name}</strong><small>{sessionUser.role} · {sessionUser.userType}</small></div><button className="logout-button" aria-label="Log out" onClick={signOut}><LogOut size={15} /></button></div>
     </aside>
     <main className="main-content">
@@ -1952,7 +2088,7 @@ function App() {
               ) : sessionUser.subscription && (
                 <div className="sub-details">
                   <small>
-                    {sessionUser.subscription.plan === 'test' ? 'Test plan · Free for 1 month' : sessionUser.subscription.plan === 'silver_monthly' ? 'Silver · KSh 500/mo' : sessionUser.subscription.plan === 'silver_yearly' ? 'Silver · KSh 4,500/yr' : sessionUser.subscription.plan === 'monthly' ? 'Legacy monthly plan' : 'Legacy yearly plan'}
+                    {sessionUser.subscription.plan === 'test' ? 'Test plan · Free for 1 month' : sessionUser.subscription.plan === 'silver_monthly' ? 'Silver · KSh 1,350/mo' : sessionUser.subscription.plan === 'silver_yearly' ? 'Silver · KSh 13,500/yr' : sessionUser.subscription.plan === 'monthly' ? 'Legacy monthly plan' : 'Legacy yearly plan'}
                   </small>
                   <small>{subStatus.isValid ? `${subStatus.daysLeft} days remaining` : 'Please renew'}</small>
                 </div>
@@ -1973,16 +2109,16 @@ function App() {
       <div className="content-wrap">
         <section className="welcome-row">
           <div>
-            <p className="eyebrow">{isPlatformAdministrator ? 'PLATFORM PORTFOLIO' : today}</p>
-            <h1>{isPlatformAdministrator ? 'Portfolio overview' : <>Welcome back, {sessionUser.name} <span>✦</span></>}</h1>
-            <p className="subhead">{isPlatformAdministrator ? 'Review property performance across every landlord workspace.' : <>Signed in as <strong>{sessionUser.username}</strong> · {sessionUser.role} &nbsp;|&nbsp; {propertyGroup}</>}</p>
+            <p className="eyebrow">{isPlatformAdministrator ? activeSection === 'User directory' ? 'PLATFORM ADMINISTRATION' : 'PLATFORM PORTFOLIO' : today}</p>
+            <h1>{isPlatformAdministrator ? activeSection === 'User directory' ? 'User directory' : activeSection === 'Landlord workspaces' ? 'Landlord workspaces' : 'Portfolio overview' : <>Welcome back, {sessionUser.name} <span>✦</span></>}</h1>
+            <p className="subhead">{isPlatformAdministrator ? activeSection === 'User directory' ? 'Manage platform accounts, access, and account status.' : activeSection === 'Landlord workspaces' ? 'Browse landlord workspaces and open a portfolio for details.' : 'Review property performance across every landlord workspace.' : <>Signed in as <strong>{sessionUser.username}</strong> · {sessionUser.role} &nbsp;|&nbsp; {propertyGroup}</>}</p>
           </div>
           <div className="welcome-row-actions">
             {!isPlatformAdministrator && can.addProperty && <button className="primary-button" onClick={() => setModalType('property')}><Plus size={17} /> Add property</button>}
             {!isPlatformAdministrator && can.addTenant && <button className="filter-button" onClick={() => setModalType('tenant')}><Users size={16} /> Add tenant</button>}
           </div>
         </section>
-        {activeSection === 'Overview' ? isPlatformAdministrator ? <PlatformAdminPortfolioDashboard workspaces={platformLandlordWorkspaces} landlordAccountCount={users.filter(account => account.userType === 'Landlord').length} loading={platformPortfolioLoading} error={platformPortfolioError} onRefresh={() => void refreshPlatformPortfolio()} /> : <>
+        {activeSection === 'Overview' ? isPlatformAdministrator ? <PlatformAdminPortfolioDashboard workspaces={platformLandlordWorkspaces} landlordAccountCount={users.filter(account => account.userType === 'Landlord').length} loading={platformPortfolioLoading} error={platformPortfolioError} onRefresh={() => void refreshPlatformPortfolio()} onRecordManualPayout={recordManualRentPayout} /> : <>
         <section className="metric-grid" aria-label="Portfolio summary">
           <article className="metric-card featured"><div className="metric-top"><span className="metric-icon"><Building2 size={18} /></span><span className="trend positive">Live</span></div><p>Monthly rent roll</p><strong>KSh {monthlyRentRoll.toLocaleString()}</strong><small>Across {totalUnits} listed units</small></article>
           <article className="metric-card"><div className="metric-top"><span className="metric-icon mint"><CircleDollarSign size={18} /></span><span className="trend positive">Live</span></div><p>Recorded payments</p><strong>KSh {collectedPayments.toLocaleString()}</strong><small>{(savedRows.Payments ?? []).length} payment records</small></article>
@@ -2076,11 +2212,14 @@ function App() {
               propertyGroup={propertyGroup}
               paymentRows={savedRows.Payments ?? []}
               directRentPayments={directRentPayments}
-            /> : activeSection === 'Settings' ? (can.viewSettings ? <SettingsView
+            /> : activeSection === 'Settings' || activeSection === 'User directory' || activeSection === 'Landlord approvals' || activeSection === 'Subscription payments' ? (can.viewSettings ? <SettingsView
+              key={activeSection}
               sessionUser={sessionUser}
               users={users}
+              sectionShortcut={settingsSectionShortcut}
               workspaceName={workspaceName}
               propertyGroup={propertyGroup}
+              rentCollectionMode={rentCollectionMode}
               landlordPaybill={landlordPaybill}
               landlordPaymentMethod={landlordPaymentMethod}
               landlordTillNumber={landlordTillNumber}
@@ -2209,7 +2348,15 @@ function App() {
                 if (error) throw new Error(error.message)
                 setCloudStatus(`Password reset email sent to ${email}`)
               }}
-            /> : <AccessDeniedView section="Settings" />) : activeSection === 'Help center'
+            /> : <AccessDeniedView section="Settings" />) : activeSection === 'Landlord workspaces'
+              ? isPlatformAdministrator
+                ? <PlatformAdminPortfolioDashboard key={activeSection} workspaces={platformLandlordWorkspaces} landlordAccountCount={users.filter(account => account.userType === 'Landlord').length} loading={platformPortfolioLoading} error={platformPortfolioError} onRefresh={() => void refreshPlatformPortfolio()} onRecordManualPayout={recordManualRentPayout} workspacesOnly />
+                : <AccessDeniedView section="Landlord workspaces" />
+              : activeSection === 'Landlord payouts'
+              ? isPlatformAdministrator
+                ? <PlatformRentPayoutQueue workspaces={platformLandlordWorkspaces} onRecordPayout={recordManualRentPayout} />
+                : <AccessDeniedView section="Landlord payouts" />
+              : activeSection === 'Help center'
               ? <HelpCenterView />
               : activeSection === 'Documents'
                 ? <DocumentsView
@@ -2257,6 +2404,7 @@ function App() {
                   : activeSection !== 'Overview'
                     ? <SectionView
                         section={activeSection}
+                        propertyNames={propertyList.map(property => property.name)}
                         rows={activeSection === 'Properties'
                           ? propertyList.map(property => `${property.name} · ${property.units} units · ${property.occupied} occupied`)
                           : activeSection === 'Tenants'
@@ -2390,8 +2538,8 @@ function App() {
                 {viewingTenant.phone && <div><span>Phone</span><strong>{viewingTenant.phone}</strong></div>}
                 {viewingTenant.idNumber && <div><span>ID Number</span><strong>{viewingTenant.idNumber}</strong></div>}
                 {viewingTenant.movedIn && <div><span>Moved In</span><strong>{new Date(`${viewingTenant.movedIn}T00:00:00`).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })}</strong></div>}
-                {landlordPaymentMethod === 'paybill' && <div><span>Paybill account number</span><strong>{getPaybillAccountReference(viewingTenant) || viewingTenant.rentAccountRef || 'Not assigned'}</strong></div>}
-                {landlordPaymentMethod === 'paybill' && effectiveRentPaybill && <div><span>Landlord Paybill</span><strong>{effectiveRentPaybill}</strong></div>}
+                {(rentCollectionMode === 'moha_paybill' || landlordPaymentMethod === 'paybill') && <div><span>Paybill account number</span><strong>{rentCollectionMode === 'moha_paybill' ? viewingTenant.rentAccountRef || 'Not assigned' : getPaybillAccountReference(viewingTenant) || viewingTenant.rentAccountRef || 'Not assigned'}</strong></div>}
+                {effectiveRentPaybill && <div><span>Moha Paybill</span><strong>{effectiveRentPaybill}</strong></div>}
                 {viewingTenant.portalCode && <div className="tenant-portal-code-detail"><span>Tenant Portal Code</span><strong>{viewingTenant.portalCode}</strong><button type="button" className="portal-code-copy" onClick={() => void copyTenantPortalCode(viewingTenant)}>{copiedPortalCode === viewingTenant.portalCode ? <CheckCircle2 size={14} /> : <Copy size={14} />}{copiedPortalCode === viewingTenant.portalCode ? 'Copied' : 'Copy code'}</button></div>}
                 <div><span>Status</span><span className={`access-status ${viewingTenant.status.toLowerCase()}`}>{viewingTenant.status}</span></div>
                 <div><span>Payment Status</span><span className={`payment-state ${isPaidForPeriod(viewingTenant) ? 'paid' : 'due'}`}>{isPaidForPeriod(viewingTenant) ? 'Paid this month' : 'Payment due'}</span></div>
@@ -2517,14 +2665,14 @@ function App() {
                 </article>}
                 <button 
                   className={`sm-plan-card ${subscriptionForm.plan === 'silver_monthly' ? 'active' : ''}`}
-                  onClick={() => setSubscriptionForm({ ...subscriptionForm, plan: 'silver_monthly', amount: 500 })}
+                  onClick={() => setSubscriptionForm({ ...subscriptionForm, plan: 'silver_monthly', amount: 1350 })}
                   disabled={sessionUser.subscriptionRequest?.status === 'pending'}
                 >
                   <div className="sm-plan-header">
                     <strong>Silver Monthly</strong>
                     <span className="sm-plan-radio">{subscriptionForm.plan === 'silver_monthly' ? '●' : '○'}</span>
                   </div>
-                  <div className="sm-plan-price">KSh 500<small>/month</small></div>
+                  <div className="sm-plan-price">KSh 1,350<small>/month</small></div>
                   <ul className="sm-plan-features">
                     <li>Unlimited properties, units, and tenants</li>
                     <li>Rent, water bills, and payment tracking</li>
@@ -2536,7 +2684,7 @@ function App() {
                 
                 <button 
                   className={`sm-plan-card ${subscriptionForm.plan === 'silver_yearly' ? 'active' : ''} featured`}
-                  onClick={() => setSubscriptionForm({ ...subscriptionForm, plan: 'silver_yearly', amount: 4500 })}
+                  onClick={() => setSubscriptionForm({ ...subscriptionForm, plan: 'silver_yearly', amount: 13500 })}
                   disabled={sessionUser.subscriptionRequest?.status === 'pending'}
                 >
                   <span className="sm-plan-badge">Best Value</span>
@@ -2544,8 +2692,8 @@ function App() {
                     <strong>Silver Yearly</strong>
                     <span className="sm-plan-radio">{subscriptionForm.plan === 'silver_yearly' ? '●' : '○'}</span>
                   </div>
-                  <div className="sm-plan-price">KSh 4,500<small>/year</small></div>
-                  <div className="sm-plan-save">Save KSh 1,500 vs monthly</div>
+                  <div className="sm-plan-price">KSh 13,500<small>/year</small></div>
+                  <div className="sm-plan-save">Save KSh 2,700 vs monthly</div>
                   <ul className="sm-plan-features">
                     <li>All Silver Monthly features</li>
                     <li>12 months of system access</li>
@@ -2626,7 +2774,7 @@ function App() {
                   setSessionUser(updatedUser)
                   setShowSubscriptionModal(false)
                   setSubscriptionFeedback('')
-                  setSubscriptionForm({ plan: 'silver_monthly', mpesaCode: '', amount: 500 })
+                  setSubscriptionForm({ plan: 'silver_monthly', mpesaCode: '', amount: 1350 })
                 }}>
                   {sessionUser.subscriptionRequest?.status === 'pending' && <p className="subscription-pending-notice">Your payment reference has been submitted and is waiting for admin verification.</p>}
                   {subscriptionPaymentSettingsLoading && <p className="subscription-review-note">Loading the latest subscription payment instructions...</p>}
@@ -2662,10 +2810,10 @@ function App() {
         )}
     </main>
   </div>
-  </ConfirmedRentPaymentsContext.Provider></ConfirmedRentPaymentRefreshContext.Provider></TenantDirectoryContext.Provider></LandlordPaybillContext.Provider>
+  </RentPayoutsContext.Provider></ConfirmedRentPaymentsContext.Provider></ConfirmedRentPaymentRefreshContext.Provider></TenantDirectoryContext.Provider></LandlordPaybillContext.Provider>
 }
 
-function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loading, error, onRefresh }: { workspaces: PlatformLandlordWorkspace[]; landlordAccountCount: number; loading: boolean; error: string; onRefresh: () => void }) {
+function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loading, error, onRefresh, onRecordManualPayout, workspacesOnly = false }: { workspaces: PlatformLandlordWorkspace[]; landlordAccountCount: number; loading: boolean; error: string; onRefresh: () => void; onRecordManualPayout: (details: ManualRentPayoutDetails) => Promise<void>; workspacesOnly?: boolean }) {
   const [selectedLandlordId, setSelectedLandlordId] = useState<string | null>(null)
   const [selectedPropertyName, setSelectedPropertyName] = useState<string | null>(null)
   const [landlordPage, setLandlordPage] = useState(1)
@@ -2787,28 +2935,36 @@ function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loa
         <article className="panel"><div className="panel-heading"><div><p className="eyebrow">RESIDENTS</p><h2>Tenants</h2></div><span className="live-badge">{tenants.length}</span></div>
           <div className="platform-tenant-list">{tenants.slice(0, 8).map(tenant => <div key={`${tenant.property}-${tenant.unit}-${tenant.name}`}><span className="user-avatar">{tenant.name.slice(0, 2).toUpperCase()}</span><span><strong>{tenant.name}</strong><small>{tenant.property} · {getTenantUnitLabel(tenant)}</small></span><span>KSh {Number(tenant.rent.replace(/[^0-9.]/g, '')).toLocaleString()}</span></div>)}{!tenants.length && <p className="overview-empty">No tenants listed.</p>}</div>
         </article>
-        <article className="panel"><div className="panel-heading"><div><p className="eyebrow">OPERATIONS</p><h2>Portfolio health</h2></div></div>
+        <article className="panel platform-portfolio-health-panel"><div className="panel-heading"><div><p className="eyebrow">OPERATIONS</p><h2>Portfolio health</h2></div></div>
           <div className="platform-health-summary"><div><strong>{unitCount ? Math.round(occupied / unitCount * 100) : 0}%</strong><small>Occupancy</small></div><div><strong>{unitCount - occupied}</strong><small>Vacant units</small></div><div><strong>{openMaintenance}</strong><small>Open maintenance</small></div><div><strong>{expiringLeases.length}</strong><small>Leases due in 60 days</small></div></div>
           <div className="platform-recent-payments">{recentPayments.map(payment => <div key={`${payment.label}-${payment.date}`}><span><strong>{payment.amount}</strong><small>{payment.label} · {payment.landlord}</small></span><time>{payment.date}</time></div>)}{!recentPayments.length && <p className="overview-empty">No payment records yet.</p>}</div>
         </article>
       </section>
+      {data.settings?.rentCollectionMode === 'moha_paybill' && <ManualLandlordPayoutPanel
+        landlordName={selectedWorkspace.landlord.name}
+        ownerId={selectedWorkspace.landlord.id}
+        payments={selectedWorkspace.directPayments}
+        payouts={selectedWorkspace.rentPayouts}
+        onRecordPayout={onRecordManualPayout}
+      />}
     </section>
   }
 
-  return <section className="platform-portfolio-dashboard">
-    <div className="platform-portfolio-intro"><div><p className="eyebrow">PLATFORM ADMINISTRATION</p><h2>Landlord portfolio</h2><p>Read-only performance overview across landlord workspaces.</p></div><div className="platform-portfolio-actions"><span className="live-badge">{loading ? 'Updating portfolio' : `${workspaces.length} landlords`}</span><button type="button" className="filter-button" onClick={onRefresh} disabled={loading}><RefreshCw size={15} className={loading ? 'platform-refresh-spinning' : ''} /> {loading ? 'Refreshing…' : 'Refresh portfolio'}</button></div></div>
-    <section className="metric-grid platform-portfolio-metrics" aria-label="All landlord portfolio metrics">
+  return <section className={`platform-portfolio-dashboard${workspacesOnly ? ' platform-workspaces-page' : ''}`}>
+    <div className="platform-portfolio-intro"><div><p className="eyebrow">PLATFORM ADMINISTRATION</p><h2>{workspacesOnly ? 'Landlord workspaces' : 'Landlord portfolio'}</h2><p>{workspacesOnly ? 'Browse each landlord workspace and open it to review properties, tenants, and portfolio activity.' : 'Review landlord performance and approve manual payouts for shared Paybill payments.'}</p></div><div className="platform-portfolio-actions"><span className="live-badge">{loading ? 'Updating portfolio' : `${workspaces.length} landlords`}</span><button type="button" className="filter-button" onClick={onRefresh} disabled={loading}><RefreshCw size={15} className={loading ? 'platform-refresh-spinning' : ''} /> {loading ? 'Refreshing…' : 'Refresh portfolio'}</button></div></div>
+    {!workspacesOnly && <section className="metric-grid platform-portfolio-metrics" aria-label="All landlord portfolio metrics">
       <article className="metric-card featured"><div className="metric-top"><span className="metric-icon"><Building2 size={18} /></span><span className="trend positive">All landlords</span></div><p>Properties</p><strong>{totalProperties}</strong><small>Across {workspaces.length} landlord workspaces</small></article>
       <article className="metric-card"><div className="metric-top"><span className="metric-icon mint"><Users size={18} /></span><span className="trend positive">Portfolio</span></div><p>Residents</p><strong>{totalTenants}</strong><small>{totalOccupied} occupied of {totalUnits} units</small></article>
       <article className="metric-card"><div className="metric-top"><span className="metric-icon peach"><TrendingUp size={18} /></span><span className="trend positive">Monthly</span></div><p>Rent roll</p><strong>KSh {totalRentRoll.toLocaleString()}</strong><small>{totalUnits - totalOccupied} vacant units</small></article>
       <article className="metric-card"><div className="metric-top"><span className="metric-icon lavender"><CircleDollarSign size={18} /></span><span className="trend positive">Recorded</span></div><p>Payments received</p><strong>KSh {allCollected.toLocaleString()}</strong><small>Across all loaded workspaces</small></article>
       <article className="metric-card"><div className="metric-top"><span className="metric-icon mint"><Wrench size={18} /></span><span className="trend positive">Team</span></div><p>Caretakers</p><strong>{totalCaretakers}</strong><small>{allCaretakerAssignments.length} active property/unit assignments</small></article>
-    </section>
-    <div className="platform-landlord-list-heading"><div><p className="eyebrow">WORKSPACES</p><h2>Landlords</h2></div><span>{workspaces.length} accounts</span></div>
-    {loading && <p className="overview-empty">Loading landlord workspaces…</p>}
-    {error && <p className="settings-error" role="alert">{error}</p>}
-    {!loading && !workspaces.length && <p className="overview-empty">{landlordAccountCount ? 'Landlord accounts were found, but no workspace data is available to show yet.' : 'No Landlord accounts were found under this Platform Administrator. Landlords invited by another platform account will not appear here.'}</p>}
-    <div className="platform-landlord-list">{visibleWorkspaces.map(workspace => {
+    </section>}
+    {!workspacesOnly && <PlatformRentPayoutQueue workspaces={workspaces} onRecordPayout={onRecordManualPayout} />}
+    {workspacesOnly && <div className="platform-landlord-list-heading"><div><p className="eyebrow">DIRECTORY</p><h2>All landlords</h2></div><span>{workspaces.length} workspaces</span></div>}
+    {workspacesOnly && loading && <p className="overview-empty">Loading landlord workspaces…</p>}
+    {workspacesOnly && error && <p className="settings-error" role="alert">{error}</p>}
+    {workspacesOnly && !loading && !workspaces.length && <p className="overview-empty">{landlordAccountCount ? 'Landlord accounts were found, but no workspace data is available to show yet.' : 'No Landlord accounts were found under this Platform Administrator. Landlords invited by another platform account will not appear here.'}</p>}
+    {workspacesOnly && <div className="platform-landlord-list">{visibleWorkspaces.map(workspace => {
       const properties = Array.isArray(workspace.data.properties) ? workspace.data.properties : []
       const unitMap = workspace.data.units && typeof workspace.data.units === 'object' ? workspace.data.units : {}
       const derivedUnits = Object.values(unitMap).reduce((sum, units) => sum + (Array.isArray(units) ? units.length : 0), 0)
@@ -2829,20 +2985,20 @@ function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loa
         })}</div>}
         <button type="button" className="filter-button platform-view-landlord" onClick={() => { setSelectedLandlordId(workspace.landlord.id); setSelectedPropertyName(null) }}>Open landlord overview <ArrowUpRight size={16} /></button>
       </article>
-    })}</div>
-    {workspaces.length > pageSize && <Pagination page={currentLandlordPage} pageCount={landlordPageCount} onPageChange={setLandlordPage} />}
-    <div className="platform-landlord-list-heading"><div><p className="eyebrow">TEAM DIRECTORY</p><h2>Caretakers</h2></div><span>{caretakerDirectory.length} accounts</span></div>
-    {caretakerDirectory.length ? <div className="platform-landlord-list">{visibleCaretakers.map(caretaker => (
+    })}</div>}
+    {workspacesOnly && workspaces.length > pageSize && <Pagination page={currentLandlordPage} pageCount={landlordPageCount} onPageChange={setLandlordPage} />}
+    {!workspacesOnly && <div className="platform-landlord-list-heading"><div><p className="eyebrow">TEAM DIRECTORY</p><h2>Caretakers</h2></div><span>{caretakerDirectory.length} accounts</span></div>}
+    {!workspacesOnly && (caretakerDirectory.length ? <div className="platform-landlord-list">{visibleCaretakers.map(caretaker => (
       <article className="platform-landlord-row platform-caretaker-directory-row" key={caretaker.id}>
         <div className="platform-landlord-identity"><span className="user-avatar">{caretaker.name.slice(0, 2).toUpperCase()}</span><span><strong>{caretaker.name}</strong><small>{caretaker.email ?? 'Caretaker account'} · Landlord: {caretaker.landlord.name}</small></span><span className="live-badge">{caretaker.assignments.length} assignments</span></div>
         <div className="platform-landlord-caretakers">{caretaker.assignments.length ? caretaker.assignments.map((assignment, index) => <span key={`${assignment.property}-${assignment.unit}-${index}`}><Wrench size={13} /><strong>{assignment.property}</strong><small>Unit {assignment.unit}</small></span>) : <span><Wrench size={13} /><strong>Unassigned</strong><small>No property/unit assignment recorded</small></span>}</div>
       </article>
-    ))}</div> : !loading && <p className="overview-empty">No caretaker accounts are linked to these landlord workspaces yet.</p>}
-    {caretakerDirectory.length > pageSize && <Pagination page={currentCaretakerPage} pageCount={caretakerPageCount} onPageChange={setCaretakerPage} />}
+    ))}</div> : !loading && <p className="overview-empty">No caretaker accounts are linked to these landlord workspaces yet.</p>)}
+    {!workspacesOnly && caretakerDirectory.length > pageSize && <Pagination page={currentCaretakerPage} pageCount={caretakerPageCount} onPageChange={setCaretakerPage} />}
   </section>
 }
 
-function SectionView({ section, rows, completedMaintenance = {}, onAdd, onRowClick, onWaterBillUpdate, onGenerateInvoice, onRemoveTenant, onOpenMaintenance, onEditProperty, onDeleteProperty, onViewTenantProfile, onEditTenant, onEditPayment, onDeletePayment, onEditMaintenance, onDeleteMaintenance, onMarkMaintenanceDone }: { section: string; rows: string[]; completedMaintenance?: Record<string, boolean>; showConfirmedRentPayments?: boolean; onAdd: (() => void) | null; onRowClick?: (index: number) => void; onWaterBillUpdate?: (index: number) => void; onGenerateInvoice?: (index: number) => void; onRemoveTenant?: (index: number) => void; onOpenMaintenance?: (index: number) => void; onEditProperty?: (index: number) => void; onDeleteProperty?: (index: number) => void; onViewTenantProfile?: (index: number) => void; onEditTenant?: (index: number) => void; onEditPayment?: (index: number) => void; onDeletePayment?: (index: number) => void; onEditMaintenance?: (index: number) => void; onDeleteMaintenance?: (index: number) => void; onMarkMaintenanceDone?: (index: number) => void }) {
+function SectionView({ section, rows, propertyNames, completedMaintenance = {}, onAdd, onRowClick, onWaterBillUpdate, onGenerateInvoice, onRemoveTenant, onOpenMaintenance, onEditProperty, onDeleteProperty, onViewTenantProfile, onEditTenant, onEditPayment, onDeletePayment, onEditMaintenance, onDeleteMaintenance, onMarkMaintenanceDone }: { section: string; rows: string[]; propertyNames: string[]; completedMaintenance?: Record<string, boolean>; showConfirmedRentPayments?: boolean; onAdd: (() => void) | null; onRowClick?: (index: number) => void; onWaterBillUpdate?: (index: number) => void; onGenerateInvoice?: (index: number) => void; onRemoveTenant?: (index: number) => void; onOpenMaintenance?: (index: number) => void; onEditProperty?: (index: number) => void; onDeleteProperty?: (index: number) => void; onViewTenantProfile?: (index: number) => void; onEditTenant?: (index: number) => void; onEditPayment?: (index: number) => void; onDeletePayment?: (index: number) => void; onEditMaintenance?: (index: number) => void; onDeleteMaintenance?: (index: number) => void; onMarkMaintenanceDone?: (index: number) => void }) {
   const directRentPayments = useContext(ConfirmedRentPaymentsContext)
   const tenantDirectory = useContext(TenantDirectoryContext)
   const detail = sectionDetails[section]
@@ -2850,27 +3006,259 @@ function SectionView({ section, rows, completedMaintenance = {}, onAdd, onRowCli
   const pageSize = 15
   const [page, setPage] = useState(1)
   const [tenantSearch, setTenantSearch] = useState('')
+  const [paymentProperty, setPaymentProperty] = useState('')
   const tenantRows = rows.map((row, index) => ({ row, index })).filter(({ row, index }) => {
     if (section !== 'Tenants' || !tenantSearch.trim()) return true
     const tenant = tenantDirectory[index]
     return `${row} ${tenant?.email ?? ''} ${tenant?.portalCode ?? ''} ${tenant?.rentAccountRef ?? ''}`.toLowerCase().includes(tenantSearch.trim().toLowerCase())
   })
-  const filteredRows = section === 'Tenants' ? tenantRows.map(({ row }) => row) : rows
+  const paymentPropertyNames = [...new Map([
+    ...propertyNames,
+    ...directRentPayments.map(payment => payment.property_name),
+    ...rows.map(row => row.split(' · ')[3] ?? ''),
+  ].map(name => name.trim()).filter(Boolean).map(name => [name.toLocaleLowerCase(), name])).values()]
+    .sort((first, second) => first.localeCompare(second))
+  const paymentRows = rows.map((row, index) => ({ row, index })).filter(({ row }) =>
+    section !== 'Payments' || !paymentProperty || (row.split(' · ')[3] ?? '').trim().toLocaleLowerCase() === paymentProperty.toLocaleLowerCase(),
+  )
+  const filteredRows = section === 'Tenants' ? tenantRows.map(({ row }) => row) : section === 'Payments' ? paymentRows.map(({ row }) => row) : rows
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
   const currentPage = Math.min(page, pageCount)
   const start = (currentPage - 1) * pageSize
   const visibleTenantIndices = section === 'Tenants' ? tenantRows.slice(start, start + pageSize).map(({ index }) => index) : undefined
+  const visiblePaymentIndices = section === 'Payments' ? paymentRows.slice(start, start + pageSize).map(({ index }) => index) : undefined
   const pageRows = filteredRows.slice(start, start + pageSize)
   return <section className={`section-view panel ${section.toLowerCase()}-view`}>
-    <div className="section-view-heading"><div><p className="eyebrow">{detail.eyebrow}</p><h2>{detail.title}</h2><p>{detail.description}</p></div>{section === 'Tenants' && <label className="search-box tenant-directory-search"><Search size={16} /><input value={tenantSearch} onChange={event => { setTenantSearch(event.target.value); setPage(1) }} placeholder="Search name, property, email or code" aria-label="Search tenants by name, property, email or portal code" /></label>}{onAdd && <button className="primary-button" onClick={onAdd}><Plus size={17} /> Add {addLabel}</button>}</div>
+    <div className="section-view-heading"><div><p className="eyebrow">{detail.eyebrow}</p><h2>{detail.title}</h2><p>{detail.description}</p></div>{section === 'Tenants' && <label className="search-box tenant-directory-search"><Search size={16} /><input value={tenantSearch} onChange={event => { setTenantSearch(event.target.value); setPage(1) }} placeholder="Search name, property, email or code" aria-label="Search tenants by name, property, email or portal code" /></label>}{section === 'Payments' && <label className="search-box payment-property-search"><Search size={16} /><select value={paymentProperty} onChange={event => { setPaymentProperty(event.target.value); setPage(1) }} aria-label="Filter manual payments by apartment"><option value="">All apartments</option>{paymentPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{onAdd && <button className="primary-button" onClick={onAdd}><Plus size={17} /> Add {addLabel}</button>}</div>
     {section === 'Properties' && <PropertySection rows={pageRows} onRowClick={(index) => onRowClick?.(start + index)} onEdit={(index) => onEditProperty?.(start + index)} onDelete={(index) => onDeleteProperty?.(start + index)} />}
     {section === 'Tenants' && <TenantPortalCodeLookup />}
     {section === 'Tenants' && <TenantSection rows={pageRows} originalIndices={visibleTenantIndices} onWaterBillUpdate={(index) => onWaterBillUpdate?.(index)} onGenerateInvoice={(index) => onGenerateInvoice?.(index)} onRemoveTenant={(index) => onRemoveTenant?.(index)} onViewProfile={(index) => onViewTenantProfile?.(index)} onEditTenant={(index) => onEditTenant?.(index)} />}
     {section === 'Maintenance' && <MaintenanceSection rows={pageRows} completedMaintenance={completedMaintenance} onOpen={(index) => onOpenMaintenance?.(start + index)} onEdit={(index) => onEditMaintenance?.(start + index)} onDelete={(index) => onDeleteMaintenance?.(start + index)} onMarkDone={(index) => onMarkMaintenanceDone?.(start + index)} />}
-    {section === 'Payments' && <PaymentSection rows={pageRows} onEdit={(index) => onEditPayment?.(start + index)} onDelete={(index) => onDeletePayment?.(start + index)} />}
-    {section === 'Payments' && <ConfirmedRentPaymentSection payments={directRentPayments} />}
+    {section === 'Payments' && <PaymentSection rows={pageRows} selectedProperty={paymentProperty} onEdit={(index) => onEditPayment?.(visiblePaymentIndices?.[index] ?? start + index)} onDelete={(index) => onDeletePayment?.(visiblePaymentIndices?.[index] ?? start + index)} />}
+    {section === 'Payments' && <ConfirmedRentPaymentSection payments={directRentPayments} propertyNames={paymentPropertyNames} />}
     {section === 'Documents' && <DocumentSection rows={pageRows} />}
     <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
+  </section>
+}
+
+function PlatformRentPayoutQueue({ workspaces, onRecordPayout }: {
+  workspaces: PlatformLandlordWorkspace[]
+  onRecordPayout: (details: ManualRentPayoutDetails) => Promise<void>
+}) {
+  const [selectedEntry, setSelectedEntry] = useState<{ landlord: AccessUser; payment: RentPaymentRecord; reviewRequired: boolean } | null>(null)
+  const [method, setMethod] = useState<ManualRentPayoutDetails['method']>('mpesa')
+  const [paidAt, setPaidAt] = useState(localDateString())
+  const [reference, setReference] = useState('')
+  const [confirmedSent, setConfirmedSent] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const approvalFormRef = useRef<HTMLFormElement>(null)
+  const [page, setPage] = useState(1)
+  const [historyPage, setHistoryPage] = useState(1)
+  const pageSize = 10
+  const payoutEntries: PlatformRentPayoutEntry[] = workspaces.flatMap((workspace): PlatformRentPayoutEntry[] => {
+    if (workspace.data.settings?.rentCollectionMode !== 'moha_paybill') return []
+    const payoutsByReceipt = new Map(workspace.rentPayouts.map(payout => [payout.mpesa_receipt, payout]))
+    return workspace.directPayments.map((payment): PlatformRentPayoutEntry => ({
+      landlord: workspace.landlord,
+      payment,
+      payout: payoutsByReceipt.get(payment.mpesa_receipt) ?? null,
+    }))
+  })
+  const entries = payoutEntries.filter(entry => entry.payout?.status !== 'paid' && entry.payout?.status !== 'completed')
+    .map(entry => ({ ...entry, reviewRequired: entry.payout?.status === 'needs_review' || entry.payout?.status === 'processing' || entry.payout?.status === 'timeout' }))
+    .sort((a, b) => b.payment.transacted_at.localeCompare(a.payment.transacted_at))
+  const settledEntries = payoutEntries.filter((entry): entry is PlatformRentPayoutEntry & { payout: RentPayoutRecord } => entry.payout?.status === 'paid' || entry.payout?.status === 'completed')
+    .sort((a, b) => (b.payout.paid_at ?? b.payout.requested_at).localeCompare(a.payout.paid_at ?? a.payout.requested_at))
+  const pageCount = Math.max(1, Math.ceil(entries.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+  const visibleEntries = entries.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const historyPageCount = Math.max(1, Math.ceil(settledEntries.length / pageSize))
+  const currentHistoryPage = Math.min(historyPage, historyPageCount)
+  const visibleHistoryEntries = settledEntries.slice((currentHistoryPage - 1) * pageSize, currentHistoryPage * pageSize)
+
+  useEffect(() => {
+    if (!selectedEntry) return
+    approvalFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    approvalFormRef.current?.querySelector<HTMLSelectElement>('select')?.focus({ preventScroll: true })
+  }, [selectedEntry])
+
+  const openApproval = (entry: typeof entries[number]) => {
+    setSelectedEntry(entry)
+    setMethod('mpesa')
+    setPaidAt(localDateString())
+    setReference('')
+    setConfirmedSent(false)
+    setError('')
+    setMessage('')
+  }
+
+  const approvePayout = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedEntry) return
+    setError('')
+    if (method !== 'cash' && !reference.trim()) {
+      setError('Enter the M-Pesa transaction or bank transfer reference.')
+      return
+    }
+    if (!confirmedSent) {
+      setError('Confirm that you have already sent the money before approving this payout.')
+      return
+    }
+    setSaving(true)
+    try {
+      await onRecordPayout({
+        ownerId: selectedEntry.landlord.id,
+        receipt: selectedEntry.payment.mpesa_receipt,
+        method,
+        reference: reference.trim(),
+        paidAt: new Date(`${paidAt}T12:00:00+03:00`).toISOString(),
+      })
+      setMessage(`Payout approved and recorded for ${selectedEntry.landlord.name}.`)
+      setSelectedEntry(null)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Could not approve the landlord payout.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return <section id="platform-rent-payout-queue" className="panel manual-landlord-payout-panel platform-rent-payout-queue">
+    <div className="panel-heading"><div><p className="eyebrow">SHARED PAYBILL SETTLEMENT</p><h2>Landlord payout approvals</h2><small>Confirmed tenant payments awaiting landlord settlement. Pay the landlord first, then approve the payout here.</small></div><span className="live-badge">{entries.length} awaiting</span></div>
+    {message && <p className="subscription-payment-success" role="status">{message}</p>}
+    {error && !selectedEntry && <p className="settings-error" role="alert">{error}</p>}
+    {visibleEntries.length ? <div className="manual-landlord-payout-list">{visibleEntries.map(entry => <article className="manual-landlord-payout-row" key={`${entry.landlord.id}-${entry.payment.mpesa_receipt}`}>
+      <div><strong>{entry.landlord.name}</strong><small>Landlord mobile: {normalizeKenyanPhone(entry.landlord.phone) ? <a href={`tel:+${normalizeKenyanPhone(entry.landlord.phone)}`}>+{normalizeKenyanPhone(entry.landlord.phone)}</a> : 'Not on file — contact the landlord to confirm'}</small><small>{entry.payment.tenant_name} · {entry.payment.property_name} · Unit {entry.payment.unit_name}</small></div>
+      <div><strong>KSh {Number(entry.payment.amount).toLocaleString()}</strong><small>Tenant receipt: {entry.payment.mpesa_receipt} · Received {new Date(entry.payment.transacted_at).toLocaleDateString('en-KE')}</small></div>
+      <div className={`manual-landlord-payout-status ${entry.reviewRequired ? 'review' : 'pending'}`}>
+        <strong>{entry.reviewRequired ? 'Check previous transfer' : 'Awaiting landlord payout'}</strong>
+        {entry.reviewRequired && <small>Verify the earlier transfer reached the landlord before approving another payout.</small>}
+      </div>
+      <button type="button" className="subscription-approve-button" onClick={() => openApproval(entry)}>Approve payout</button>
+    </article>)}</div> : <p className="overview-empty">{workspaces.some(workspace => workspace.data.settings?.rentCollectionMode === 'moha_paybill') ? 'All confirmed tenant payments have been settled.' : 'No landlords are currently using the shared Moha Paybill.'}</p>}
+    {selectedEntry && <form ref={approvalFormRef} className="manual-landlord-payout-form" onSubmit={approvePayout}>
+      <div className="panel-heading"><div><p className="eyebrow">APPROVE COMPLETED TRANSFER</p><h3>{selectedEntry.landlord.name}</h3><small>Landlord mobile: {normalizeKenyanPhone(selectedEntry.landlord.phone) ? <a href={`tel:+${normalizeKenyanPhone(selectedEntry.landlord.phone)}`}>+{normalizeKenyanPhone(selectedEntry.landlord.phone)}</a> : 'Not on file — contact the landlord to confirm'}</small><small>{selectedEntry.payment.tenant_name} · {selectedEntry.payment.mpesa_receipt} · KSh {Number(selectedEntry.payment.amount).toLocaleString()}</small></div><button type="button" className="cancel-button" onClick={() => setSelectedEntry(null)}>Cancel</button></div>
+      <div className="manual-landlord-payout-fields">
+        <label className="settings-field"><span>Payment method</span><select value={method} onChange={event => setMethod(event.target.value as ManualRentPayoutDetails['method'])}><option value="mpesa">M-Pesa</option><option value="bank_transfer">Bank transfer</option><option value="cash">Cash / other</option></select></label>
+        <label className="settings-field"><span>Date paid</span><input type="date" required max={localDateString()} value={paidAt} onChange={event => setPaidAt(event.target.value)} /></label>
+        {method !== 'cash' && <label className="settings-field"><span>{method === 'mpesa' ? 'M-Pesa transaction code' : 'Bank transfer reference'}</span><input required value={reference} onChange={event => setReference(event.target.value)} placeholder={method === 'mpesa' ? 'e.g. QAB123XYZ' : 'Bank transaction reference'} /></label>}
+      </div>
+      <label className="manual-landlord-payout-confirm"><input type="checkbox" checked={confirmedSent} onChange={event => setConfirmedSent(event.target.checked)} /><span>I have already paid this landlord and verified the transfer.</span></label>
+      {error && <p className="settings-error" role="alert">{error}</p>}
+      <button className="save-settings" type="submit" disabled={saving || !confirmedSent}>{saving ? 'Approving payout…' : 'Approve and record payout'}</button>
+    </form>}
+    {entries.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}
+    <section className="platform-rent-payout-history" aria-labelledby="landlord-payout-history-title">
+      <div className="platform-rent-payout-history-heading">
+        <div><p className="eyebrow">SETTLEMENT RECORDS</p><h3 id="landlord-payout-history-title">Approved landlord payments</h3><p>Completed transfers recorded by the Platform Administrator.</p></div>
+        <span className="live-badge">{settledEntries.length} paid</span>
+      </div>
+      {visibleHistoryEntries.length ? <div className="platform-rent-payout-history-list">{visibleHistoryEntries.map(({ landlord, payment, payout }) => <article className="platform-rent-payout-history-row" key={`${landlord.id}-${payment.mpesa_receipt}`}>
+        <div className="platform-rent-payout-history-landlord"><span className="user-avatar">{landlord.name.slice(0, 2).toUpperCase()}</span><span><strong>{landlord.name}</strong><small>{normalizeKenyanPhone(landlord.phone) ? `+${normalizeKenyanPhone(landlord.phone)}` : 'Landlord mobile not on file'}</small></span></div>
+        <div className="platform-rent-payout-history-payment"><strong>{payment.tenant_name}</strong><small>{payment.property_name} · Unit {payment.unit_name}</small><small>Tenant receipt: {payment.mpesa_receipt}</small></div>
+        <div className="platform-rent-payout-history-amount"><strong>KSh {Number(payment.amount).toLocaleString()}</strong><small>{payout.payment_method?.replace('_', ' ') ?? 'Previously recorded'} · Paid {payout.paid_at ? new Date(payout.paid_at).toLocaleDateString('en-KE') : 'date unavailable'}</small><small>{payout.payout_reference ? `Transfer reference: ${payout.payout_reference}` : 'No transfer reference recorded'}</small></div>
+        <span className="platform-rent-payout-paid-badge"><CheckCircle2 size={14} /> Paid</span>
+      </article>)}</div> : <p className="platform-rent-payout-history-empty">No landlord payouts have been approved yet. Approved transfers will appear here.</p>}
+      {settledEntries.length > pageSize && <Pagination page={currentHistoryPage} pageCount={historyPageCount} onPageChange={setHistoryPage} />}
+    </section>
+  </section>
+}
+
+function ManualLandlordPayoutPanel({ landlordName, ownerId, payments, payouts, onRecordPayout }: {
+  landlordName: string
+  ownerId: string
+  payments: RentPaymentRecord[]
+  payouts: RentPayoutRecord[]
+  onRecordPayout: (details: ManualRentPayoutDetails) => Promise<void>
+}) {
+  const [selectedPayment, setSelectedPayment] = useState<RentPaymentRecord | null>(null)
+  const [method, setMethod] = useState<ManualRentPayoutDetails['method']>('mpesa')
+  const [paidAt, setPaidAt] = useState(localDateString())
+  const [reference, setReference] = useState('')
+  const [confirmedSent, setConfirmedSent] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+  const orderedPayments = [...payments].sort((a, b) => b.transacted_at.localeCompare(a.transacted_at))
+  const pageCount = Math.max(1, Math.ceil(orderedPayments.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+  const visiblePayments = orderedPayments.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const payoutByReceipt = new Map(payouts.map(payout => [payout.mpesa_receipt, payout]))
+
+  const openPayoutForm = (payment: RentPaymentRecord) => {
+    setSelectedPayment(payment)
+    setMethod('mpesa')
+    setPaidAt(localDateString())
+    setReference('')
+    setConfirmedSent(false)
+    setError('')
+    setMessage('')
+  }
+
+  const savePayout = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedPayment) return
+    setError('')
+    if (method !== 'cash' && !reference.trim()) {
+      setError('Enter the M-Pesa transaction or bank transfer reference.')
+      return
+    }
+    if (!confirmedSent) {
+      setError('Confirm that you have already sent the money before recording this payout.')
+      return
+    }
+    setSaving(true)
+    try {
+      await onRecordPayout({
+        ownerId,
+        receipt: selectedPayment.mpesa_receipt,
+        method,
+        reference: reference.trim(),
+        paidAt: new Date(`${paidAt}T12:00:00+03:00`).toISOString(),
+      })
+      setMessage(`Payout recorded for ${landlordName}.`)
+      setSelectedPayment(null)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Could not record the landlord payout.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return <section className="panel manual-landlord-payout-panel">
+    <div className="panel-heading"><div><p className="eyebrow">SHARED PAYBILL SETTLEMENT</p><h2>Landlord payouts</h2><small>Send the landlord payment outside the app, then record its date and reference here.</small></div><span className="live-badge">{payments.length} rent payments</span></div>
+    {message && <p className="subscription-payment-success" role="status">{message}</p>}
+    {error && !selectedPayment && <p className="settings-error" role="alert">{error}</p>}
+    {payments.length ? <div className="manual-landlord-payout-list">{visiblePayments.map(payment => {
+      const payout = payoutByReceipt.get(payment.mpesa_receipt)
+      const status = payout?.status ?? 'pending'
+      const isPaid = status === 'paid' || status === 'completed'
+      return <article className="manual-landlord-payout-row" key={payment.mpesa_receipt}>
+        <div><strong>{payment.tenant_name}</strong><small>{payment.property_name} · Unit {payment.unit_name} · Received {new Date(payment.transacted_at).toLocaleDateString('en-KE')}</small></div>
+        <div><strong>KSh {Number(payment.amount).toLocaleString()}</strong><small>Tenant receipt: {payment.mpesa_receipt}</small></div>
+        <div className={`manual-landlord-payout-status ${isPaid ? 'paid' : status === 'needs_review' ? 'review' : 'pending'}`}>
+          <strong>{isPaid ? 'Paid to landlord' : status === 'needs_review' ? 'Check previous transfer' : 'Awaiting admin payout'}</strong>
+          {isPaid && <small>{payout?.payment_method?.replace('_', ' ') ?? 'M-Pesa'} · {payout?.paid_at ? new Date(payout.paid_at).toLocaleDateString('en-KE') : ''}{payout?.payout_reference ? ` · ${payout.payout_reference}` : ''}</small>}
+          {status === 'needs_review' && <small>Verify whether a previous automatic transfer reached the landlord before recording another payout.</small>}
+        </div>
+        {!isPaid && <button type="button" className="filter-button" onClick={() => openPayoutForm(payment)}>{status === 'needs_review' ? 'Reconcile payout' : 'Approve payout'}</button>}
+      </article>
+    })}</div> : <p className="overview-empty">No confirmed rent payments have arrived for this landlord.</p>}
+    {payments.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}
+    {selectedPayment && <form className="manual-landlord-payout-form" onSubmit={savePayout}>
+      <div className="panel-heading"><div><p className="eyebrow">APPROVE COMPLETED TRANSFER</p><h3>{landlordName}</h3><small>{selectedPayment.mpesa_receipt} · KSh {Number(selectedPayment.amount).toLocaleString()}</small></div><button type="button" className="cancel-button" onClick={() => setSelectedPayment(null)}>Cancel</button></div>
+      <div className="manual-landlord-payout-fields">
+        <label className="settings-field"><span>Payment method</span><select value={method} onChange={event => setMethod(event.target.value as ManualRentPayoutDetails['method'])}><option value="mpesa">M-Pesa</option><option value="bank_transfer">Bank transfer</option><option value="cash">Cash / other</option></select></label>
+        <label className="settings-field"><span>Date paid</span><input type="date" required max={localDateString()} value={paidAt} onChange={event => setPaidAt(event.target.value)} /></label>
+        {method !== 'cash' && <label className="settings-field"><span>{method === 'mpesa' ? 'M-Pesa transaction code' : 'Bank transfer reference'}</span><input required value={reference} onChange={event => setReference(event.target.value)} placeholder={method === 'mpesa' ? 'e.g. QAB123XYZ' : 'Bank transaction reference'} /></label>}
+      </div>
+      <label className="manual-landlord-payout-confirm"><input type="checkbox" checked={confirmedSent} onChange={event => setConfirmedSent(event.target.checked)} /><span>I have already sent this payout to the landlord and verified the transfer.</span></label>
+      {error && <p className="settings-error" role="alert">{error}</p>}
+      <button className="save-settings" type="submit" disabled={saving || !confirmedSent}>{saving ? 'Approving payout…' : 'Approve and record payout'}</button>
+    </form>}
   </section>
 }
 
@@ -3019,7 +3407,7 @@ function PaymentReceiptModal({ receipt, workspaceName, onClose, onShare }: { rec
   </div>
 }
 
-function PaymentSection({ rows, onEdit, onDelete }: { rows: string[]; onEdit?: (index: number) => void; onDelete?: (index: number) => void }) {
+function PaymentSection({ rows, selectedProperty, onEdit, onDelete }: { rows: string[]; selectedProperty?: string; onEdit?: (index: number) => void; onDelete?: (index: number) => void }) {
   const tenantDirectory = useContext(TenantDirectoryContext)
   const [receipt, setReceipt] = useState<ManualPaymentReceipt | null>(null)
   const [shareStatus, setShareStatus] = useState('')
@@ -3030,7 +3418,7 @@ function PaymentSection({ rows, onEdit, onDelete }: { rows: string[]; onEdit?: (
       setShareStatus(`Could not share receipt PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
     })
   }
-  return <><div className="record-stack">{rows.map((row, index) => {
+  return <>{rows.length ? <div className="record-stack">{rows.map((row, index) => {
     const parts = row.split(' · ')
     const amount = parts[0]
     const tenant = parts[1] ?? ''
@@ -3050,38 +3438,55 @@ function PaymentSection({ rows, onEdit, onDelete }: { rows: string[]; onEdit?: (
         {onDelete && <button type="button" className="record-delete-btn" onClick={(e) => { e.stopPropagation(); onDelete(index) }} title="Delete payment"><span className="record-action-icon">🗑️</span><span className="record-action-label">Delete</span></button>}
       </div>
     </div>
-  })}</div>{shareStatus && <p className="share-message" role="status">{shareStatus}</p>}{receipt && <PaymentReceiptModal receipt={receipt} workspaceName="Moha Rental Management System" onClose={() => setReceipt(null)} onShare={() => shareManualPaymentReceipt(receipt, 'Moha Rental Management System')} />}</>
+  })}</div> : <p className="overview-empty">{selectedProperty ? `No payment records for ${selectedProperty}.` : 'No manual payment records yet.'}</p>}{shareStatus && <p className="share-message" role="status">{shareStatus}</p>}{receipt && <PaymentReceiptModal receipt={receipt} workspaceName="Moha Rental Management System" onClose={() => setReceipt(null)} onShare={() => shareManualPaymentReceipt(receipt, 'Moha Rental Management System')} />}</>
 }
 
-function ConfirmedRentPaymentSection({ payments }: { payments: RentPaymentRecord[] }) {
+function ConfirmedRentPaymentSection({ payments, propertyNames }: { payments: RentPaymentRecord[]; propertyNames: string[] }) {
   const pageSize = 10
   const [page, setPage] = useState(1)
+  const [paymentProperty, setPaymentProperty] = useState('')
   const [receipt, setReceipt] = useState<ManualPaymentReceipt | null>(null)
   const [shareStatus, setShareStatus] = useState('')
   const tenantDirectory = useContext(TenantDirectoryContext)
+  const payouts = useContext(RentPayoutsContext)
+  const usesMohaPaybill = useContext(LandlordPaybillContext).collectionMode === 'moha_paybill'
   const { refresh, refreshing, error } = useContext(ConfirmedRentPaymentRefreshContext)
-  const pageCount = Math.max(1, Math.ceil(payments.length / pageSize))
+  const availablePropertyNames = [...new Map([
+    ...propertyNames,
+    ...payments.map(payment => payment.property_name),
+  ].map(name => name.trim()).filter(Boolean).map(name => [name.toLocaleLowerCase(), name])).values()]
+    .sort((first, second) => first.localeCompare(second))
+  const filteredPayments = payments.filter(payment => !paymentProperty || payment.property_name.trim().toLocaleLowerCase() === paymentProperty.toLocaleLowerCase())
+  const pageCount = Math.max(1, Math.ceil(filteredPayments.length / pageSize))
   const currentPage = Math.min(page, pageCount)
-  const visiblePayments = payments.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const visiblePayments = filteredPayments.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   return <section className="confirmed-rent-payments">
     <div className="archive-heading">
       <div><p className="eyebrow">M-Pesa Paybill</p><h3>Confirmed rent payments</h3></div>
       <div className="confirmed-rent-payment-actions">
-        <span>{payments.length} received</span>
+        <span>{filteredPayments.length} {paymentProperty ? 'matching' : 'received'}</span>
         <button type="button" className="filter-button" onClick={() => void refresh()} disabled={refreshing}>
           <RefreshCw size={15} className={refreshing ? 'platform-refresh-spinning' : undefined} />
           {refreshing ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
     </div>
+    <label className="search-box payment-property-search confirmed-payment-search"><Search size={16} /><select value={paymentProperty} onChange={event => { setPaymentProperty(event.target.value); setPage(1) }} aria-label="Filter confirmed rent payments by apartment"><option value="">All apartments</option>{availablePropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
     {error && <p className="settings-error" role="alert">{error}</p>}
-    {payments.length ? <div className="record-stack">{visiblePayments.map(payment => {
+    {payments.length ? filteredPayments.length ? <div className="record-stack">{visiblePayments.map(payment => {
       const receiptDetails = buildConfirmedPaymentReceipt(payment, tenantDirectory)
+      const payout = payouts.find(record => record.mpesa_receipt === payment.mpesa_receipt)
       return <article className="payment-record payment-record-confirmed" key={payment.mpesa_receipt}>
       <span className="payment-icon"><CircleDollarSign size={18} /></span>
       <div><strong>KSh {Number(payment.amount).toLocaleString()}</strong><small>{payment.tenant_name} · {payment.property_name} · Unit {payment.unit_name} · Ref {payment.account_reference}</small></div>
       <span className="payment-date payment-date-badge"><CalendarDays size={14} /><span><small>Date received</small><strong>{new Date(payment.transacted_at).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })}</strong></span></span>
       <div className="rent-payment-receipt"><small>Transaction reference</small><strong>{payment.mpesa_receipt}</strong></div>
+      {usesMohaPaybill && <div className={`rent-payout-status${payout ? ` rent-payout-${payout.status}` : ' rent-payout-unavailable'}`}>
+        <small>Landlord settlement</small>
+        <strong>{payout?.status === 'paid' || payout?.status === 'completed' ? 'Paid by administrator' : payout?.status === 'needs_review' || payout?.status === 'timeout' || payout?.status === 'processing' ? 'Administrator review required' : 'Awaiting administrator payout'}</strong>
+        {payout?.payout_reference && <small>Reference: {payout.payout_reference}</small>}
+        {payout?.paid_at && <small>Paid {new Date(payout.paid_at).toLocaleDateString('en-KE')}</small>}
+      </div>}
       <div className="record-actions receipt-payment-actions">
         <button type="button" className="receipt-record-action" onClick={() => setReceipt(receiptDetails)} title="View or print receipt"><ReceiptText size={14} /><span>Receipt</span></button>
         <button type="button" className="whatsapp-record-action" onClick={() => {
@@ -3090,9 +3495,9 @@ function ConfirmedRentPaymentSection({ payments }: { payments: RentPaymentRecord
           })
         }} title="Share receipt PDF on WhatsApp"><MessageCircle size={14} /><span>WhatsApp</span></button>
       </div>
-    </article>})}</div> : <p className="overview-empty">No confirmed Paybill rent payments yet.</p>}
+    </article>})}</div> : <p className="overview-empty">No confirmed rent payments for {paymentProperty}.</p> : <p className="overview-empty">No confirmed Paybill rent payments yet.</p>}
     {shareStatus && <p className="share-message" role="status">{shareStatus}</p>}
-    {payments.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}
+    {filteredPayments.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}
     {receipt && <PaymentReceiptModal receipt={receipt} workspaceName="Moha Rental Management System" onClose={() => setReceipt(null)} onShare={() => shareManualPaymentReceipt(receipt, 'Moha Rental Management System')} />}
   </section>
 }
@@ -3872,15 +4277,17 @@ const userTypeConfig: Record<AccessUser['userType'], { icon: string; color: stri
 }
 
 function SettingsView({
-  sessionUser, users, workspaceName, propertyGroup, landlordPaybill, landlordPaymentMethod, landlordTillNumber, landlordBankName, landlordBankAccountName, landlordBankAccountNumber,
+  sessionUser, users, sectionShortcut, workspaceName, propertyGroup, rentCollectionMode, landlordPaybill, landlordPaymentMethod, landlordTillNumber, landlordBankName, landlordBankAccountName, landlordBankAccountNumber,
   notifEmail, notifWeekly, rentReminderEnabled, rentReminderDays, rentReminderChannel,
   onSaveWorkspace, onSaveSubscriptionPaymentDetails, onToggleNotifEmail, onToggleNotifWeekly, onToggleRentReminder, onChangeRentReminderDays, onChangeRentReminderChannel, onRegisterRentPaybillCallbacks,
   onCreateUser, onUpdateUser, onDeleteUser, onDisconnect, onReconnect, onReviewSubscriptionPayment, onLoadSubscriptionPaymentHistory, onApproveLandlordSignup, onRejectLandlordSignup, onResetPassword
 }: {
   sessionUser: AccessUser
   users: AccessUser[]
+  sectionShortcut: SettingsSection | null
   workspaceName: string
   propertyGroup: string
+  rentCollectionMode: RentCollectionMode
   landlordPaybill: string
   landlordPaymentMethod: LandlordPaymentMethod
   landlordTillNumber: string
@@ -3918,6 +4325,7 @@ function SettingsView({
   // Workspace
   const [wsName, setWsName] = useState(workspaceName)
   const [wsPropGroup, setWsPropGroup] = useState(propertyGroup)
+  const [wsRentCollectionMode, setWsRentCollectionMode] = useState<RentCollectionMode>(rentCollectionMode)
   const [wsLandlordPaybill, setWsLandlordPaybill] = useState(landlordPaybill)
   const [wsPaymentMethod, setWsPaymentMethod] = useState<LandlordPaymentMethod>(landlordPaymentMethod)
   const [wsLandlordTillNumber, setWsLandlordTillNumber] = useState(landlordTillNumber)
@@ -3925,17 +4333,21 @@ function SettingsView({
   const [wsLandlordBankAccountName, setWsLandlordBankAccountName] = useState(landlordBankAccountName)
   const [wsLandlordBankAccountNumber, setWsLandlordBankAccountNumber] = useState(landlordBankAccountNumber)
   const [wsSaved, setWsSaved] = useState(false)
+  const [rentCollectionError, setRentCollectionError] = useState('')
+  const [paybillSetupMessage, setPaybillSetupMessage] = useState('')
+  const [registeringPaybill, setRegisteringPaybill] = useState(false)
 
   useEffect(() => {
     setWsName(workspaceName)
     setWsPropGroup(propertyGroup)
+    setWsRentCollectionMode(rentCollectionMode)
     setWsLandlordPaybill(landlordPaybill)
     setWsPaymentMethod(landlordPaymentMethod)
     setWsLandlordTillNumber(landlordTillNumber)
     setWsLandlordBankName(landlordBankName)
     setWsLandlordBankAccountName(landlordBankAccountName)
     setWsLandlordBankAccountNumber(landlordBankAccountNumber)
-  }, [workspaceName, propertyGroup, landlordPaybill, landlordPaymentMethod, landlordTillNumber, landlordBankName, landlordBankAccountName, landlordBankAccountNumber])
+  }, [workspaceName, propertyGroup, rentCollectionMode, landlordPaybill, landlordPaymentMethod, landlordTillNumber, landlordBankName, landlordBankAccountName, landlordBankAccountNumber])
 
   // New user — step 1: pick type, step 2: fill details
   const [createStep, setCreateStep] = useState<1 | 2>(1)
@@ -3951,14 +4363,13 @@ function SettingsView({
   const [editForm, setEditForm] = useState<{ name: string; username: string; email: string; phone: string; userType: AccessUser['userType']; role: AccessUser['role'] }>({ name: '', username: '', email: '', phone: '', userType: 'Landlord', role: 'Administrator' })
   const [resetTarget, setResetTarget] = useState<AccessUser | null>(null)
   const [resetMessage, setResetMessage] = useState('')
-  const [paybillSetupMessage, setPaybillSetupMessage] = useState('')
-  const [registeringPaybill, setRegisteringPaybill] = useState(false)
   const [paymentActionId, setPaymentActionId] = useState<string | null>(null)
   const [paymentActionError, setPaymentActionError] = useState('')
   const [paymentActionMessage, setPaymentActionMessage] = useState('')
   const [filterType, setFilterType] = useState<AccessUser['userType'] | 'All'>('All')
-  const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>(isPlatformAdmin ? 'subscription-payments' : sessionUser.userType === 'Landlord' && sessionUser.role === 'Administrator' ? 'rent-collection' : 'workspace')
+  const [activeSettingsSection, setActiveSettingsSection] = useState<SettingsSection>(sectionShortcut ?? (isPlatformAdmin ? 'subscription-payments' : sessionUser.userType === 'Landlord' && sessionUser.role === 'Administrator' ? 'rent-collection' : 'workspace'))
   const [teamPage, setTeamPage] = useState(1)
+  const [landlordApprovalPage, setLandlordApprovalPage] = useState(1)
   const [subscriptionPage, setSubscriptionPage] = useState(1)
   const [subscriptionHistoryFilter, setSubscriptionHistoryFilter] = useState<SubscriptionPaymentHistoryFilter | null>(null)
   const [subscriptionHistoryPage, setSubscriptionHistoryPage] = useState(1)
@@ -3991,6 +4402,11 @@ function SettingsView({
 
   const saveWorkspace = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setRentCollectionError('')
+    if (wsRentCollectionMode === 'moha_paybill' && !rentPaybill.trim()) {
+      setRentCollectionError('Moha Paybill is not configured yet. Please contact the platform administrator.')
+      return
+    }
     onSaveWorkspace(isPlatformAdmin ? wsName : workspaceName, wsPropGroup, {
       method: wsPaymentMethod,
       paybillNumber: wsLandlordPaybill,
@@ -3998,6 +4414,7 @@ function SettingsView({
       bankName: wsLandlordBankName,
       bankAccountName: wsLandlordBankAccountName,
       bankAccountNumber: wsLandlordBankAccountNumber,
+      collectionMode: wsRentCollectionMode,
     })
     setWsSaved(true)
     setTimeout(() => setWsSaved(false), 2500)
@@ -4156,6 +4573,11 @@ function SettingsView({
   const teamPageCount = Math.max(1, Math.ceil(filteredUsers.length / teamPageSize))
   const currentTeamPage = Math.min(teamPage, teamPageCount)
   const visibleUsers = filteredUsers.slice((currentTeamPage - 1) * teamPageSize, currentTeamPage * teamPageSize)
+  const pendingLandlordApprovals = users.filter(user => user.userType === 'Landlord' && user.signupStatus === 'pending')
+  const landlordApprovalPageSize = 10
+  const landlordApprovalPageCount = Math.max(1, Math.ceil(pendingLandlordApprovals.length / landlordApprovalPageSize))
+  const currentLandlordApprovalPage = Math.min(landlordApprovalPage, landlordApprovalPageCount)
+  const visibleLandlordApprovals = pendingLandlordApprovals.slice((currentLandlordApprovalPage - 1) * landlordApprovalPageSize, currentLandlordApprovalPage * landlordApprovalPageSize)
   const pendingSubscriptionUsers = users.filter(user => user.subscriptionRequest?.status === 'pending')
   const subscriptionPageSize = 10
   const subscriptionPageCount = Math.max(1, Math.ceil(pendingSubscriptionUsers.length / subscriptionPageSize))
@@ -4178,11 +4600,11 @@ function SettingsView({
   }
 
   return (
-    <section className="utility-view settings-page panel">
-      <div className="utility-heading">
+    <section className={`utility-view settings-page panel${sectionShortcut ? ' settings-standalone-page' : ''}`}>
+      {!sectionShortcut && <div className="utility-heading">
         <div><p className="eyebrow">Workspace</p><h2>Settings</h2><p>Manage your workspace, preferences, team, and account.</p></div>
-      </div>
-      <nav className="settings-jump-nav" aria-label="Settings sections">
+      </div>}
+      {!sectionShortcut && <nav className="settings-jump-nav" aria-label="Settings sections">
         {([
           { id: 'workspace', label: 'Workspace' },
           ...(sessionUser.userType === 'Landlord' && sessionUser.role === 'Administrator' ? [{ id: 'rent-collection', label: 'Rent collection' }] : []),
@@ -4205,7 +4627,7 @@ function SettingsView({
             onClick={() => setActiveSettingsSection(item.id)}
           >{item.label}</button>
         ))}
-      </nav>
+      </nav>}
 
       {/* Workspace Profile */}
       {activeSettingsSection === 'workspace' && <div className="settings-group" id="settings-workspace">
@@ -4220,28 +4642,42 @@ function SettingsView({
 
       {activeSettingsSection === 'rent-collection' && sessionUser.userType === 'Landlord' && sessionUser.role === 'Administrator' && <div className="settings-group" id="settings-rent-collection">
         <h3>Rent collection</h3>
-        <p className="settings-description">Choose how tenants should pay rent. These details are included in tenant payment instructions and rent invoices.</p>
+        <p className="settings-description">Choose whether to collect through the Moha Paybill or use your own payment details. When you use Moha Paybill, the Platform Administrator verifies rent receipts and pays landlords manually.</p>
         <form onSubmit={saveWorkspace}>
-          <label className="settings-field"><span>Preferred rent collection method</span>
-            <select value={wsPaymentMethod} onChange={e => setWsPaymentMethod(e.target.value as LandlordPaymentMethod)}>
-              <option value="paybill">Paybill</option>
-              <option value="till">Till number</option>
-              <option value="bank_transfer">Bank transfer</option>
+          <label className="settings-field"><span>Rent collection option</span>
+            <select value={wsRentCollectionMode} onChange={e => { setWsRentCollectionMode(e.target.value as RentCollectionMode); setRentCollectionError('') }}>
+              <option value="own">Use my own Paybill, till, or bank account</option>
+              <option value="moha_paybill" disabled={!rentPaybill.trim()}>Use Moha Paybill (manual landlord payouts)</option>
             </select>
-            <small>Platform subscription payments are configured separately by the Platform Administrator.</small>
+            <small>Platform subscription payments are configured separately.</small>
           </label>
-          {wsPaymentMethod === 'paybill' && <label className="settings-field"><span>Rent Paybill number</span><input inputMode="numeric" value={wsLandlordPaybill} onChange={e => setWsLandlordPaybill(e.target.value)} placeholder="e.g. 600247" /></label>}
-          {wsPaymentMethod === 'till' && <label className="settings-field"><span>Till number</span><input inputMode="numeric" value={wsLandlordTillNumber} onChange={e => setWsLandlordTillNumber(e.target.value)} placeholder="e.g. 1234567" /></label>}
-          {wsPaymentMethod === 'bank_transfer' && <>
-            <label className="settings-field"><span>Bank name</span><input value={wsLandlordBankName} onChange={e => setWsLandlordBankName(e.target.value)} placeholder="e.g. Cooperative Bank" /></label>
-            <label className="settings-field"><span>Account name</span><input value={wsLandlordBankAccountName} onChange={e => setWsLandlordBankAccountName(e.target.value)} placeholder="e.g. Jane Doe" /></label>
-            <label className="settings-field"><span>Account number</span><input value={wsLandlordBankAccountNumber} onChange={e => setWsLandlordBankAccountNumber(e.target.value)} placeholder="e.g. 0123456789" /></label>
+          {wsRentCollectionMode === 'moha_paybill' ? <>
+            <div className="rent-paybill-setup">
+              <div><strong>Moha rent Paybill</strong><small>{rentPaybill || 'Not configured by the platform administrator.'}</small></div>
+            </div>
+            <p className="settings-description">Your tenants pay the Moha Paybill using their unique account reference. The Platform Administrator reviews each confirmed payment and records the manual landlord payout in the portfolio dashboard.</p>
+          </> : <>
+            <label className="settings-field"><span>Preferred payment method</span>
+              <select value={wsPaymentMethod} onChange={e => setWsPaymentMethod(e.target.value as LandlordPaymentMethod)}>
+                <option value="paybill">My Paybill</option>
+                <option value="till">My till number</option>
+                <option value="bank_transfer">My bank account</option>
+              </select>
+            </label>
+            {wsPaymentMethod === 'paybill' && <label className="settings-field"><span>Your rent Paybill number</span><input inputMode="numeric" value={wsLandlordPaybill} onChange={e => setWsLandlordPaybill(e.target.value)} placeholder="e.g. 600247" /></label>}
+            {wsPaymentMethod === 'till' && <label className="settings-field"><span>Till number</span><input inputMode="numeric" value={wsLandlordTillNumber} onChange={e => setWsLandlordTillNumber(e.target.value)} placeholder="e.g. 1234567" /></label>}
+            {wsPaymentMethod === 'bank_transfer' && <>
+              <label className="settings-field"><span>Bank name</span><input value={wsLandlordBankName} onChange={e => setWsLandlordBankName(e.target.value)} placeholder="e.g. Cooperative Bank" /></label>
+              <label className="settings-field"><span>Account name</span><input value={wsLandlordBankAccountName} onChange={e => setWsLandlordBankAccountName(e.target.value)} placeholder="e.g. Jane Doe" /></label>
+              <label className="settings-field"><span>Account number</span><input value={wsLandlordBankAccountNumber} onChange={e => setWsLandlordBankAccountNumber(e.target.value)} placeholder="e.g. 0123456789" /></label>
+            </>}
           </>}
+          {rentCollectionError && <p className="settings-error" role="alert">{rentCollectionError}</p>}
           <button className="save-settings" type="submit">{wsSaved ? '✓ Saved!' : 'Save rent collection'}</button>
         </form>
-        <div className="rent-paybill-setup">
-          <div><strong>Direct Paybill rent collection</strong><small>{landlordPaymentMethod === 'paybill' && landlordPaybill ? `Configured Paybill: ${landlordPaybill}` : 'Select Paybill and save a rent Paybill number to register direct rent collection.'}</small></div>
-          <button className="filter-button" type="button" disabled={landlordPaymentMethod !== 'paybill' || !landlordPaybill || registeringPaybill} onClick={async () => {
+        {wsRentCollectionMode === 'moha_paybill' && <div className="rent-paybill-setup">
+          <div><strong>Safaricom callback setup</strong><small>Platform Paybill callbacks are registered once for all participating landlords.</small></div>
+          <button className="filter-button" type="button" disabled={registeringPaybill || !rentPaybill.trim()} onClick={async () => {
             setRegisteringPaybill(true)
             setPaybillSetupMessage('Registering with Safaricom...')
             try {
@@ -4252,9 +4688,9 @@ function SettingsView({
             } finally {
               setRegisteringPaybill(false)
             }
-          }}>{registeringPaybill ? 'Registering...' : 'Register Safaricom callbacks'}</button>
+          }}>{registeringPaybill ? 'Registering...' : 'Register callbacks'}</button>
           {paybillSetupMessage && <small className="rent-paybill-setup-message" role="status">{paybillSetupMessage}</small>}
-        </div>
+        </div>}
       </div>}
 
       {/* Notifications */}
@@ -4386,20 +4822,21 @@ function SettingsView({
           {isPlatformAdmin && activeSettingsSection === 'landlord-approvals' && <section className="subscription-review landlord-signup-review" id="settings-landlord-approvals">
             <div className="subscription-review-heading">
               <div><h3>Landlord registrations awaiting approval</h3><p>Approve access before a new landlord can open their workspace.</p></div>
-              <span className="subscription-review-count">{users.filter(user => user.userType === 'Landlord' && user.signupStatus === 'pending').length} pending</span>
+              <span className="subscription-review-count">{pendingLandlordApprovals.length} pending</span>
             </div>
             {createError && <p className="settings-error" role="alert">{createError}</p>}
             <div className="subscription-payment-list">
-              {users.filter(user => user.userType === 'Landlord' && user.signupStatus === 'pending').map(user => <article className="subscription-payment-row" key={user.id}>
+              {visibleLandlordApprovals.map(user => <article className="subscription-payment-row" key={user.id}>
                 <div className="subscription-payment-person"><span className="user-avatar">{user.name.slice(0, 2).toUpperCase()}</span><div><strong>{user.name}</strong><small>{user.email || user.username} · {user.phone || 'No phone provided'}</small></div></div>
-                <div className="subscription-payment-details"><span>Selected plan</span><strong>{user.requestedPlan === 'test' ? 'Test · Free for one month' : user.requestedPlan === 'silver_monthly' ? 'Silver Monthly · KSh 500' : user.requestedPlan === 'silver_yearly' ? 'Silver Yearly · KSh 4,500' : 'Plan not selected'}</strong></div>
+                <div className="subscription-payment-details"><span>Selected plan</span><strong>{user.requestedPlan === 'test' ? 'Test · Free for one month' : user.requestedPlan === 'silver_monthly' ? 'Silver Monthly · KSh 1,350' : user.requestedPlan === 'silver_yearly' ? 'Silver Yearly · KSh 13,500' : 'Plan not selected'}</strong></div>
                 <div className="subscription-payment-actions">
                   <button type="button" className="subscription-reject-button" disabled={signupActionId === user.id} onClick={() => void rejectPublicLandlord(user)}>Reject</button>
                   <button type="button" className="subscription-approve-button" disabled={signupActionId === user.id} onClick={() => void approvePublicLandlord(user)}>{signupActionId === user.id ? 'Saving...' : 'Approve access'}</button>
                 </div>
               </article>)}
-              {users.every(user => user.userType !== 'Landlord' || user.signupStatus !== 'pending') && <p className="subscription-review-empty">No landlord registrations are waiting for approval.</p>}
+              {pendingLandlordApprovals.length === 0 && <p className="subscription-review-empty">No landlord registrations are waiting for approval.</p>}
             </div>
+            {pendingLandlordApprovals.length > landlordApprovalPageSize && <Pagination page={currentLandlordApprovalPage} pageCount={landlordApprovalPageCount} onPageChange={setLandlordApprovalPage} />}
           </section>}
 
           {/* User list with filter */}
@@ -5449,10 +5886,10 @@ function PublicLandlordSignupPage({ workspaceName, onBack }: { workspaceName: st
               <strong>Test</strong><b>Free · 1 month</b><small>Full system access, rent and tenant tools, invoices, reports, and maintenance.</small>
             </button>
             <button type="button" className={`signup-plan-option ${form.plan === 'silver_monthly' ? 'selected' : ''}`} aria-pressed={form.plan === 'silver_monthly'} onClick={() => setForm(current => ({ ...current, plan: 'silver_monthly' }))}>
-              <strong>Silver Monthly</strong><b>KSh 500 / month</b><small>Properties, tenants, rent, water, payments, tenant portal, reminders, reports, and team access.</small>
+              <strong>Silver Monthly</strong><b>KSh 1,350 / month</b><small>Properties, tenants, rent, water, payments, tenant portal, reminders, reports, and team access.</small>
             </button>
             <button type="button" className={`signup-plan-option ${form.plan === 'silver_yearly' ? 'selected' : ''}`} aria-pressed={form.plan === 'silver_yearly'} onClick={() => setForm(current => ({ ...current, plan: 'silver_yearly' }))}>
-              <strong>Silver Yearly</strong><b>KSh 4,500 / year</b><small>All Silver features, priority support, advanced reports, and backup features.</small>
+              <strong>Silver Yearly</strong><b>KSh 13,500 / year</b><small>All Silver features, priority support, advanced reports, and backup features.</small>
             </button>
           </div>
         </fieldset>
@@ -5473,7 +5910,7 @@ function LandlordApprovalStatusPage({ workspaceName, registration, onRefresh, on
       <p className="login-copy">{registration.status === 'pending'
         ? `Hello ${registration.name}, your account is waiting for Platform Administrator approval. You will get access after it is approved.`
         : 'Your registration was not approved. Contact the platform administrator if you think this is a mistake.'}</p>
-      <div className="signup-approval-summary"><span>Email</span><strong>{registration.email}</strong><span>Selected plan</span><strong>{registration.plan === 'test' ? 'Test · Free for one month' : registration.plan === 'silver_monthly' ? 'Silver Monthly · KSh 500' : registration.plan === 'silver_yearly' ? 'Silver Yearly · KSh 4,500' : 'Not selected'}</strong></div>
+      <div className="signup-approval-summary"><span>Email</span><strong>{registration.email}</strong><span>Selected plan</span><strong>{registration.plan === 'test' ? 'Test · Free for one month' : registration.plan === 'silver_monthly' ? 'Silver Monthly · KSh 1,350' : registration.plan === 'silver_yearly' ? 'Silver Yearly · KSh 13,500' : 'Not selected'}</strong></div>
       <div className="modal-actions"><button type="button" className="cancel-button" onClick={onBack}>Sign out</button>{registration.status === 'pending' && <button type="button" className="primary-button" onClick={onRefresh}>Check approval status</button>}</div>
     </section>
   </main>
@@ -5696,7 +6133,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         <article className="portal-home-plan-card">
           <p className="portal-home-plan-label">FLEXIBLE BILLING</p>
           <h3>Silver Monthly</h3>
-          <div className="portal-home-plan-price">KSh 500 <span>/ month</span></div>
+          <div className="portal-home-plan-price">KSh 1,350 <span>/ month</span></div>
           <p className="portal-home-plan-description">Full property management, billed monthly.</p>
           <ul>
             <li>Unlimited properties, units, and tenants</li>
@@ -5708,9 +6145,9 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         </article>
         <article className="portal-home-plan-card featured">
           <span className="portal-home-plan-badge">BEST VALUE</span>
-          <p className="portal-home-plan-label">SAVE KSh 1,500 VS MONTHLY</p>
+          <p className="portal-home-plan-label">SAVE KSh 2,700 VS MONTHLY</p>
           <h3>Silver Yearly</h3>
-          <div className="portal-home-plan-price">KSh 4,500 <span>/ year</span></div>
+          <div className="portal-home-plan-price">KSh 13,500 <span>/ year</span></div>
           <p className="portal-home-plan-description">Everything in Silver Monthly, with annual extras.</p>
           <ul>
             <li>All Silver Monthly features</li>
@@ -5932,7 +6369,7 @@ function HelpCenterView() {
       icon: '💰',
       color: 'hc-green',
       topics: [
-        { question: 'How do tenants pay rent by Paybill?', answer: 'Give the tenant the configured rent Paybill and the unique Paybill account reference shown on their invoice or tenant profile. After Safaricom confirms the payment, it appears automatically in Payments under Confirmed rent payments with the M-Pesa receipt number. Do not use the tenant National ID as the account reference.' },
+        { question: 'How do tenants pay rent by Paybill?', answer: 'For automatic confirmation, choose Use Moha Paybill in Settings → Rent collection, then give tenants the Paybill and unique account reference shown on their invoice or tenant profile. Confirmed payments appear in Payments with the M-Pesa receipt. The Platform Administrator sends landlord payouts manually and records the payment status and reference in the landlord portfolio. The account reference is generated by the app; never use a tenant National ID. Payments to a landlord’s separate Paybill must be recorded manually unless that Paybill has its own integration.' },
         { question: 'How do I record a manual payment?', answer: 'Go to Payments and click Add payment. Select the property and unit — the tenant name and scheduled rent amount fill in automatically. Add the payment date, method, and receipt reference. Safaricom-confirmed Paybill rent appears separately in Confirmed rent payments.' },
         { question: 'How do I generate an invoice?', answer: 'Go to Tenants, find the tenant, and click the Invoice button on their row. The invoice shows rent plus water bill. You can print it, email it, or share it via WhatsApp.' },
         { question: 'How do I track expenses?', answer: 'Go to Operations → Expense & profit report. Select a category (Repairs, Utilities, etc.), choose a property or portfolio-wide, enter the amount, date, and an optional note.' },

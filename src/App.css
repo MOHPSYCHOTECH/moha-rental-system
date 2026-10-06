@@ -1348,6 +1348,7 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
 .kenyan-phone-input { display: flex; align-items: stretch; width: 100%; overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
 .kenyan-phone-input > span { display: grid; place-items: center; padding: 0 13px; color: var(--text-1); background: var(--surface-3); border-right: 1px solid var(--border); font-size: 13px; font-weight: 700; }
 .form-field .kenyan-phone-input input { min-width: 0; flex: 1; width: auto; background: transparent; border: 0; border-radius: 0; }
+.settings-field .kenyan-phone-input input { min-width: 0; flex: 1; width: auto; background: transparent; border: 0; border-radius: 0; }
 .kenyan-phone-input:focus-within { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,.12); }
 .form-field > span { display: block; margin-bottom: 7px; font-size: 12.5px; font-weight: 600; color: var(--text-1); }
 .form-field input, .form-field select {
@@ -2996,6 +2997,85 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
   border-radius: 8px;
   font-size: 12.5px;
   font-weight: 600;
+}
+
+.rent-payout-status { display: flex; flex-direction: column; gap: 3px; align-self: center; min-width: 130px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); }
+.rent-payout-status small { color: var(--text-2); font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+.rent-payout-status strong { color: var(--text-1); font-size: 11px; }
+.rent-payout-completed { border-color: #86efac; background: #f0fdf4; }
+.rent-payout-completed strong { color: #15803d; }
+.rent-payout-paid { border-color: #86efac; background: #f0fdf4; }
+.rent-payout-paid strong { color: #15803d; }
+.rent-payout-failed, .rent-payout-timeout { border-color: #fecaca; background: #fef2f2; }
+.rent-payout-failed strong, .rent-payout-timeout strong { color: #b91c1c; }
+.rent-payout-needs_review { border-color: #fde68a; background: #fffbeb; }
+.rent-payout-needs_review strong { color: #a16207; }
+.dark .rent-payout-status { background: var(--surface-2); border-color: var(--border); }
+.dark .rent-payout-completed { background: rgba(16,185,129,.1); border-color: rgba(52,211,153,.35); }
+.dark .rent-payout-completed strong { color: #6ee7b7; }
+.dark .rent-payout-paid { background: rgba(16,185,129,.1); border-color: rgba(52,211,153,.35); }
+.dark .rent-payout-paid strong { color: #6ee7b7; }
+.dark .rent-payout-failed, .dark .rent-payout-timeout { background: rgba(239,68,68,.1); border-color: rgba(248,113,113,.35); }
+.dark .rent-payout-failed strong, .dark .rent-payout-timeout strong { color: #fca5a5; }
+.dark .rent-payout-needs_review { background: rgba(245,158,11,.1); border-color: rgba(251,191,36,.3); }
+.dark .rent-payout-needs_review strong { color: #fcd34d; }
+
+.manual-landlord-payout-panel { margin-top: 22px; }
+.platform-rent-payout-queue { margin-top: 4px; }
+.platform-rent-payout-queue .manual-landlord-payout-row > .subscription-approve-button { white-space: nowrap; }
+.platform-rent-payout-history { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--border); }
+.platform-rent-payout-history-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
+.platform-rent-payout-history-heading .eyebrow { margin: 0 0 4px; }
+.platform-rent-payout-history-heading h3 { margin: 0; color: var(--text-1); font-size: 16px; }
+.platform-rent-payout-history-heading p:not(.eyebrow) { margin: 4px 0 0; color: var(--text-2); font-size: 11px; }
+.platform-rent-payout-history-list { display: grid; gap: 8px; }
+.platform-rent-payout-history-row { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(170px, 1.1fr) minmax(190px, 1.2fr) auto; align-items: center; gap: 14px; padding: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
+.platform-rent-payout-history-landlord { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.platform-rent-payout-history-landlord > span:last-child,
+.platform-rent-payout-history-payment,
+.platform-rent-payout-history-amount { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.platform-rent-payout-history-row strong { color: var(--text-1); font-size: 11px; overflow-wrap: anywhere; }
+.platform-rent-payout-history-row small { color: var(--text-2); font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+.platform-rent-payout-history-amount > strong { font-size: 13px; }
+.platform-rent-payout-paid-badge { display: inline-flex; align-items: center; justify-self: end; gap: 5px; padding: 5px 8px; border: 1px solid #bbebd2; border-radius: 999px; background: #effaf4; color: #17634f; font-size: 10px; font-weight: 700; }
+.platform-rent-payout-history-empty { margin: 0; padding: 18px 12px; border: 1px dashed var(--border); border-radius: 9px; color: var(--text-2); font-size: 12px; text-align: center; }
+.manual-landlord-payout-panel > .panel-heading small { display: block; margin-top: 5px; color: var(--text-2); font-size: 11px; }
+.manual-landlord-payout-list { display: grid; gap: 8px; }
+.manual-landlord-payout-row { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.1fr) auto; align-items: center; gap: 12px; padding: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
+.manual-landlord-payout-row > div { min-width: 0; }
+.manual-landlord-payout-row > div > strong, .manual-landlord-payout-row > div > small { display: block; overflow-wrap: anywhere; }
+.manual-landlord-payout-row > div > strong { color: var(--text-1); font-size: 12px; }
+.manual-landlord-payout-row > div > small { margin-top: 4px; color: var(--text-2); font-size: 10px; line-height: 1.45; }
+.manual-landlord-payout-status.paid > strong { color: #15803d; }
+.manual-landlord-payout-status.review > strong { color: #a16207; }
+.manual-landlord-payout-status.pending > strong { color: var(--text-2); }
+.manual-landlord-payout-form { margin-top: 16px; padding: 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; }
+.manual-landlord-payout-form .panel-heading { margin-bottom: 12px; }
+.manual-landlord-payout-form .panel-heading h3 { margin: 0; color: var(--text-1); font-size: 15px; }
+.manual-landlord-payout-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.manual-landlord-payout-fields .settings-field { min-width: 0; }
+.manual-landlord-payout-confirm { display: flex; align-items: flex-start; gap: 9px; margin: 12px 0; color: var(--text-1); font-size: 12px; line-height: 1.5; }
+.manual-landlord-payout-confirm input { flex: 0 0 auto; margin-top: 2px; accent-color: #0f766e; }
+.manual-landlord-payout-form .save-settings:disabled { opacity: .55; cursor: not-allowed; }
+.dark .manual-landlord-payout-row, .dark .manual-landlord-payout-form, .dark .platform-rent-payout-history-row { background: var(--surface-2); border-color: var(--border); }
+.dark .platform-rent-payout-paid-badge { border-color: rgba(52, 211, 153, .35); background: rgba(16, 185, 129, .1); color: #6ee7b7; }
+.dark .manual-landlord-payout-status.paid > strong { color: #6ee7b7; }
+.dark .manual-landlord-payout-status.review > strong { color: #fcd34d; }
+
+@media (max-width: 760px) {
+  .manual-landlord-payout-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .manual-landlord-payout-row > .filter-button { justify-self: start; }
+  .manual-landlord-payout-fields { grid-template-columns: 1fr; }
+  .platform-rent-payout-history-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+  .platform-rent-payout-history-payment, .platform-rent-payout-history-amount { grid-column: 1 / -1; }
+  .platform-rent-payout-paid-badge { grid-column: 2; grid-row: 1; }
+}
+
+@media (max-width: 480px) {
+  .platform-rent-payout-history-heading { align-items: flex-start; }
+  .platform-rent-payout-history-row { grid-template-columns: minmax(0, 1fr); }
+  .platform-rent-payout-history-payment, .platform-rent-payout-history-amount, .platform-rent-payout-paid-badge { grid-column: 1; grid-row: auto; }
+  .platform-rent-payout-paid-badge { justify-self: start; }
 }
 
 /* Welcome row — user detail subhead */
@@ -5931,6 +6011,227 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
     min-width: 0;
     flex-wrap: wrap;
   }
+
+  /* Platform administrator workspace */
+  .platform-admin-shell {
+    --admin-accent: #14745d;
+    --admin-accent-dark: #105b49;
+    --admin-accent-soft: #e8f4ef;
+    --admin-ink: #162b27;
+    background: #f3f6f8;
+  }
+  .platform-admin-shell .main-content { background: #f3f6f8; }
+  .platform-admin-shell .sidebar {
+    width: 274px;
+    background: linear-gradient(180deg, #102b27 0%, #11231f 58%, #0d1c19 100%);
+    border-right: 1px solid rgba(255,255,255,.06);
+  }
+  .platform-admin-shell .brand { padding: 23px 20px 19px; }
+  .platform-admin-shell .brand-mark {
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.08);
+    box-shadow: 0 5px 15px rgba(0,0,0,.16);
+  }
+  .platform-admin-shell .workspace-switcher {
+    margin: 13px 12px 6px;
+    padding: 11px 10px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 11px;
+    background: rgba(255,255,255,.045);
+  }
+  .platform-admin-shell .workspace-dot { width: 30px; height: 30px; }
+  .platform-admin-shell nav[aria-label="Main navigation"] { padding: 11px 12px 14px; }
+  .platform-admin-shell .nav-label { color: #7d9a91; padding: 10px 11px 7px; font-size: 9px; letter-spacing: 1.35px; }
+  .platform-admin-shell .nav-label-spaced { margin-top: 13px; }
+  .platform-admin-shell .nav-item {
+    min-height: 41px;
+    gap: 11px;
+    margin-bottom: 3px;
+    padding: 9px 11px;
+    border-left: 0;
+    border-radius: 9px;
+    color: #bdcec8;
+    font-size: 12.5px;
+  }
+  .platform-admin-shell .nav-item svg { color: #8ca99f; }
+  .platform-admin-shell .nav-item:hover { background: rgba(255,255,255,.075); color: #fff; }
+  .platform-admin-shell .nav-item:hover svg { color: #c2dfd3; }
+  .platform-admin-shell .nav-item.active {
+    background: linear-gradient(100deg, rgba(36,140,108,.28), rgba(36,140,108,.12));
+    color: #e4fff3;
+    box-shadow: inset 3px 0 #65c49e;
+  }
+  .platform-admin-shell .nav-item.active svg { color: #82d6b2; }
+  .platform-admin-shell .sidebar-footer { border-top-color: rgba(255,255,255,.09); }
+  .platform-admin-shell .sidebar-footer .avatar,
+  .platform-admin-shell .top-avatar { background: linear-gradient(135deg, #1d8a6b, #145b49); }
+  .platform-admin-shell .topbar {
+    height: 68px;
+    padding-inline: clamp(20px, 3vw, 38px);
+    background: rgba(255,255,255,.92);
+    border-bottom-color: #e4ebe8;
+  }
+  .dark.platform-admin-shell .topbar { background: rgba(17,35,31,.94); border-bottom-color: #263e37; }
+  .platform-admin-shell .breadcrumb strong { font-weight: 700; }
+  .platform-admin-shell .content-wrap {
+    width: 100%;
+    max-width: 1680px;
+    align-self: center;
+    padding: clamp(20px, 3vw, 38px) clamp(18px, 3.1vw, 44px) 56px;
+    background: #f3f6f8;
+  }
+  .dark.platform-admin-shell .content-wrap { background: #0c1715; }
+  .platform-admin-shell .welcome-row {
+    position: relative;
+    align-items: center;
+    min-height: 112px;
+    margin-bottom: 23px;
+    padding: 20px 25px;
+    overflow: hidden;
+    border: 1px solid #e0e9e5;
+    border-radius: 15px;
+    background: linear-gradient(112deg, #fff 0%, #f8fbf9 66%, #edf7f2 100%);
+    box-shadow: 0 5px 18px rgba(28,65,53,.045);
+  }
+  .platform-admin-shell .welcome-row::after {
+    position: absolute;
+    top: -56px;
+    right: 9%;
+    width: 180px;
+    height: 180px;
+    border: 1px solid rgba(20,116,93,.09);
+    border-radius: 50%;
+    box-shadow: 0 0 0 23px rgba(20,116,93,.025), 0 0 0 47px rgba(20,116,93,.02);
+    content: '';
+    pointer-events: none;
+  }
+  .dark.platform-admin-shell .welcome-row {
+    border-color: #263e37;
+    background: linear-gradient(112deg, #142520, #172923 68%, #19392f);
+  }
+  .platform-admin-shell .welcome-row > div { position: relative; z-index: 1; }
+  .platform-admin-shell .welcome-row .eyebrow { color: var(--admin-accent); letter-spacing: 1.45px; }
+  .dark.platform-admin-shell .welcome-row .eyebrow { color: #84d4b1; }
+  .platform-admin-shell .welcome-row h1 { margin: 4px 0 4px; font-size: clamp(24px, 2.4vw, 31px); letter-spacing: -.65px; }
+  .platform-admin-shell .welcome-row .subhead { font-size: 12.5px; }
+  .platform-admin-shell .platform-portfolio-dashboard { gap: 17px; }
+  .platform-admin-shell .platform-portfolio-intro {
+    align-items: center;
+    padding: 2px 2px 5px;
+  }
+  .platform-admin-shell .platform-portfolio-intro h2,
+  .platform-admin-shell .platform-portfolio-landlord-heading h2 { color: var(--admin-ink); letter-spacing: -.45px; }
+  .dark.platform-admin-shell .platform-portfolio-intro h2,
+  .dark.platform-admin-shell .platform-portfolio-landlord-heading h2 { color: var(--text-1); }
+  .platform-admin-shell .platform-portfolio-intro .eyebrow { color: var(--admin-accent); }
+  .dark.platform-admin-shell .platform-portfolio-intro .eyebrow { color: #84d4b1; }
+  .platform-admin-shell .platform-portfolio-actions .filter-button {
+    min-height: 38px;
+    padding: 8px 13px;
+    border-color: #dce7e2;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 650;
+  }
+  .platform-admin-shell .platform-portfolio-actions .live-badge { background: var(--admin-accent-soft); color: var(--admin-accent-dark); }
+  .platform-admin-shell .platform-portfolio-metrics {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 13px;
+    margin-bottom: 0;
+  }
+  .platform-admin-shell .platform-portfolio-metrics .metric-card {
+    min-height: 142px;
+    padding: 17px 18px;
+    border-color: #e4ebe8;
+    border-radius: 13px;
+    box-shadow: 0 3px 12px rgba(26,56,47,.04);
+  }
+  .platform-admin-shell .platform-portfolio-metrics .metric-card:hover { transform: translateY(-2px); box-shadow: 0 9px 20px rgba(26,56,47,.075); }
+  .platform-admin-shell .platform-portfolio-metrics .metric-card.featured {
+    background: linear-gradient(145deg, #176c56, #208468);
+  }
+  .platform-admin-shell .platform-portfolio-metrics .metric-top { margin-bottom: 12px; }
+  .platform-admin-shell .platform-portfolio-metrics .metric-icon { width: 38px; height: 38px; border-radius: 10px; }
+  .platform-admin-shell .platform-portfolio-metrics .metric-card strong { font-size: clamp(22px, 2.2vw, 28px); letter-spacing: -.5px; }
+  .platform-admin-shell .platform-portfolio-metrics .metric-card p { font-size: 11px; }
+  .platform-admin-shell .platform-portfolio-metrics .metric-card small { font-size: 10px; }
+  .platform-admin-shell .panel,
+  .platform-admin-shell .settings-page {
+    border-color: #e3ebe7;
+    border-radius: 13px;
+    box-shadow: 0 4px 16px rgba(26,56,47,.045);
+  }
+  .dark.platform-admin-shell .panel,
+  .dark.platform-admin-shell .settings-page { border-color: #263e37; }
+  .platform-admin-shell .panel-heading h2 { letter-spacing: -.2px; }
+  .platform-admin-shell .platform-landlord-row {
+    border-color: #e3ebe7;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(26,56,47,.035);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+  .platform-admin-shell .platform-landlord-row:hover {
+    transform: translateY(-1px);
+    border-color: #c8ded4;
+    box-shadow: 0 8px 18px rgba(26,56,47,.07);
+  }
+  .platform-admin-shell .platform-landlord-stats { border-color: #e8eeeb; }
+  .platform-admin-shell .platform-view-landlord {
+    min-height: 36px;
+    margin-top: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: var(--admin-accent-dark);
+    font-size: 11px;
+  }
+  .platform-admin-shell .platform-view-landlord:hover { border-color: #b8d9ca; background: #eff8f3; }
+  .platform-admin-shell .platform-rent-payout-queue { border-top: 3px solid #238368; }
+  .platform-admin-shell .platform-rent-payout-history { margin-top: 18px; }
+  .platform-admin-shell .settings-standalone-page { margin: 0; padding: clamp(20px, 3vw, 32px); }
+  .platform-admin-shell .settings-standalone-page .subscription-review { margin-top: 0; padding-top: 0; border-top: 0; }
+  .platform-admin-shell .settings-standalone-page .subscription-review-heading { margin-bottom: 18px; }
+  .platform-admin-shell .settings-standalone-page .subscription-review-heading h3 { font-size: 19px; letter-spacing: -.3px; }
+  .platform-admin-shell .settings-standalone-page .subscription-payment-row {
+    margin: 0 0 9px;
+    padding: 15px;
+    border: 1px solid #e5ece8;
+    border-radius: 10px;
+    background: #fff;
+  }
+  .dark.platform-admin-shell .settings-standalone-page .subscription-payment-row { border-color: #263e37; background: #142520; }
+  .platform-admin-shell .settings-standalone-page .subscription-payment-list { gap: 0; }
+  .platform-admin-shell .settings-standalone-page .pagination { margin-top: 14px; }
+  .platform-admin-shell .settings-standalone-page .subscription-payment-row:hover { border-color: #c8ded4; box-shadow: 0 4px 12px rgba(26,56,47,.05); }
+  .platform-admin-shell :is(.nav-item, .filter-button, .subscription-approve-button, .subscription-reject-button):focus-visible {
+    outline: 2px solid #5bbb91;
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 1100px) {
+    .platform-admin-shell .platform-portfolio-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 760px) {
+    .platform-admin-shell .sidebar { width: 280px; }
+    .platform-admin-shell .content-wrap { padding: 16px 14px 36px; }
+    .platform-admin-shell .welcome-row { min-height: 0; margin-bottom: 17px; padding: 17px; border-radius: 12px; }
+    .platform-admin-shell .welcome-row::after { right: -80px; }
+    .platform-admin-shell .welcome-row h1 { font-size: 24px; }
+    .platform-admin-shell .welcome-row .subhead { max-width: 42ch; font-size: 11.5px; }
+    .platform-admin-shell .platform-portfolio-intro { align-items: flex-start; flex-direction: column; gap: 12px; }
+    .platform-admin-shell .platform-portfolio-actions { width: 100%; }
+    .platform-admin-shell .platform-portfolio-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    .platform-admin-shell .platform-portfolio-metrics .metric-card { min-height: 125px; padding: 13px; }
+    .platform-admin-shell .platform-portfolio-metrics .metric-card strong { font-size: 22px; }
+    .platform-admin-shell .settings-standalone-page { padding: 17px 14px; }
+    .platform-admin-shell .settings-standalone-page .subscription-payment-row { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .platform-admin-shell *,
+    .platform-admin-shell *::before,
+    .platform-admin-shell *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
   .operations-actions > .compact-form {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7343,4 +7644,1030 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
   .portal-home-portals .portal-home-card { min-height: 90px; padding: 14px; }
   .portal-home-portals .portal-home-card-copy strong { font-size: 15px; }
   .portal-home-portals .portal-home-card-copy small { font-size: 13px; }
+}
+
+/* Platform administrator payment queues */
+.platform-admin-shell #settings-subscription-payments {
+  padding: 22px;
+  border: 1px solid #e2ebe6;
+  border-radius: 13px;
+  background: linear-gradient(180deg, #fff, #fbfdfc);
+}
+.dark.platform-admin-shell #settings-subscription-payments {
+  border-color: #294039;
+  background: linear-gradient(180deg, #142520, #11201c);
+}
+.platform-admin-shell #settings-subscription-payments .subscription-review-heading {
+  align-items: center;
+  margin-bottom: 17px;
+}
+.platform-admin-shell #settings-subscription-payments .subscription-review-heading h3 {
+  font-size: 20px;
+  letter-spacing: -.45px;
+}
+.platform-admin-shell #settings-subscription-payments .subscription-review-heading p { font-size: 12px; }
+.platform-admin-shell #settings-subscription-payments .subscription-review-count {
+  padding: 6px 10px;
+  border: 1px solid #d8e9df;
+  border-radius: 999px;
+  background: #edf7f1;
+  color: #17634f;
+  font-size: 10px;
+  letter-spacing: .2px;
+}
+.dark.platform-admin-shell #settings-subscription-payments .subscription-review-count {
+  border-color: #345448;
+  background: rgba(39,126,95,.19);
+  color: #a5e2c6;
+}
+.platform-admin-shell #settings-subscription-payments .subscription-review-note {
+  margin-bottom: 15px;
+  padding: 11px 13px;
+  border: 1px solid #e9e2cc;
+  border-left: 3px solid #c49b50;
+  border-radius: 0 8px 8px 0;
+  background: #fcfaf4;
+  font-size: 11px;
+}
+.dark.platform-admin-shell #settings-subscription-payments .subscription-review-note {
+  border-color: #463e2c;
+  background: rgba(195,151,67,.08);
+}
+.platform-admin-shell #settings-subscription-payments .subscription-history-controls {
+  gap: 8px;
+  margin-bottom: 15px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e8eeeb;
+}
+.dark.platform-admin-shell #settings-subscription-payments .subscription-history-controls { border-bottom-color: #294039; }
+.platform-admin-shell #settings-subscription-payments .subscription-history-controls button {
+  min-height: 35px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  transition: background .16s, color .16s, border-color .16s, box-shadow .16s;
+}
+.platform-admin-shell #settings-subscription-payments .subscription-history-controls button:hover:not(.active) {
+  border-color: #bfd8cb;
+  background: #f4faf6;
+  color: #155843;
+}
+.dark.platform-admin-shell #settings-subscription-payments .subscription-history-controls button:hover:not(.active) { background: #1a332b; }
+.platform-admin-shell #settings-subscription-payments .subscription-history-controls button.active {
+  border-color: #176c56;
+  background: linear-gradient(135deg, #176c56, #208468);
+  box-shadow: 0 3px 8px rgba(23,108,86,.18);
+}
+.platform-admin-shell #settings-subscription-payments .subscription-history-refresh { margin-left: auto; }
+.platform-admin-shell #settings-subscription-payments .subscription-payment-list { gap: 9px; }
+.platform-admin-shell #settings-subscription-payments .subscription-payment-row {
+  grid-template-columns: minmax(190px, 1.15fr) minmax(190px, .95fr) auto;
+  gap: 15px;
+  padding: 15px;
+  border: 1px solid #e5ece8;
+  border-left: 3px solid #6bb596;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(27,59,47,.025);
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.platform-admin-shell #settings-subscription-payments .subscription-payment-row:hover {
+  transform: translateY(-1px);
+  border-color: #c5ddcf;
+  box-shadow: 0 6px 14px rgba(27,59,47,.06);
+}
+.dark.platform-admin-shell #settings-subscription-payments .subscription-payment-row {
+  border-color: #294039;
+  border-left-color: #60b990;
+  background: #152721;
+}
+.platform-admin-shell #settings-subscription-payments .subscription-payment-person .user-avatar { background: #e3f1e9; color: #17634f; }
+.dark.platform-admin-shell #settings-subscription-payments .subscription-payment-person .user-avatar { background: #244438; color: #a5e2c6; }
+.platform-admin-shell #settings-subscription-payments .subscription-payment-person strong { font-size: 13px; }
+.platform-admin-shell #settings-subscription-payments .subscription-payment-person small,
+.platform-admin-shell #settings-subscription-payments .subscription-payment-details small { font-size: 10.5px; }
+.platform-admin-shell #settings-subscription-payments .subscription-payment-details > span {
+  width: fit-content;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #edf5f0;
+  color: #376852;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .35px;
+  text-transform: uppercase;
+}
+.dark.platform-admin-shell #settings-subscription-payments .subscription-payment-details > span { background: #203a30; color: #a5d6bd; }
+.platform-admin-shell #settings-subscription-payments .subscription-payment-details strong { margin-top: 4px; font-size: 16px; letter-spacing: -.2px; }
+.platform-admin-shell #settings-subscription-payments .subscription-payment-details small b {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid #e1e9e4;
+  border-radius: 5px;
+  background: #f7faf8;
+  color: #264d3c;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: .35px;
+}
+.dark.platform-admin-shell #settings-subscription-payments .subscription-payment-details small b {
+  border-color: #365145;
+  background: #10201b;
+  color: #b5dfc9;
+}
+.platform-admin-shell #settings-subscription-payments .subscription-payment-actions { gap: 8px; }
+.platform-admin-shell #settings-subscription-payments .subscription-payment-actions button { min-height: 36px; padding: 8px 11px; border-radius: 8px; }
+.platform-admin-shell #settings-subscription-payments .subscription-history-row {
+  grid-template-columns: minmax(190px, 1fr) minmax(190px, .9fr) auto;
+  border-left-color: #b6c9c0;
+}
+.platform-admin-shell #settings-subscription-payments .subscription-history-row .subscription-payment-details strong { font-size: 16px; }
+.platform-admin-shell #settings-subscription-payments .subscription-history-status {
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  font-size: 10px;
+  letter-spacing: .25px;
+}
+.platform-admin-shell #settings-subscription-payments .subscription-history-status.approved { border-color: #c8e7d6; background: #eff9f3; color: #17634f; }
+.platform-admin-shell #settings-subscription-payments .subscription-history-status.rejected { border-color: #f0d2c9; background: #fff5f1; color: #9c432f; }
+.dark.platform-admin-shell #settings-subscription-payments .subscription-history-status.approved { border-color: #315945; background: rgba(39,126,95,.19); color: #a5e2c6; }
+.dark.platform-admin-shell #settings-subscription-payments .subscription-history-status.rejected { border-color: #633f36; background: rgba(186,94,69,.16); color: #efac98; }
+.platform-admin-shell #platform-rent-payout-queue { padding: 22px; }
+.platform-admin-shell #platform-rent-payout-queue > .panel-heading { align-items: center; margin-bottom: 17px; }
+.platform-admin-shell #platform-rent-payout-queue > .panel-heading h2 { font-size: 20px; letter-spacing: -.4px; }
+.platform-admin-shell #platform-rent-payout-queue > .panel-heading small { max-width: 58ch; font-size: 11.5px; line-height: 1.5; }
+.platform-admin-shell #platform-rent-payout-queue > .panel-heading .live-badge,
+.platform-admin-shell .platform-rent-payout-history-heading .live-badge {
+  padding: 6px 10px;
+  border: 1px solid #d8e9df;
+  background: #edf7f1;
+  color: #17634f;
+}
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-list { gap: 10px; }
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-row {
+  grid-template-columns: minmax(190px, 1.05fr) minmax(190px, 1.05fr) minmax(150px, .8fr) auto;
+  gap: 15px;
+  padding: 15px;
+  border-color: #e3ebe7;
+  border-radius: 11px;
+  background: linear-gradient(105deg, #fff, #fbfdfc);
+  box-shadow: 0 2px 8px rgba(27,59,47,.03);
+}
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-row > div:first-child > strong { font-size: 13px; }
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-row > div:nth-child(2) > strong { font-size: 16px; letter-spacing: -.25px; }
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-row > div > small { font-size: 10.5px; }
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-status {
+  padding: 8px 10px;
+  border: 1px solid #e4e9e6;
+  border-radius: 8px;
+  background: #f7faf8;
+}
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-status.pending { border-color: #e6e9df; background: #fafaf5; }
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-status.review { border-color: #ead7a6; background: #fffbef; }
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-status > strong { font-size: 10px; }
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-status > small { font-size: 9.5px; }
+.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-row > .subscription-approve-button { min-height: 38px; padding: 8px 12px; border-radius: 8px; font-size: 10.5px; }
+.dark.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-row {
+  border-color: #294039;
+  background: linear-gradient(105deg, #152721, #13231f);
+}
+.dark.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-status { border-color: #294039; background: #10201b; }
+.dark.platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-status.review { border-color: #594c2e; background: rgba(245,158,11,.08); }
+.platform-admin-shell .platform-rent-payout-history {
+  margin-top: 20px;
+  padding-top: 21px;
+  border-top-color: #e6ede9;
+}
+.dark.platform-admin-shell .platform-rent-payout-history { border-top-color: #294039; }
+.platform-admin-shell .platform-rent-payout-history-heading { margin-bottom: 14px; }
+.platform-admin-shell .platform-rent-payout-history-heading h3 { font-size: 17px; letter-spacing: -.3px; }
+.platform-admin-shell .platform-rent-payout-history-list { gap: 9px; }
+.platform-admin-shell .platform-rent-payout-history-row {
+  grid-template-columns: minmax(165px, .9fr) minmax(190px, 1fr) minmax(220px, 1.1fr) auto;
+  gap: 15px;
+  padding: 14px 15px;
+  border-color: #e4ece7;
+  border-radius: 10px;
+  background: #fbfdfc;
+  box-shadow: 0 2px 7px rgba(27,59,47,.025);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.platform-admin-shell .platform-rent-payout-history-row:hover { border-color: #c7ddd1; box-shadow: 0 5px 13px rgba(27,59,47,.055); }
+.platform-admin-shell .platform-rent-payout-history-landlord .user-avatar { width: 35px; height: 35px; flex: 0 0 35px; background: #e3f1e9; color: #17634f; }
+.platform-admin-shell .platform-rent-payout-history-row strong { font-size: 11.5px; }
+.platform-admin-shell .platform-rent-payout-history-row small { font-size: 10px; }
+.platform-admin-shell .platform-rent-payout-history-amount > strong { color: #17634f; font-size: 15px; }
+.dark.platform-admin-shell .platform-rent-payout-history-row { border-color: #294039; background: #152721; }
+.dark.platform-admin-shell .platform-rent-payout-history-landlord .user-avatar { background: #244438; color: #a5e2c6; }
+.dark.platform-admin-shell .platform-rent-payout-history-amount > strong { color: #a5e2c6; }
+
+@media (max-width: 900px) {
+  .platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-status { grid-column: 1; }
+  .platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-row > .subscription-approve-button { grid-column: 2; justify-self: end; }
+  .platform-admin-shell .platform-rent-payout-history-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) auto;
+  }
+  .platform-admin-shell .platform-rent-payout-history-amount { grid-column: 1 / 3; }
+  .platform-admin-shell .platform-rent-payout-paid-badge { grid-column: 3; grid-row: 1; }
+}
+
+@media (max-width: 760px) {
+  .platform-admin-shell #settings-subscription-payments { padding: 17px 14px; }
+  .platform-admin-shell #settings-subscription-payments .subscription-review-heading { align-items: flex-start; }
+  .platform-admin-shell #settings-subscription-payments .subscription-payment-row,
+  .platform-admin-shell #settings-subscription-payments .subscription-history-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 11px;
+    padding: 13px;
+  }
+  .platform-admin-shell #settings-subscription-payments .subscription-payment-actions { justify-content: stretch; }
+  .platform-admin-shell #settings-subscription-payments .subscription-payment-actions button { flex: 1; }
+  .platform-admin-shell #settings-subscription-payments .subscription-history-status { justify-self: start; }
+  .platform-admin-shell #platform-rent-payout-queue { padding: 17px 14px; }
+  .platform-admin-shell #platform-rent-payout-queue > .panel-heading { align-items: flex-start; }
+  .platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-row { grid-template-columns: minmax(0, 1fr); gap: 11px; }
+  .platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-status,
+  .platform-admin-shell #platform-rent-payout-queue .manual-landlord-payout-row > .subscription-approve-button { grid-column: 1; justify-self: stretch; }
+  .platform-admin-shell .platform-rent-payout-history-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 13px;
+  }
+  .platform-admin-shell .platform-rent-payout-history-payment,
+  .platform-admin-shell .platform-rent-payout-history-amount { grid-column: 1 / -1; }
+  .platform-admin-shell .platform-rent-payout-paid-badge { grid-column: 2; grid-row: 1; }
+}
+
+/* Admin section titles and their supporting information */
+.platform-admin-shell .platform-portfolio-intro {
+  position: relative;
+  padding: 2px 2px 14px;
+  border-bottom: 1px solid #dfe9e4;
+}
+.platform-admin-shell .platform-portfolio-intro::after,
+.platform-admin-shell .platform-landlord-list-heading::after,
+.platform-admin-shell .platform-portfolio-landlord-heading::after {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 48px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #176c56, #64bd94);
+  content: '';
+}
+.dark.platform-admin-shell .platform-portfolio-intro { border-bottom-color: #294039; }
+.platform-admin-shell .platform-portfolio-intro h2 {
+  font-size: clamp(22px, 2vw, 25px);
+  line-height: 1.2;
+}
+.platform-admin-shell .platform-portfolio-intro p:not(.eyebrow) {
+  max-width: 64ch;
+  margin-top: 7px;
+  color: #61766d;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.dark.platform-admin-shell .platform-portfolio-intro p:not(.eyebrow) { color: #a9bdb4; }
+.platform-admin-shell .platform-landlord-list-heading {
+  position: relative;
+  align-items: flex-end;
+  margin: 3px 0 -3px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid #e1eae5;
+}
+.dark.platform-admin-shell .platform-landlord-list-heading { border-bottom-color: #294039; }
+.platform-admin-shell .platform-landlord-list-heading h2 {
+  font-size: 18px;
+  line-height: 1.25;
+}
+.platform-admin-shell .platform-landlord-list-heading .eyebrow {
+  margin-bottom: 5px;
+  color: #55816e;
+  font-size: 9px;
+  letter-spacing: 1.4px;
+}
+.dark.platform-admin-shell .platform-landlord-list-heading .eyebrow { color: #85b99e; }
+.platform-admin-shell .platform-landlord-list-heading > span {
+  padding: 5px 9px;
+  border: 1px solid #dfeae4;
+  border-radius: 999px;
+  background: #f5faf7;
+  color: #587468;
+  font-size: 10px;
+  font-weight: 650;
+}
+.dark.platform-admin-shell .platform-landlord-list-heading > span { border-color: #294039; background: #152721; color: #a9c7b7; }
+.platform-admin-shell .platform-portfolio-dashboard .panel-heading {
+  position: relative;
+  margin-bottom: 16px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid #e7eeea;
+}
+.dark.platform-admin-shell .platform-portfolio-dashboard .panel-heading { border-bottom-color: #294039; }
+.platform-admin-shell .platform-portfolio-dashboard .panel-heading h2 {
+  margin-top: 4px;
+  font-size: 17px;
+  line-height: 1.3;
+  letter-spacing: -.25px;
+}
+.platform-admin-shell .platform-portfolio-dashboard .panel-heading .eyebrow {
+  margin-bottom: 5px;
+  color: #55816e;
+  font-size: 9px;
+  letter-spacing: 1.35px;
+}
+.dark.platform-admin-shell .platform-portfolio-dashboard .panel-heading .eyebrow { color: #85b99e; }
+.platform-admin-shell .platform-portfolio-dashboard .panel-heading p:not(.eyebrow),
+.platform-admin-shell .platform-portfolio-dashboard .panel-heading small {
+  display: block;
+  max-width: 65ch;
+  margin-top: 6px;
+  color: #71847c;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.dark.platform-admin-shell .platform-portfolio-dashboard .panel-heading p:not(.eyebrow),
+.dark.platform-admin-shell .platform-portfolio-dashboard .panel-heading small { color: #a9bdb4; }
+.platform-admin-shell .platform-portfolio-landlord-heading {
+  position: relative;
+  padding-bottom: 13px;
+}
+.platform-admin-shell .platform-portfolio-landlord-heading h2 { font-size: 24px; line-height: 1.2; }
+.platform-admin-shell .platform-portfolio-landlord-heading p:not(.eyebrow) {
+  margin-top: 6px;
+  color: #71847c;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.dark.platform-admin-shell .platform-portfolio-landlord-heading p:not(.eyebrow) { color: #a9bdb4; }
+.platform-admin-shell #settings-subscription-payments .subscription-review-heading {
+  position: relative;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2ebe6;
+}
+.platform-admin-shell #settings-subscription-payments .subscription-review-heading::after,
+.platform-admin-shell .platform-rent-payout-history-heading::after {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 44px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #176c56, #64bd94);
+  content: '';
+}
+.dark.platform-admin-shell #settings-subscription-payments .subscription-review-heading { border-bottom-color: #294039; }
+.platform-admin-shell #settings-subscription-payments .subscription-review-heading h3 { line-height: 1.25; }
+.platform-admin-shell #settings-subscription-payments .subscription-review-heading p { margin-top: 6px; color: #71847c; line-height: 1.55; }
+.dark.platform-admin-shell #settings-subscription-payments .subscription-review-heading p { color: #a9bdb4; }
+.platform-admin-shell .platform-rent-payout-history-heading {
+  position: relative;
+  padding-bottom: 13px;
+  border-bottom: 1px solid #e2ebe6;
+}
+.dark.platform-admin-shell .platform-rent-payout-history-heading { border-bottom-color: #294039; }
+.platform-admin-shell .platform-rent-payout-history-heading p:not(.eyebrow) {
+  max-width: 60ch;
+  color: #71847c;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.dark.platform-admin-shell .platform-rent-payout-history-heading p:not(.eyebrow) { color: #a9bdb4; }
+
+@media (max-width: 760px) {
+  .platform-admin-shell .platform-portfolio-intro { padding-bottom: 12px; }
+  .platform-admin-shell .platform-landlord-list-heading { align-items: center; gap: 10px; }
+  .platform-admin-shell .platform-landlord-list-heading h2 { font-size: 16px; }
+  .platform-admin-shell .platform-portfolio-dashboard .panel-heading { gap: 12px; padding-bottom: 11px; }
+  .platform-admin-shell .platform-portfolio-dashboard .panel-heading h2 { font-size: 16px; }
+  .platform-admin-shell .platform-portfolio-dashboard .panel-heading p:not(.eyebrow),
+  .platform-admin-shell .platform-portfolio-dashboard .panel-heading small { font-size: 10.5px; }
+  .platform-admin-shell .platform-portfolio-landlord-heading h2 { font-size: 21px; }
+  .platform-admin-shell #settings-subscription-payments .subscription-review-heading { padding-bottom: 12px; }
+  .platform-admin-shell .platform-rent-payout-history-heading { padding-bottom: 11px; }
+}
+
+.platform-admin-shell .settings-standalone-page .user-list-header {
+  position: relative;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 0 0 15px;
+  border-bottom: 1px solid #dfe9e4;
+}
+.platform-admin-shell .settings-standalone-page .user-list-header::after {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 46px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #176c56, #64bd94);
+  content: '';
+}
+.dark.platform-admin-shell .settings-standalone-page .user-list-header { border-bottom-color: #294039; }
+.platform-admin-shell .settings-standalone-page .user-list-header > strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid #dce9e1;
+  border-radius: 999px;
+  background: #f2f8f4;
+  color: #365b4b;
+  font-size: 11px;
+  font-weight: 750;
+}
+.dark.platform-admin-shell .settings-standalone-page .user-list-header > strong {
+  border-color: #294039;
+  background: #152721;
+  color: #b5d9c6;
+}
+.platform-admin-shell .settings-standalone-page .user-type-filter {
+  gap: 7px;
+  padding: 4px;
+  border: 1px solid #e1eae5;
+  border-radius: 11px;
+  background: #f7faf8;
+}
+.dark.platform-admin-shell .settings-standalone-page .user-type-filter { border-color: #294039; background: #101d19; }
+.platform-admin-shell .settings-standalone-page .user-type-filter .utf-btn {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #687a72;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.platform-admin-shell .settings-standalone-page .user-type-filter .utf-btn:hover {
+  border-color: #d8e8df;
+  background: #fff;
+  color: #245b46;
+}
+.platform-admin-shell .settings-standalone-page .user-type-filter .utf-btn.active {
+  border-color: #176c56;
+  background: #176c56;
+  color: #fff;
+  box-shadow: 0 2px 5px rgba(23, 108, 86, .17);
+}
+.dark.platform-admin-shell .settings-standalone-page .user-type-filter .utf-btn { color: #a8bdb3; }
+.dark.platform-admin-shell .settings-standalone-page .user-type-filter .utf-btn:hover { border-color: #35594a; background: #1b3028; color: #d0e8dc; }
+.dark.platform-admin-shell .settings-standalone-page .user-type-filter .utf-btn.active { border-color: #277d62; background: #277d62; color: #fff; }
+.platform-admin-shell .settings-standalone-page .user-list { gap: 9px; }
+.platform-admin-shell .settings-standalone-page .user-row {
+  min-height: 78px;
+  padding: 14px 16px;
+  border-color: #e1eae5;
+  border-radius: 12px;
+  background: linear-gradient(115deg, #fff 0%, #fbfdfb 100%);
+  box-shadow: 0 2px 7px rgba(26, 56, 47, .025);
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.platform-admin-shell .settings-standalone-page .user-row:hover {
+  transform: translateY(-1px);
+  border-color: #c4dccf;
+  box-shadow: 0 7px 16px rgba(26, 56, 47, .07);
+}
+.dark.platform-admin-shell .settings-standalone-page .user-row {
+  border-color: #294039;
+  background: linear-gradient(115deg, #152721 0%, #13231e 100%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+}
+.dark.platform-admin-shell .settings-standalone-page .user-row:hover { border-color: #3a6653; box-shadow: 0 7px 16px rgba(0, 0, 0, .18); }
+.platform-admin-shell .settings-standalone-page .user-row > .user-avatar {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border: 2px solid #e4f1e9;
+  background: linear-gradient(140deg, #e6f3eb, #d3e9dc);
+  color: #17634f;
+  font-size: 12px;
+  font-weight: 800;
+}
+.dark.platform-admin-shell .settings-standalone-page .user-row > .user-avatar {
+  border-color: #315844;
+  background: linear-gradient(140deg, #244438, #1d382d);
+  color: #b3e2c9;
+}
+.platform-admin-shell .settings-standalone-page .user-row > div:not(.user-actions) { align-self: center; }
+.platform-admin-shell .settings-standalone-page .user-row > div:not(.user-actions) strong {
+  margin-bottom: 3px;
+  color: #213c31;
+  font-size: 12.5px;
+  font-weight: 750;
+}
+.platform-admin-shell .settings-standalone-page .user-row > div:not(.user-actions) small {
+  color: #71847b;
+  font-size: 10.5px;
+}
+.dark.platform-admin-shell .settings-standalone-page .user-row > div:not(.user-actions) strong { color: #e1eee7; }
+.dark.platform-admin-shell .settings-standalone-page .user-row > div:not(.user-actions) small { color: #a5b9af; }
+.platform-admin-shell .settings-standalone-page .user-row .user-type-pill-sm,
+.platform-admin-shell .settings-standalone-page .user-row .role-badge {
+  min-height: 21px;
+  align-items: center;
+  border: 1px solid rgba(80, 103, 91, .12);
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+.platform-admin-shell .settings-standalone-page .user-row > .access-status {
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.platform-admin-shell .settings-standalone-page .user-row > .access-status.connected { border-color: #c9e9d8; background: #eff9f2; color: #287448; }
+.platform-admin-shell .settings-standalone-page .user-row > .access-status.disconnected { border-color: #f2d5d2; background: #fff5f4; color: #a43d37; }
+.dark.platform-admin-shell .settings-standalone-page .user-row > .access-status.connected { border-color: #315f43; background: #193324; color: #a5d9b3; }
+.dark.platform-admin-shell .settings-standalone-page .user-row > .access-status.disconnected { border-color: #633b37; background: #34201f; color: #efaaa3; }
+.platform-admin-shell .settings-standalone-page .user-row .user-actions {
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #e7eeea;
+  border-radius: 9px;
+  background: #f7faf8;
+}
+.dark.platform-admin-shell .settings-standalone-page .user-row .user-actions { border-color: #294039; background: #101d19; }
+.platform-admin-shell .settings-standalone-page .user-row .user-action-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  font-size: 13px;
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.platform-admin-shell .settings-standalone-page .user-row .user-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 7px rgba(31, 57, 46, .12);
+  filter: saturate(1.1);
+}
+.platform-admin-shell .settings-standalone-page .user-row .user-action-btn:focus-visible,
+.platform-admin-shell .settings-standalone-page .user-type-filter .utf-btn:focus-visible {
+  outline: 3px solid rgba(54, 145, 106, .32);
+  outline-offset: 2px;
+}
+.platform-admin-shell .settings-standalone-page .user-list > .overview-empty {
+  margin: 0;
+  padding: 32px 16px !important;
+  border: 1px dashed #cbdcd2;
+  border-radius: 12px;
+  background: #f8fbf9;
+  color: #71847b;
+  text-align: center;
+}
+.dark.platform-admin-shell .settings-standalone-page .user-list > .overview-empty {
+  border-color: #355348;
+  background: #13231e;
+  color: #a5b9af;
+}
+
+@media (max-width: 760px) {
+  .platform-admin-shell .settings-standalone-page .user-list-header { align-items: stretch; }
+  .platform-admin-shell .settings-standalone-page .user-list-header > strong { align-self: flex-start; }
+  .platform-admin-shell .settings-standalone-page .user-type-filter { width: 100%; }
+  .platform-admin-shell .settings-standalone-page .user-type-filter .utf-btn { min-height: 36px; }
+  .platform-admin-shell .settings-standalone-page .user-row {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 9px 10px;
+    padding: 13px;
+  }
+  .platform-admin-shell .settings-standalone-page .user-row > .user-avatar { width: 38px; height: 38px; }
+  .platform-admin-shell .settings-standalone-page .user-row > div:not(.user-actions) { grid-column: 2; grid-row: 1; }
+  .platform-admin-shell .settings-standalone-page .user-row > .access-status { grid-column: 2; grid-row: 2; }
+  .platform-admin-shell .settings-standalone-page .user-row .user-actions { gap: 7px; padding-top: 9px; }
+}
+
+@media (max-width: 420px) {
+  .platform-admin-shell .settings-standalone-page .user-type-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .platform-admin-shell .settings-standalone-page .user-type-filter .utf-btn { white-space: normal; }
+}
+
+.platform-admin-shell .platform-portfolio-lower > .platform-portfolio-health-panel {
+  overflow: hidden;
+  border-color: #dfe9e4;
+  background: linear-gradient(150deg, #fff 0%, #f9fcfa 100%);
+}
+.dark.platform-admin-shell .platform-portfolio-lower > .platform-portfolio-health-panel {
+  border-color: #294039;
+  background: linear-gradient(150deg, #152721 0%, #11201b 100%);
+}
+.platform-admin-shell .platform-portfolio-lower > .platform-portfolio-health-panel .panel-heading {
+  margin-bottom: 14px;
+}
+.platform-admin-shell .platform-health-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 0 0 17px;
+}
+.platform-admin-shell .platform-health-summary > div {
+  position: relative;
+  min-height: 77px;
+  justify-content: center;
+  gap: 5px;
+  overflow: hidden;
+  padding: 13px 14px 13px 16px;
+  border: 1px solid #e3ece7;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(26, 56, 47, .035);
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.platform-admin-shell .platform-health-summary > div::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: #50a77b;
+  content: '';
+}
+.platform-admin-shell .platform-health-summary > div:nth-child(2)::before { background: #d59b46; }
+.platform-admin-shell .platform-health-summary > div:nth-child(3)::before { background: #d97858; }
+.platform-admin-shell .platform-health-summary > div:nth-child(4)::before { background: #7182c2; }
+.platform-admin-shell .platform-health-summary > div:hover {
+  transform: translateY(-1px);
+  border-color: #c8ded4;
+  box-shadow: 0 6px 13px rgba(26, 56, 47, .065);
+}
+.dark.platform-admin-shell .platform-health-summary > div {
+  border-color: #294039;
+  background: #192c25;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, .08);
+}
+.dark.platform-admin-shell .platform-health-summary > div:hover { border-color: #3a6653; box-shadow: 0 6px 13px rgba(0, 0, 0, .16); }
+.platform-admin-shell .platform-health-summary strong {
+  font-size: 20px;
+  line-height: 1.1;
+  letter-spacing: -.35px;
+}
+.platform-admin-shell .platform-health-summary small {
+  color: #71847b;
+  font-size: 9.5px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.dark.platform-admin-shell .platform-health-summary small { color: #a9bdb4; }
+.platform-admin-shell .platform-recent-payments {
+  gap: 0;
+  border-top: 1px solid #e7eeea;
+}
+.dark.platform-admin-shell .platform-recent-payments { border-top-color: #294039; }
+.platform-admin-shell .platform-recent-payments > div {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 2px;
+  border-top: 0;
+  border-bottom: 1px solid #edf2ef;
+}
+.platform-admin-shell .platform-recent-payments > div:last-of-type { border-bottom: 0; }
+.dark.platform-admin-shell .platform-recent-payments > div { border-bottom-color: #223a31; }
+.platform-admin-shell .platform-recent-payments > div > span {
+  gap: 4px;
+  min-width: 0;
+}
+.platform-admin-shell .platform-recent-payments strong {
+  color: #234b39;
+  font-size: 11.5px;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+.platform-admin-shell .platform-recent-payments small {
+  color: #75877e;
+  font-size: 9.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.platform-admin-shell .platform-recent-payments time {
+  align-self: center;
+  max-width: 120px;
+  padding: 5px 8px;
+  border: 1px solid #e2ebe6;
+  border-radius: 7px;
+  background: #f6faf7;
+  color: #61776b;
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: right;
+  white-space: normal;
+}
+.dark.platform-admin-shell .platform-recent-payments strong { color: #d4eadc; }
+.dark.platform-admin-shell .platform-recent-payments small { color: #a5b9af; }
+.dark.platform-admin-shell .platform-recent-payments time { border-color: #294039; background: #1a3027; color: #b2cbbd; }
+.platform-admin-shell .platform-recent-payments > .overview-empty {
+  margin: 10px 0 0;
+  padding: 17px 12px;
+  border: 1px dashed #cbdcd2;
+  border-radius: 9px;
+  background: #f8fbf9;
+  color: #71847b;
+  font-size: 10.5px;
+}
+.dark.platform-admin-shell .platform-recent-payments > .overview-empty {
+  border-color: #355348;
+  background: #13231e;
+  color: #a5b9af;
+}
+
+@media (max-width: 760px) {
+  .platform-admin-shell .platform-health-summary { gap: 8px; margin-bottom: 14px; }
+  .platform-admin-shell .platform-health-summary > div { min-height: 70px; padding: 11px 11px 11px 14px; }
+  .platform-admin-shell .platform-health-summary strong { font-size: 18px; }
+  .platform-admin-shell .platform-recent-payments > div { grid-template-columns: minmax(0, 1fr) auto; padding: 10px 1px; }
+  .platform-admin-shell .platform-recent-payments time { max-width: 105px; }
+}
+
+.platform-admin-shell .platform-workspaces-page .platform-landlord-list {
+  gap: 14px;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-row {
+  position: relative;
+  overflow: hidden;
+  padding: 19px 20px 17px;
+  border-color: #e0eae4;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fff 0%, #fbfdfb 72%, #f5faf7 100%);
+  box-shadow: 0 4px 14px rgba(26, 56, 47, .045);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-row::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #176c56, #74c49b);
+  content: '';
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-row:hover {
+  transform: translateY(-2px);
+  border-color: #bfd9cb;
+  box-shadow: 0 10px 23px rgba(26, 56, 47, .085);
+}
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-row {
+  border-color: #294039;
+  background: linear-gradient(135deg, #152721 0%, #14251f 72%, #172b24 100%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .13);
+}
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-row:hover {
+  border-color: #3a6653;
+  box-shadow: 0 10px 23px rgba(0, 0, 0, .22);
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-identity {
+  gap: 12px;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-identity > .user-avatar {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border: 2px solid #e2f0e7;
+  background: linear-gradient(140deg, #e7f4ec, #d2e9dc);
+  color: #17634f;
+  font-size: 12px;
+  font-weight: 800;
+}
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-identity > .user-avatar {
+  border-color: #315844;
+  background: linear-gradient(140deg, #244438, #1d382d);
+  color: #b3e2c9;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-identity > span:nth-child(2) {
+  gap: 3px;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-identity strong {
+  color: #203c30;
+  font-size: 14px;
+  font-weight: 780;
+  letter-spacing: -.15px;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-identity small {
+  color: #71847b;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-identity strong { color: #e1eee7; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-identity small { color: #a5b9af; }
+.platform-admin-shell .platform-workspaces-page .platform-landlord-identity > .access-status {
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-identity > .access-status.connected {
+  border-color: #c9e9d8;
+  background: #eff9f2;
+  color: #287448;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-identity > .access-status.disconnected {
+  border-color: #f2d5d2;
+  background: #fff5f4;
+  color: #a43d37;
+}
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-identity > .access-status.connected { border-color: #315f43; background: #193324; color: #a5d9b3; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-identity > .access-status.disconnected { border-color: #633b37; background: #34201f; color: #efaaa3; }
+.platform-admin-shell .platform-workspaces-page .platform-landlord-stats {
+  gap: 0;
+  margin: 17px 0 14px;
+  padding: 12px 0;
+  border-color: #e7eeea;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-stats > span {
+  min-height: 48px;
+  justify-content: center;
+  gap: 5px;
+  padding: 2px 12px;
+  border-right: 1px solid #e7eeea;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-stats > span:first-child { padding-left: 2px; }
+.platform-admin-shell .platform-workspaces-page .platform-landlord-stats > span:last-child { padding-right: 2px; border-right: 0; }
+.platform-admin-shell .platform-workspaces-page .platform-landlord-stats strong {
+  color: #234b39;
+  font-size: 14px;
+  font-weight: 780;
+  line-height: 1.2;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-stats small {
+  color: #74867d;
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-stats { border-color: #294039; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-stats > span { border-right-color: #294039; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-stats strong { color: #d5eadc; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-stats small { color: #a5b9af; }
+.platform-admin-shell .platform-workspaces-page .platform-landlord-properties {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-properties > span {
+  min-height: 57px;
+  padding: 10px 11px;
+  border-color: #e4ece7;
+  border-radius: 9px;
+  background: #f7faf8;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-properties svg {
+  width: 16px;
+  height: 16px;
+  padding: 2px;
+  box-sizing: content-box;
+  border-radius: 6px;
+  background: #e4f1e9;
+  color: #287554;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-properties strong {
+  color: #294738;
+  font-size: 10.5px;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-properties small,
+.platform-admin-shell .platform-workspaces-page .platform-landlord-properties > small {
+  color: #75877e;
+  font-size: 9px;
+  line-height: 1.4;
+}
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-properties > span { border-color: #294039; background: #192c25; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-properties svg { background: #244438; color: #a5d9b3; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-properties strong { color: #d5eadc; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-properties small,
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-properties > small { color: #a5b9af; }
+.platform-admin-shell .platform-workspaces-page .platform-landlord-caretakers {
+  gap: 8px;
+  margin-top: 9px;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-caretakers > span {
+  min-height: 45px;
+  padding: 8px 10px;
+  border-color: #e8eeea;
+  border-radius: 8px;
+  background: #fbfcfb;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-caretakers svg {
+  width: 15px;
+  height: 15px;
+  padding: 2px;
+  box-sizing: content-box;
+  border-radius: 5px;
+  background: #edf4ef;
+  color: #52856b;
+}
+.platform-admin-shell .platform-workspaces-page .platform-landlord-caretakers strong { color: #385747; font-size: 10px; }
+.platform-admin-shell .platform-workspaces-page .platform-landlord-caretakers small { color: #7b8b83; font-size: 9px; line-height: 1.4; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-caretakers > span { border-color: #294039; background: #172923; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-caretakers svg { background: #244438; color: #a5d9b3; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-caretakers strong { color: #c6ddce; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-landlord-caretakers small { color: #a5b9af; }
+.platform-admin-shell .platform-workspaces-page .platform-view-landlord {
+  min-height: 38px;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 8px 13px;
+  border: 1px solid #d7e7dd;
+  background: #f1f8f4;
+  color: #24664e;
+  font-size: 10.5px;
+  font-weight: 750;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+.platform-admin-shell .platform-workspaces-page .platform-view-landlord:hover {
+  transform: translateY(-1px);
+  border-color: #a9cfba;
+  background: #e7f4ec;
+}
+.dark.platform-admin-shell .platform-workspaces-page .platform-view-landlord { border-color: #355a49; background: #1b3429; color: #a8dcc0; }
+.dark.platform-admin-shell .platform-workspaces-page .platform-view-landlord:hover { border-color: #4a8064; background: #214132; }
+.platform-admin-shell .platform-workspaces-page .platform-view-landlord:focus-visible {
+  outline: 3px solid rgba(54, 145, 106, .32);
+  outline-offset: 2px;
+}
+.platform-admin-shell .platform-workspaces-page > .overview-empty {
+  margin: 0;
+  padding: 30px 18px;
+  border: 1px dashed #cbdcd2;
+  border-radius: 12px;
+  background: #f8fbf9;
+  color: #71847b;
+  text-align: center;
+}
+.dark.platform-admin-shell .platform-workspaces-page > .overview-empty {
+  border-color: #355348;
+  background: #13231e;
+  color: #a5b9af;
+}
+
+.payments-view .payment-property-search,
+.confirmed-rent-payments .confirmed-payment-search {
+  width: min(380px, 100%);
+  min-height: 40px;
+  margin: 0 0 15px;
+  border-color: #dce7e1;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.payments-view .payment-property-search:focus-within,
+.confirmed-rent-payments .confirmed-payment-search:focus-within {
+  border-color: #429775;
+  box-shadow: 0 0 0 3px rgba(54, 145, 106, .13);
+}
+.payments-view .payment-property-search select,
+.confirmed-rent-payments .confirmed-payment-search select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-1);
+  color-scheme: light;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.payments-view .payment-property-search option,
+.confirmed-rent-payments .confirmed-payment-search option {
+  background: #fff;
+  color: #20332a;
+}
+.confirmed-rent-payments .confirmed-payment-search { margin-top: 0; }
+.dark .payments-view .payment-property-search,
+.dark .confirmed-rent-payments .confirmed-payment-search {
+  border-color: #294039;
+  background: #13231e;
+}
+.dark .payments-view .payment-property-search select,
+.dark .confirmed-rent-payments .confirmed-payment-search select {
+  color-scheme: dark;
+}
+.dark .payments-view .payment-property-search option,
+.dark .confirmed-rent-payments .confirmed-payment-search option {
+  background: #172923;
+  color: #e1eee7;
+}
+
+@media (max-width: 760px) {
+  .payments-view .payment-property-search,
+  .confirmed-rent-payments .confirmed-payment-search { width: 100%; }
+}
+
+@media (max-width: 760px) {
+  .platform-admin-shell .platform-workspaces-page .platform-landlord-row { padding: 16px 14px 14px; }
+  .platform-admin-shell .platform-workspaces-page .platform-landlord-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 8px; }
+  .platform-admin-shell .platform-workspaces-page .platform-landlord-stats > span:nth-child(3) { border-right: 0; }
+  .platform-admin-shell .platform-workspaces-page .platform-landlord-stats > span:nth-child(4) { padding-left: 2px; }
+}
+
+@media (max-width: 480px) {
+  .platform-admin-shell .platform-workspaces-page .platform-landlord-identity { flex-wrap: wrap; }
+  .platform-admin-shell .platform-workspaces-page .platform-landlord-identity > span:nth-child(2) { flex-basis: calc(100% - 58px); }
+  .platform-admin-shell .platform-workspaces-page .platform-landlord-identity > .access-status { margin-left: 56px; }
+  .platform-admin-shell .platform-workspaces-page .platform-landlord-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .platform-admin-shell .platform-workspaces-page .platform-landlord-stats > span:nth-child(odd) { padding-left: 2px; border-right: 1px solid #e7eeea; }
+  .platform-admin-shell .platform-workspaces-page .platform-landlord-stats > span:nth-child(even) { border-right: 0; }
+  .dark.platform-admin-shell .platform-workspaces-page .platform-landlord-stats > span:nth-child(odd) { border-right-color: #294039; }
 }

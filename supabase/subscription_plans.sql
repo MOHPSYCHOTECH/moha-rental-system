@@ -13,8 +13,8 @@ alter table public.subscription_payment_requests
     check (
       (plan = 'monthly' and amount = 200) or
       (plan = 'yearly' and amount = 2000) or
-      (plan = 'silver_monthly' and amount = 500) or
-      (plan = 'silver_yearly' and amount = 4500)
+      (plan = 'silver_monthly' and amount in (500, 1350)) or
+      (plan = 'silver_yearly' and amount in (4500, 13500))
     );
 
 alter table public.subscriptions
@@ -31,7 +31,7 @@ alter table public.subscriptions
     check (status in ('active', 'trial', 'expired', 'cancelled'));
 alter table public.subscriptions
   add constraint subscriptions_amount_check
-    check (amount in (0, 200, 500, 2000, 4500));
+    check (amount in (0, 200, 500, 1350, 2000, 4500, 13500));
 alter table public.subscriptions
   alter column source_payment_request_id drop not null;
 

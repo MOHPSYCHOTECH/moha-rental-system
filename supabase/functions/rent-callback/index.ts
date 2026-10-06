@@ -8,16 +8,12 @@ const corsHeaders = {
 }
 
 type C2BCallback = {
-  TransactionType?: string
   TransID?: string
   TransTime?: string
   TransAmount?: string | number
   BusinessShortCode?: string | number
   BillRefNumber?: string
   MSISDN?: string | number
-  FirstName?: string
-  MiddleName?: string
-  LastName?: string
   [key: string]: unknown
 }
 
@@ -30,14 +26,14 @@ Deno.serve(async (request) => {
   const expectedToken = Deno.env.get('MPESA_C2B_CALLBACK_TOKEN')?.trim()
   const expectedShortcode = Deno.env.get('MPESA_RENT_SHORTCODE')?.trim()
   const url = new URL(request.url)
-  const callbackMatch = url.pathname.match(/\/(?:callback\/)?([^/]+)\/(validation|confirmation)$/)
+  const route = url.pathname.match(/\/(?:callback\/)?([^/]+)\/(validation|confirmation)$/)
   let pathToken: string | null = null
   try {
-    pathToken = callbackMatch ? decodeURIComponent(callbackMatch[1]) : null
+    pathToken = route ? decodeURIComponent(route[1]) : null
   } catch {
     return json({ ResultCode: 1, ResultDesc: 'Not found.' }, 404)
   }
-  const callbackType = callbackMatch?.[2] ?? (url.pathname.endsWith('/validation') ? 'validation' : url.pathname.endsWith('/confirmation') ? 'confirmation' : null)
+  const callbackType = route?.[2] ?? (url.pathname.endsWith('/validation') ? 'validation' : url.pathname.endsWith('/confirmation') ? 'confirmation' : null)
   const suppliedToken = pathToken ?? url.searchParams.get('token')
 
   if (!supabaseUrl || !serviceRoleKey || !expectedToken || !expectedShortcode) {
@@ -90,15 +86,11 @@ Deno.serve(async (request) => {
       ? json({ ResultCode: 1, ResultDesc: 'Unknown or inactive rental account.' }, 200)
       : json({ ResultCode: 1, ResultDesc: 'Unknown rental account.' }, 400)
   }
-
-  if (callbackType === 'validation') {
-    return json({ ResultCode: 0, ResultDesc: 'Accepted.' }, 200)
-  }
+  if (callbackType === 'validation') return json({ ResultCode: 0, ResultDesc: 'Accepted.' }, 200)
 
   const receipt = String(callback.TransID ?? '').trim().toUpperCase()
   const amount = Number(callback.TransAmount)
-  const transactionTime = String(callback.TransTime ?? '')
-  const transactedAt = parseMpesaTimestamp(transactionTime)
+  const transactedAt = parseMpesaTimestamp(String(callback.TransTime ?? ''))
   if (!receipt || !Number.isFinite(amount) || amount <= 0 || !transactedAt) {
     return json({ ResultCode: 1, ResultDesc: 'Missing or invalid transaction details.' }, 400)
   }
