@@ -28,7 +28,9 @@ Enable email/password sign-up in Supabase Authentication and configure the deplo
 
 ## Public homepage totals
 
-Run `supabase/public_platform_stats.sql` in the Supabase SQL Editor after `supabase/user_hierarchy.sql`, `supabase/landlord_public_signup.sql`, and `supabase/rent_c2b.sql`. The homepage calls `get_public_platform_stats()` when it opens and animates the returned figures from zero. The function returns only aggregate totals: approved active Landlord accounts, tenant entries in their workspace listings, and recorded manual plus Safaricom-confirmed rent payments. It does not return tenant names, landlord identities, or transaction details. If the SQL function has not been installed or cannot be reached, the homepage shows that the totals are unavailable instead of displaying fabricated values.
+Run `supabase/public_platform_stats.sql` in the Supabase SQL Editor for the project used by the deployed site, after `supabase/user_hierarchy.sql`, `supabase/landlord_public_signup.sql`, and `supabase/rent_c2b.sql`. The homepage calls `get_public_platform_stats()` when it opens and animates the returned figures from zero. The function returns only aggregate totals: approved active Landlord accounts, tenant entries in their workspace listings, and recorded manual plus Safaricom-confirmed rent payments. It does not return tenant names, landlord identities, or transaction details.
+
+For a Netlify deployment, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in the site's environment variables to the same Supabase project where this SQL was run, then trigger a new deploy because Vite embeds these values at build time. The homepage displays a setup-specific message if Supabase is not configured or the public stats function is missing or inaccessible.
 
 ## Subscription plans
 

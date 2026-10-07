@@ -5982,16 +5982,22 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       setStatsLoading(true)
       setStatsError('')
       if (!supabase) {
-        setStatsError('Live totals are temporarily unavailable.')
+        setStatsError('This site is not connected to Supabase. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to the Netlify site environment, then redeploy.')
         setStatsLoading(false)
         return
       }
       try {
         const { data, error } = await supabase.rpc('get_public_platform_stats')
-        if (error) throw new Error(error.message)
+        if (error?.code === 'PGRST202' || error?.code === '42883') {
+          throw new Error('The public stats function is missing. Run supabase/public_platform_stats.sql in the Supabase SQL Editor for this project.')
+        }
+        if (error?.code === '42501') {
+          throw new Error('The public stats function is not accessible. Rerun supabase/public_platform_stats.sql in the Supabase SQL Editor.')
+        }
+        if (error) throw new Error('Live totals could not be loaded. Check that Netlify is connected to the correct Supabase project and that its database is available.')
         const payload: unknown = Array.isArray(data) ? data[0] : data
         if (typeof payload !== 'object' || payload === null || !('landlord_count' in payload) || !('tenant_count' in payload) || !('total_collected' in payload)) {
-          throw new Error('The public stats response was empty or incomplete.')
+          throw new Error('The public stats response was empty or incomplete. Rerun supabase/public_platform_stats.sql in the Supabase SQL Editor.')
         }
         const row = payload
         const stats = {
@@ -6003,8 +6009,8 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
           throw new Error('The public stats response contained invalid totals.')
         }
         if (active) setPublicStats(stats)
-      } catch {
-        if (active) setStatsError('Live totals are temporarily unavailable.')
+      } catch (error) {
+        if (active) setStatsError(error instanceof Error ? error.message : 'Live totals could not be loaded. Check the Supabase project configuration.')
       } finally {
         if (active) setStatsLoading(false)
       }
