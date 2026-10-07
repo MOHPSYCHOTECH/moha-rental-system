@@ -839,13 +839,15 @@ function App() {
         return Array.isArray(data.properties) || Array.isArray(data.tenants) || (data.units && typeof data.units === 'object') || (data.records && typeof data.records === 'object')
       })
     }
-    const paymentsResult = rentPaybill
-      ? await supabase.from('rent_payments').select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name').in('owner_id', landlordIds).order('transacted_at', { ascending: false })
-      : { data: [], error: null }
+    const paymentsResult = await supabase.from('rent_payments')
+      .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
+      .in('owner_id', landlordIds)
+      .order('transacted_at', { ascending: false })
     if (paymentsResult.error) setPlatformPortfolioError(`Confirmed tenant rent payments are unavailable. Check rent_c2b.sql access policies. Details: ${paymentsResult.error.message}`)
-    const payoutsResult = rentPaybill
-      ? await supabase.from('rent_payouts').select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at').in('owner_id', landlordIds).order('requested_at', { ascending: false })
-      : { data: [], error: null }
+    const payoutsResult = await supabase.from('rent_payouts')
+      .select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at')
+      .in('owner_id', landlordIds)
+      .order('requested_at', { ascending: false })
     if (payoutsResult.error) setPlatformPortfolioError(`Landlord payout records unavailable. Run supabase/manual_rent_payouts.sql. Details: ${payoutsResult.error.message}`)
     const activeAssignments = assignmentsResult.data ?? []
     const caretakerProfilesResult = await supabase.from('profiles').select('user_id, display_name, email, owner_id').eq('user_type', 'caretaker').in('owner_id', landlordIds)
@@ -1116,14 +1118,19 @@ function App() {
                 setPlatformPortfolioError(`Could not read landlord workspaces. Rerun supabase/user_hierarchy.sql in the Supabase SQL Editor. Details: ${workspaceRowsError.message}`)
                 setCloudStatus(`Could not load landlord portfolio: ${workspaceRowsError.message}`)
               } else {
-                const directPaymentsResult = rentPaybill
-                  ? await client.from('rent_payments').select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name').in('owner_id', landlordIds).order('transacted_at', { ascending: false })
-                  : { data: [], error: null }
+                const directPaymentsResult = await client.from('rent_payments')
+                  .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
+                  .in('owner_id', landlordIds)
+                  .order('transacted_at', { ascending: false })
                 if (!active) return
-                if (directPaymentsResult.error) setCloudStatus(`Confirmed rent payments unavailable in portfolio: ${directPaymentsResult.error.message}`)
-                const directPayoutsResult = rentPaybill
-                  ? await client.from('rent_payouts').select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at').in('owner_id', landlordIds).order('requested_at', { ascending: false })
-                  : { data: [], error: null }
+                if (directPaymentsResult.error) {
+                  setCloudStatus(`Confirmed rent payments unavailable in portfolio: ${directPaymentsResult.error.message}`)
+                  setPlatformPortfolioError(`Confirmed tenant rent payments are unavailable. Check rent_c2b.sql access policies. Details: ${directPaymentsResult.error.message}`)
+                }
+                const directPayoutsResult = await client.from('rent_payouts')
+                  .select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at')
+                  .in('owner_id', landlordIds)
+                  .order('requested_at', { ascending: false })
                 if (!active) return
                 if (directPayoutsResult.error) setPlatformPortfolioError(`Landlord payout records unavailable. Run supabase/manual_rent_payouts.sql. Details: ${directPayoutsResult.error.message}`)
                 setPlatformLandlordWorkspaces(landlords.map(landlord => {
@@ -2343,7 +2350,7 @@ function App() {
                 : <AccessDeniedView section="Landlord workspaces" />
               : activeSection === 'Landlord payouts'
               ? isPlatformAdministrator
-                ? <PlatformRentPayoutQueue workspaces={platformLandlordWorkspaces} onRecordPayout={recordManualRentPayout} />
+                ? <PlatformRentPayoutQueue workspaces={platformLandlordWorkspaces} loading={platformPortfolioLoading} error={platformPortfolioError} onRefresh={() => void refreshPlatformPortfolio()} onRecordPayout={recordManualRentPayout} />
                 : <AccessDeniedView section="Landlord payouts" />
               : activeSection === 'Help center'
               ? <HelpCenterView />
@@ -2977,7 +2984,7 @@ function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loa
       <article className="metric-card"><div className="metric-top"><span className="metric-icon lavender"><CircleDollarSign size={18} /></span><span className="trend positive">Recorded</span></div><p>Payments received</p><strong>KSh {allCollected.toLocaleString()}</strong><small>Across all loaded workspaces</small></article>
       <article className="metric-card"><div className="metric-top"><span className="metric-icon mint"><Wrench size={18} /></span><span className="trend positive">Team</span></div><p>Caretakers</p><strong>{totalCaretakers}</strong><small>{allCaretakerAssignments.length} active property/unit assignments</small></article>
     </section>}
-    {!workspacesOnly && <PlatformRentPayoutQueue workspaces={workspaces} onRecordPayout={onRecordManualPayout} />}
+    {!workspacesOnly && <PlatformRentPayoutQueue workspaces={workspaces} loading={loading} error={error} onRefresh={onRefresh} onRecordPayout={onRecordManualPayout} />}
     {workspacesOnly && <div className="platform-landlord-list-heading"><div><p className="eyebrow">DIRECTORY</p><h2>All landlords</h2></div><span>{workspaces.length} workspaces</span></div>}
     {workspacesOnly && loading && <p className="overview-empty">Loading landlord workspaces…</p>}
     {workspacesOnly && error && <p className="settings-error" role="alert">{error}</p>}
@@ -3062,8 +3069,11 @@ function SectionView({ section, rows, propertyNames, completedMaintenance = {}, 
   </section>
 }
 
-function PlatformRentPayoutQueue({ workspaces, onRecordPayout }: {
+function PlatformRentPayoutQueue({ workspaces, loading, error: loadError, onRefresh, onRecordPayout }: {
   workspaces: PlatformLandlordWorkspace[]
+  loading: boolean
+  error: string
+  onRefresh: () => void
   onRecordPayout: (details: ManualRentPayoutDetails) => Promise<void>
 }) {
   const [selectedEntry, setSelectedEntry] = useState<{ landlord: AccessUser; payment: RentPaymentRecord; reviewRequired: boolean } | null>(null)
@@ -3145,8 +3155,10 @@ function PlatformRentPayoutQueue({ workspaces, onRecordPayout }: {
     }
   }
 
-  return <section id="platform-rent-payout-queue" className="panel manual-landlord-payout-panel platform-rent-payout-queue">
-    <div className="panel-heading"><div><p className="eyebrow">SHARED PAYBILL SETTLEMENT</p><h2>Landlord payout approvals</h2><small>Confirmed tenant payments awaiting landlord settlement. Pay the landlord first, then approve the payout here.</small></div><span className="live-badge">{entries.length} awaiting</span></div>
+  return <section id="platform-rent-payout-queue" className="panel manual-landlord-payout-panel platform-rent-payout-queue" aria-busy={loading}>
+    <div className="panel-heading"><div><p className="eyebrow">SHARED PAYBILL SETTLEMENT</p><h2>Landlord payout approvals</h2><small>Confirmed tenant payments awaiting landlord settlement. Pay the landlord first, then approve the payout here.</small></div><div className="panel-actions"><span className="live-badge">{entries.length} awaiting</span><button type="button" className="filter-button" onClick={onRefresh} disabled={loading}><RefreshCw size={15} /> {loading ? 'Refreshing…' : 'Refresh'}</button></div></div>
+    {loadError && <p className="settings-error" role="alert">{loadError}</p>}
+    {loading && <p className="overview-empty" role="status">Loading confirmed payments and payout records…</p>}
     {message && <p className="subscription-payment-success" role="status">{message}</p>}
     {error && !selectedEntry && <p className="settings-error" role="alert">{error}</p>}
     {visibleEntries.length ? <div className="manual-landlord-payout-list">{visibleEntries.map(entry => <article className="manual-landlord-payout-row" key={`${entry.landlord.id}-${entry.payment.mpesa_receipt}`}>
@@ -3157,7 +3169,7 @@ function PlatformRentPayoutQueue({ workspaces, onRecordPayout }: {
         {entry.reviewRequired && <small>Verify the earlier transfer reached the landlord before approving another payout.</small>}
       </div>
       <button type="button" className="subscription-approve-button" onClick={() => openApproval(entry)}>Approve payout</button>
-    </article>)}</div> : <p className="overview-empty">{workspaces.some(workspace => workspace.data.settings?.rentCollectionMode === 'moha_paybill') ? 'All confirmed tenant payments have been settled.' : 'No landlords are currently using the shared Moha Paybill.'}</p>}
+    </article>)}</div> : !loading && !loadError && <p className="overview-empty">{workspaces.some(workspace => workspace.data.settings?.rentCollectionMode === 'moha_paybill') ? 'All confirmed tenant payments have been settled.' : 'No landlords are currently using the shared Moha Paybill.'}</p>}
     {selectedEntry && <form ref={approvalFormRef} className="manual-landlord-payout-form" onSubmit={approvePayout}>
       <div className="panel-heading"><div><p className="eyebrow">APPROVE COMPLETED TRANSFER</p><h3>{selectedEntry.landlord.name}</h3><small>Landlord mobile: {normalizeKenyanPhone(selectedEntry.landlord.phone) ? <a href={`tel:+${normalizeKenyanPhone(selectedEntry.landlord.phone)}`}>+{normalizeKenyanPhone(selectedEntry.landlord.phone)}</a> : 'Not on file — contact the landlord to confirm'}</small><small>{selectedEntry.payment.tenant_name} · {selectedEntry.payment.mpesa_receipt} · KSh {Number(selectedEntry.payment.amount).toLocaleString()}</small></div><button type="button" className="cancel-button" onClick={() => setSelectedEntry(null)}>Cancel</button></div>
       <div className="manual-landlord-payout-fields">
@@ -3180,7 +3192,7 @@ function PlatformRentPayoutQueue({ workspaces, onRecordPayout }: {
         <div className="platform-rent-payout-history-payment"><strong>{payment.tenant_name}</strong><small>{payment.property_name} · Unit {payment.unit_name}</small><small>Tenant receipt: {payment.mpesa_receipt}</small></div>
         <div className="platform-rent-payout-history-amount"><strong>KSh {Number(payment.amount).toLocaleString()}</strong><small>{payout.payment_method?.replace('_', ' ') ?? 'Previously recorded'} · Paid {payout.paid_at ? new Date(payout.paid_at).toLocaleDateString('en-KE') : 'date unavailable'}</small><small>{payout.payout_reference ? `Transfer reference: ${payout.payout_reference}` : 'No transfer reference recorded'}</small></div>
         <span className="platform-rent-payout-paid-badge"><CheckCircle2 size={14} /> Paid</span>
-      </article>)}</div> : <p className="platform-rent-payout-history-empty">No landlord payouts have been approved yet. Approved transfers will appear here.</p>}
+      </article>)}</div> : !loading && !loadError && <p className="platform-rent-payout-history-empty">No landlord payouts have been approved yet. Approved transfers will appear here.</p>}
       {settledEntries.length > pageSize && <Pagination page={currentHistoryPage} pageCount={historyPageCount} onPageChange={setHistoryPage} />}
     </section>
   </section>
