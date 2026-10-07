@@ -6,8 +6,8 @@ import { ArrowUpRight, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown,
 import './App.css'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 
-type PropertyRecord = { name: string; address: string; units: number; occupied: number; income: string; status: string; color: string }
-type TenantRecord = { name: string; unit: string; unitDisplayName?: string; unitType: string; property: string; rent: string; lease: string; leaseEnd?: string; movedIn?: string; rentAccountRef?: string; portalCode?: string; status: string; waterBill?: string; waterBillUpdatedAt?: string; email?: string; phone?: string; idNumber?: string }
+type PropertyRecord = { name: string; address: string; units: number; occupied: number; income: string; status: string; color: string; waterUnitPrice?: number }
+type TenantRecord = { name: string; unit: string; unitDisplayName?: string; unitType: string; property: string; rent: string; lease: string; leaseEnd?: string; movedIn?: string; rentAccountRef?: string; portalCode?: string; status: string; waterBill?: string; waterBillUpdatedAt?: string; waterPreviousReading?: number; waterCurrentReading?: number; waterUnitPrice?: number; email?: string; phone?: string; idNumber?: string }
 type InvoiceRecord = { id: string; tenantName: string; email?: string; property: string; unit: string; unitType: string; rent: string; waterBill: string; issuedAt: string; movedIn?: string }
 type RentPaymentRecord = { id: string; owner_id: string; account_reference: string; mpesa_receipt: string; amount: number; transacted_at: string; phone?: string; tenant_name: string; property_name: string; unit_name: string }
 type RentPayoutRecord = { id: string; owner_id: string; mpesa_receipt: string; amount: number; status: 'pending' | 'paid' | 'needs_review' | 'queued' | 'processing' | 'completed' | 'failed' | 'timeout'; payment_method?: 'mpesa' | 'bank_transfer' | 'cash' | null; payout_reference?: string | null; paid_by?: string | null; paid_at?: string | null; requested_at: string }
@@ -44,7 +44,7 @@ type AdminSubscriptionPaymentHistoryResult = { total_count: number; requests: Ad
 type TenantPortalSession = { name: string; property: string; unit: string; email: string; portalCode: string }
 type ExpenseRecord = { id: string; category: string; property: string; amount: number; date: string; note: string; paid?: boolean }
 type ApplicantRecord = { id: string; name: string; phone: string; property: string; unit: string; stage: 'Viewing' | 'Applied' | 'Approved' | 'Moved in' }
-type RentReminderChannel = 'WhatsApp' | 'Email'
+type RentReminderChannel = 'SMS' | 'WhatsApp'
 type RentalWorkspaceSettings = { workspaceName: string; propertyGroup: string; darkMode: boolean; notifEmail: boolean; notifWeekly: boolean; rentReminderEnabled: boolean; rentReminderDays: number; rentReminderChannel: RentReminderChannel; rentCollectionMode: RentCollectionMode; landlordPaybill: string; landlordPaymentMethod: LandlordPaymentMethod; landlordTillNumber: string; landlordBankName: string; landlordBankAccountName: string; landlordBankAccountNumber: string }
 type RentalWorkspaceData = { properties: PropertyRecord[]; units: Record<string, UnitRecord[]>; tenants: TenantRecord[]; records: Record<string, string[]>; invoices: InvoiceRecord[]; maintenance: Record<string, boolean>; expenses: ExpenseRecord[]; applicants: ApplicantRecord[]; settings?: RentalWorkspaceSettings }
 type PlatformCaretakerAssignment = { caretakerId: string; caretakerName: string; caretakerEmail?: string; property: string; unit: string }
@@ -55,12 +55,12 @@ type ManualRentPayoutDetails = { ownerId: string; receipt: string; method: 'mpes
 const properties: PropertyRecord[] = []
 type ModalType = 'property' | 'tenant' | 'maintenance' | 'payment' | 'document' | 'waterBill'
 const modalConfig: Record<ModalType, { title: string; description: string; fields: { key: string; label: string; placeholder: string; type?: string }[] }> = {
-  property: { title: 'Add property', description: 'Add only the unit types this property has, with their unit counts and monthly rents.', fields: [{ key: 'name', label: 'Property name', placeholder: 'e.g. Willow Gardens' }, { key: 'address', label: 'Address', placeholder: 'e.g. 24 Willow Lane' }] },
+  property: { title: 'Add property', description: 'Add this apartment’s unit types, rents, and shared water price per unit.', fields: [{ key: 'name', label: 'Property name', placeholder: 'e.g. Willow Gardens' }, { key: 'address', label: 'Address', placeholder: 'e.g. 24 Willow Lane' }, { key: 'waterUnitPrice', label: 'Water price per unit (KSh)', placeholder: 'e.g. 120', type: 'number' }] },
   tenant: { title: 'Add tenant', description: 'Select a property and vacant unit. The first rent payment is due 30 days after the tenant is assigned. A portal login code is generated automatically.', fields: [{ key: 'name', label: 'Tenant name', placeholder: 'e.g. Alex Morgan' }, { key: 'email', label: 'Tenant email address', placeholder: 'e.g. alex@example.com', type: 'email' }, { key: 'phone', label: 'Mobile number', placeholder: 'e.g. 0712 345 678', type: 'tel' }, { key: 'idNumber', label: 'National ID / passport', placeholder: 'e.g. 12345678' }, { key: 'property', label: 'Property / apartment', placeholder: 'Select a property' }, { key: 'unit', label: 'Available unit', placeholder: 'Select a vacant unit' }, { key: 'assignedDate', label: 'Tenant assigned / move-in date', placeholder: '', type: 'date' }, { key: 'leaseEnd', label: 'Lease end date', placeholder: '', type: 'date' }, { key: 'portalCode', label: 'Tenant portal code', placeholder: '' }] },
   maintenance: { title: 'Add maintenance request', description: 'Log an issue for your maintenance team and identify the exact house or unit.', fields: [{ key: 'maintenanceType', label: 'Maintenance type', placeholder: 'Select a maintenance type' }, { key: 'issue', label: 'Issue description', placeholder: 'e.g. Broken window' }, { key: 'property', label: 'Property / apartment', placeholder: 'e.g. Juniper Court' }, { key: 'houseNumber', label: 'House / unit number', placeholder: 'e.g. 2A' }, { key: 'priority', label: 'Priority', placeholder: 'Select priority' }] },
   payment: { title: 'Add payment', description: 'Manually record cash, bank, or other payments. Direct Paybill rent is recorded automatically after Safaricom confirms it.', fields: [{ key: 'amount', label: 'Amount (KSh)', placeholder: 'e.g. 1800', type: 'number' }, { key: 'property', label: 'Property / apartment', placeholder: 'Select a property' }, { key: 'houseNumber', label: 'House / unit number', placeholder: 'Select a house or unit' }, { key: 'paymentMethod', label: 'Payment method', placeholder: 'Select a method' }, { key: 'reference', label: 'M-Pesa / receipt reference', placeholder: 'e.g. QWE123ABCD' }, { key: 'period', label: 'Payment period', placeholder: 'e.g. January 2025' }, { key: 'date', label: 'Payment date', placeholder: '', type: 'date' }] },
   document: { title: 'Add document', description: 'Save a reference to an important property document.', fields: [{ key: 'name', label: 'Document name', placeholder: 'e.g. Lease agreement' }, { key: 'property', label: 'Property', placeholder: 'e.g. Parkview Lofts' }, { key: 'date', label: 'Document date', placeholder: '', type: 'date' }] },
-  waterBill: { title: 'Update water bill', description: 'Enter the current water charge for this tenant.', fields: [{ key: 'amount', label: 'Water bill (KSh)', placeholder: 'e.g. 850', type: 'number' }] },
+  waterBill: { title: 'Record water meter reading', description: 'The unit price is shared by every tenant in this apartment. Enter the meter readings; the bill is calculated automatically, and the current reading becomes next month’s previous reading.', fields: [{ key: 'previousReading', label: 'Previous reading (units)', placeholder: 'e.g. 1250', type: 'number' }, { key: 'currentReading', label: 'Current reading (units)', placeholder: 'e.g. 1264', type: 'number' }, { key: 'unitPrice', label: 'Apartment price per unit (KSh)', placeholder: 'e.g. 120', type: 'number' }] },
 }
 const sectionDetails: Record<string, { eyebrow: string; title: string; description: string; rows: string[] }> = {
   Properties: { eyebrow: 'Portfolio', title: 'Properties', description: 'Manage buildings, units, occupancy, and property performance.', rows: [] },
@@ -82,7 +82,10 @@ function readStorage<T>(key: string, fallback: T): T {
 }
 
 const rentPaybill = import.meta.env.VITE_MPESA_RENT_PAYBILL ?? ''
-const defaultWorkspaceSettings: RentalWorkspaceSettings = { workspaceName: 'Moha Rental Management System', propertyGroup: 'Atlas Properties', darkMode: false, notifEmail: true, notifWeekly: true, rentReminderEnabled: true, rentReminderDays: 3, rentReminderChannel: 'WhatsApp', rentCollectionMode: 'own', landlordPaybill: '', landlordPaymentMethod: 'paybill', landlordTillNumber: '', landlordBankName: '', landlordBankAccountName: '', landlordBankAccountNumber: '' }
+const defaultWorkspaceSettings: RentalWorkspaceSettings = { workspaceName: 'Moha Rental Management System', propertyGroup: 'Atlas Properties', darkMode: false, notifEmail: true, notifWeekly: true, rentReminderEnabled: true, rentReminderDays: 3, rentReminderChannel: 'SMS', rentCollectionMode: 'own', landlordPaybill: '', landlordPaymentMethod: 'paybill', landlordTillNumber: '', landlordBankName: '', landlordBankAccountName: '', landlordBankAccountNumber: '' }
+function resolveRentReminderChannel(channel: unknown): RentReminderChannel {
+  return channel === 'WhatsApp' ? 'WhatsApp' : 'SMS'
+}
 function resolveRentCollectionMode(settings?: Partial<RentalWorkspaceSettings>): RentCollectionMode {
   if (settings?.rentCollectionMode === 'own' || settings?.rentCollectionMode === 'moha_paybill') return settings.rentCollectionMode
   if (settings?.landlordPaymentMethod && settings.landlordPaymentMethod !== 'paybill') return 'own'
@@ -394,6 +397,11 @@ function buildRentReminderDocument({ workspaceName, tenant, rent, waterBill, pay
       ...(invoiceNumber ? [{ label: 'Invoice number', value: invoiceNumber }] : []),
       { label: 'Due date', value: dueDate },
       { label: 'Monthly rent', value: `KSh ${rentAmount.toLocaleString()}` },
+      ...(invoiceNumber && tenant.waterCurrentReading !== undefined ? [
+        { label: 'Previous water reading', value: `${(tenant.waterPreviousReading ?? 0).toLocaleString()} units` },
+        { label: 'Current water reading', value: `${tenant.waterCurrentReading.toLocaleString()} units` },
+        { label: 'Water usage', value: `${(tenant.waterCurrentReading - (tenant.waterPreviousReading ?? 0)).toLocaleString()} units × KSh ${(tenant.waterUnitPrice ?? 0).toLocaleString()}/unit` },
+      ] : []),
       { label: 'Water bill', value: `KSh ${waterAmount.toLocaleString()}` },
       ...buildPaymentInstructionLines(paymentDetails, tenant).map(line => {
         const separator = line.indexOf(':')
@@ -419,7 +427,7 @@ function getPaybillAccountReference(tenant: Pick<TenantRecord, 'property' | 'uni
 
 function buildRentWhatsAppMessage({ workspaceName, tenant, rent, waterBill, paymentDetails, dueDate, movedIn, invoiceNumber }: {
   workspaceName: string
-  tenant: Pick<TenantRecord, 'name' | 'property' | 'unit' | 'unitDisplayName' | 'rentAccountRef'>
+  tenant: Pick<TenantRecord, 'name' | 'property' | 'unit' | 'unitDisplayName' | 'rentAccountRef' | 'waterPreviousReading' | 'waterCurrentReading' | 'waterUnitPrice'>
   rent: string | number
   waterBill: string | number
   paymentDetails: LandlordPaymentDetails
@@ -440,6 +448,11 @@ function buildRentWhatsAppMessage({ workspaceName, tenant, rent, waterBill, paym
     ...(movedIn ? [`Move-in date: ${movedIn}`] : []),
     '',
     `Monthly rent: KSh ${rentAmount.toLocaleString()}`,
+    ...(invoiceNumber && tenant.waterCurrentReading !== undefined ? [
+      `Previous water reading: ${(tenant.waterPreviousReading ?? 0).toLocaleString()} units`,
+      `Current water reading: ${tenant.waterCurrentReading.toLocaleString()} units`,
+      `Water usage: ${(tenant.waterCurrentReading - (tenant.waterPreviousReading ?? 0)).toLocaleString()} units × KSh ${(tenant.waterUnitPrice ?? 0).toLocaleString()}/unit`,
+    ] : []),
     `Water bill: KSh ${waterAmount.toLocaleString()}`,
     `Total amount due: KSh ${(rentAmount + waterAmount).toLocaleString()}`,
     '',
@@ -450,6 +463,19 @@ function buildRentWhatsAppMessage({ workspaceName, tenant, rent, waterBill, paym
     '',
     `Kind regards,\n${workspaceName}`,
   ].join('\n')
+}
+
+function buildRentSmsMessage({ workspaceName, tenant, rent, waterBill, dueDate }: {
+  workspaceName: string
+  tenant: Pick<TenantRecord, 'name' | 'property' | 'unit' | 'unitDisplayName'>
+  rent: string | number
+  waterBill: string | number
+  dueDate?: string
+}) {
+  const rentAmount = Number(String(rent).replace(/[^0-9.]/g, '')) || 0
+  const waterAmount = Number(String(waterBill).replace(/[^0-9.]/g, '')) || 0
+  const totalDue = rentAmount + waterAmount
+  return `Hello ${tenant.name}, rent reminder from ${workspaceName}: KSh ${totalDue.toLocaleString()} is due${dueDate ? ` on ${dueDate}` : ''} for ${tenant.property}, Unit ${getTenantUnitLabel(tenant)}. If paid, please ignore.`
 }
 
 function buildPaymentInstructionLines(paymentDetails: LandlordPaymentDetails, tenant: Pick<TenantRecord, 'property' | 'unit' | 'unitDisplayName' | 'rentAccountRef'>) {
@@ -979,23 +1005,6 @@ function App() {
         return
       }
       const resolvedWorkspaceRow = workspaceResult.data?.[0] ?? fallbackWorkspaceResult.data?.find(row => row.owner_id === workspaceOwnerId) ?? fallbackWorkspaceResult.data?.find(row => row.data && (Array.isArray(row.data.properties) || Array.isArray(row.data.tenants) || (row.data.units && typeof row.data.units === 'object') || (row.data.records && typeof row.data.records === 'object')))
-      const [rentPaymentsResult, rentPayoutsResult] = await Promise.all([
-        client.from('rent_payments')
-          .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
-          .eq('owner_id', workspaceOwnerId)
-          .order('transacted_at', { ascending: false }),
-        client.from('rent_payouts')
-          .select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at')
-          .eq('owner_id', workspaceOwnerId)
-          .order('requested_at', { ascending: false }),
-      ])
-      if (!active) return
-      const { data: rentPayments, error: rentPaymentsError } = rentPaymentsResult
-      if (rentPaymentsError) setCloudStatus(`Rent payments unavailable: ${rentPaymentsError.message}`)
-      else setDirectRentPayments(rentPayments ?? [])
-      const { data: rentPayoutsData, error: rentPayoutsError } = rentPayoutsResult
-      if (rentPayoutsError) setRentPaymentsRefreshError(`Landlord payout status could not be loaded: ${rentPayoutsError.message}`)
-      else setRentPayouts(rentPayoutsData ?? [])
       if (subscriptionResult.data) {
         user.subscription = { plan: subscriptionResult.data.plan as SubscriptionPlan, status: subscriptionResult.data.status as SubscriptionStatus, startDate: subscriptionResult.data.starts_on, expiryDate: subscriptionResult.data.expires_on, amount: subscriptionResult.data.amount }
       }
@@ -1184,7 +1193,7 @@ function App() {
         setNotifWeekly(settings.notifWeekly)
         setRentReminderEnabled(settings.rentReminderEnabled)
         setRentReminderDays(settings.rentReminderDays)
-        setRentReminderChannel(settings.rentReminderChannel)
+        setRentReminderChannel(resolveRentReminderChannel(settings.rentReminderChannel))
       } else if (user.userType === 'Caretaker') {
         setPropertyList([])
         setUnitDetails({})
@@ -1208,6 +1217,11 @@ function App() {
           setCompletedMaintenance(legacyData.maintenance)
           setExpenses(legacyData.expenses)
           setApplicants(legacyData.applicants)
+          legacyData.settings = {
+            ...defaultWorkspaceSettings,
+            ...legacyData.settings,
+            rentReminderChannel: resolveRentReminderChannel(legacyData.settings?.rentReminderChannel),
+          }
           const settings = { ...defaultWorkspaceSettings, ...legacyData.settings }
           setWorkspaceName(settings.workspaceName)
           setPropertyGroup(settings.propertyGroup)
@@ -1223,7 +1237,7 @@ function App() {
           setNotifWeekly(settings.notifWeekly)
           setRentReminderEnabled(settings.rentReminderEnabled)
           setRentReminderDays(settings.rentReminderDays)
-          setRentReminderChannel(settings.rentReminderChannel)
+          setRentReminderChannel(resolveRentReminderChannel(settings.rentReminderChannel))
           const { error } = await client.from('rental_workspaces').upsert({ owner_id: workspaceOwnerId, data: legacyData }, { onConflict: 'owner_id' })
           if (error) {
             setCloudStatus(`Legacy data migration failed: ${error.message}`)
@@ -1241,17 +1255,24 @@ function App() {
   }, [authUser?.id])
   useEffect(() => {
     const client = supabase
-    if (!client || !cloudOwnerId || sessionUser?.userType !== 'Landlord' || rentCollectionMode !== 'moha_paybill') return
+    if (!client || !cloudOwnerId || !sessionUser?.userType || sessionUser.userType === 'Platform Administrator') return
     let active = true
-    const channel = client.channel(`landlord-payout-status-${cloudOwnerId}`)
+    const refreshOnDatabaseChange = () => {
+      if (active) void refreshConfirmedRentPayments(true)
+    }
+    const channel = client.channel(`confirmed-rent-payments-${cloudOwnerId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'rent_payments',
+        filter: `owner_id=eq.${cloudOwnerId}`,
+      }, refreshOnDatabaseChange)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'rent_payouts',
         filter: `owner_id=eq.${cloudOwnerId}`,
-      }, () => {
-        if (active) void refreshConfirmedRentPayments(true)
-      })
+      }, refreshOnDatabaseChange)
       .subscribe()
     const refreshWhenVisible = () => {
       if (document.visibilityState === 'visible') void refreshConfirmedRentPayments(true)
@@ -1264,7 +1285,7 @@ function App() {
       document.removeEventListener('visibilitychange', refreshWhenVisible)
       void client.removeChannel(channel)
     }
-  }, [cloudOwnerId, refreshConfirmedRentPayments, rentCollectionMode, sessionUser?.userType])
+  }, [cloudOwnerId, refreshConfirmedRentPayments, sessionUser?.userType])
   useEffect(() => {
     const client = supabase
     if (!client || !cloudHydrated.current || !cloudOwnerId) return
@@ -1318,30 +1339,11 @@ function App() {
   useEffect(() => {
     setDirectRentPayments([])
     setRentPayouts([])
+    setRentPaymentsRefreshError('')
     const client = supabase
     if (!client || !cloudOwnerId) return
-    let active = true
-    const loadRentPayments = async () => {
-      const { data, error } = await client.from('rent_payments')
-        .select('id, owner_id, account_reference, mpesa_receipt, amount, transacted_at, phone, tenant_name, property_name, unit_name')
-        .eq('owner_id', cloudOwnerId)
-        .order('transacted_at', { ascending: false })
-      if (!active) return
-      if (error) setCloudStatus(`Rent payments unavailable: ${error.message}`)
-      else {
-        setDirectRentPayments(data ?? [])
-        const { data: payoutData, error: payoutError } = await client.from('rent_payouts')
-          .select('id, owner_id, mpesa_receipt, amount, status, payment_method, payout_reference, paid_by, paid_at, requested_at, completed_at')
-          .eq('owner_id', cloudOwnerId)
-          .order('requested_at', { ascending: false })
-        if (!active) return
-        if (payoutError) setCloudStatus(`Rent payouts unavailable: ${payoutError.message}`)
-        else setRentPayouts(payoutData ?? [])
-      }
-    }
-    void loadRentPayments()
-    return () => { active = false }
-  }, [cloudOwnerId])
+    void refreshConfirmedRentPayments()
+  }, [cloudOwnerId, refreshConfirmedRentPayments])
   const filteredProperties = useMemo(() => propertyList.filter((property) => property.name.toLowerCase().includes(query.toLowerCase())), [propertyList, query])
   const removeTenant = (tenant: TenantRecord) => {
     if (!window.confirm(`Remove ${tenant.name} from Unit ${tenant.unit}?`)) return
@@ -1447,11 +1449,20 @@ function App() {
       setCloudStatus(`Could not share rent reminder document: ${error instanceof Error ? error.message : 'Unknown error'}`)
     })
   }
+  const openRentReminderSms = (phone: string | undefined, message: string) => {
+    const cleanedPhone = normalizeWhatsAppPhone(phone)
+    if (!cleanedPhone) {
+      setCloudStatus('Add a valid tenant phone number before preparing an SMS reminder.')
+      return
+    }
+    window.open(`sms:+${cleanedPhone}?body=${encodeURIComponent(message)}`, '_blank')
+    setCloudStatus('SMS draft opened. Review it in your messaging app and tap Send.')
+  }
   const sendRentReminder = (tenant: TenantRecord, forceWhatsApp = false) => {
-    if (!forceWhatsApp && rentReminderChannel === 'Email' && tenant.email) {
+    if (!forceWhatsApp && rentReminderChannel === 'SMS') {
       const dueDate = getNextMonthlyRentDueDate(tenant.movedIn).toLocaleDateString('en-KE', { month: 'long', day: 'numeric', year: 'numeric' })
-      const message = buildRentWhatsAppMessage({ workspaceName, tenant, rent: tenant.rent, waterBill: tenant.waterBill ?? '0', paymentDetails: landlordPaymentDetails, dueDate })
-      window.open(`mailto:${tenant.email}?subject=${encodeURIComponent('Rent reminder')}&body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
+      const message = buildRentSmsMessage({ workspaceName, tenant, rent: tenant.rent, waterBill: tenant.waterBill ?? '0', dueDate })
+      openRentReminderSms(tenant.phone, message)
       return
     }
     shareRentReminderOnWhatsApp(tenant)
@@ -1913,30 +1924,8 @@ function App() {
   if (pendingLandlordApproval) return <LandlordApprovalStatusPage workspaceName={workspaceName} registration={pendingLandlordApproval} onRefresh={() => window.location.reload()} onBack={signOut} />
   if (tenantPortalSession && tenantPortalStatement) return <TenantStatementPage tenant={tenantPortalStatement.tenant} workspaceName={workspaceName} propertyGroup={propertyGroup} statement={tenantPortalStatement} onBack={() => { setTenantPortalSession(null); setTenantPublicView(false) }} onSendReminder={(message) => {
     const tenant = tenantPortalStatement.tenant
-    const reminderText = message || `Hello ${tenant.name}, this is a reminder from ${workspaceName}. Your rent balance is KSh ${tenantPortalStatement.balance.toLocaleString()} for ${tenant.property}, Unit ${getTenantUnitLabel(tenant)}.`
-    if (tenant.email) {
-      const url = `mailto:${tenant.email}?subject=${encodeURIComponent('Rent reminder')}&body=${encodeURIComponent(reminderText)}`
-      window.open(url, '_blank', 'noopener,noreferrer')
-      return
-    }
-    const dueDate = getNextMonthlyRentDueDate(tenant.movedIn).toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' })
-    const documentData: RentalDocumentData = {
-      ...buildRentReminderDocument({ workspaceName, tenant, rent: tenantPortalStatement.amountDue, waterBill: 0, paymentDetails: landlordPaymentDetails, dueDate }),
-      title: 'Rent Balance Statement',
-      fileName: `rent-balance-${tenant.unit}.pdf`.replace(/[^a-zA-Z0-9._-]/g, '-'),
-      details: [
-        { label: 'Current rent due', value: `KSh ${tenantPortalStatement.amountDue.toLocaleString()}` },
-        { label: 'Total paid', value: `KSh ${tenantPortalStatement.totalPaid.toLocaleString()}` },
-        { label: 'Outstanding balance', value: `KSh ${tenantPortalStatement.balance.toLocaleString()}` },
-      ],
-      totalLabel: 'OUTSTANDING BALANCE',
-      total: `KSh ${tenantPortalStatement.balance.toLocaleString()}`,
-    }
-    void shareRentalDocument(documentData, tenant.phone, reminderText).then(result => {
-      if (result !== 'cancelled') setCloudStatus(documentShareStatus(result, 'Rent balance statement'))
-    }).catch(error => {
-      setCloudStatus(`Could not share rent balance document: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    })
+    const reminderText = message || `Hello ${tenant.name}, your rent balance with ${workspaceName} is KSh ${tenantPortalStatement.balance.toLocaleString()} for ${tenant.property}, Unit ${getTenantUnitLabel(tenant)}.`
+    openRentReminderSms(tenant.phone, reminderText)
   }} />
   if (!authReady) return <main className="login-shell"><p>Connecting to Supabase...</p></main>
   if (authUser && !sessionUser) return <main className="login-shell"><p>Loading Supabase profile...</p></main>
@@ -2128,7 +2117,7 @@ function App() {
         <section className="dashboard-grid"><article className="panel revenue-panel"><div className="panel-heading"><div><p className="eyebrow">Live performance</p><h2>Revenue overview</h2></div><span className="live-badge">Updated from records</span></div><div className="revenue-summary"><strong>KSh {collectedPayments.toLocaleString()}</strong><span className="trend positive">Live</span><small>Total recorded payments</small></div><div className="live-revenue-list">{visibleRevenueRows.map((row) => { const [amount, tenant = '', date = ''] = row.split(' · '); return <div key={row}><span><strong>{amount}</strong><small>{tenant}</small></span><time>{date}</time></div> })}{(savedRows.Payments ?? []).length === 0 && <p className="overview-empty">Payment records will appear here after you add them.</p>}</div>{revenueRows.length > overviewPageSize && <Pagination page={Math.min(overviewRevenuePage, revenuePageCount)} pageCount={revenuePageCount} onPageChange={setOverviewRevenuePage} />}</article>
           <article className="panel activity-panel"><div className="panel-heading"><div><p className="eyebrow">Live feed</p><h2>Recent activity</h2></div><span className="live-badge">Live</span></div><div className="activity-list">{visibleActivities.map(({ icon: Icon, title, detail, time, tone }, index) => <div className="activity-item" key={`${title}-${detail}-${index}`}><span className={`activity-icon ${tone}`}><Icon size={17} /></span><div><strong>{title}</strong><small>{detail}</small></div><time>{time}</time></div>)}{overviewActivities.length === 0 && <p className="overview-empty">Activity will appear here as you add records.</p>}</div>{overviewActivities.length > overviewPageSize && <Pagination page={Math.min(overviewActivityPage, activityPageCount)} pageCount={activityPageCount} onPageChange={setOverviewActivityPage} />}</article></section>
         <section className="portfolio-health panel" aria-label="Portfolio health"><div className="panel-heading"><div><p className="eyebrow">Operational snapshot</p><h2>Portfolio health</h2></div><span className="live-badge">Current month</span></div><div className="health-grid"><article><span className="health-icon collection"><CircleDollarSign size={18} /></span><div><strong>{collectionRate}% collected</strong><small>KSh {Math.max(monthlyRentRoll - collectedPayments, 0).toLocaleString()} outstanding this month</small></div></article><article><span className="health-icon vacancy"><Home size={18} /></span><div><strong>{vacantUnits} vacant {vacantUnits === 1 ? 'unit' : 'units'}</strong><small>{occupiedUnits} active residents across the portfolio</small></div></article><article><span className="health-icon lease"><CalendarDays size={18} /></span><div><strong>{upcomingLeases.length} lease{upcomingLeases.length === 1 ? '' : 's'} due soon</strong><small>{upcomingLeases.length ? `${upcomingLeases[0].name} ends ${new Date(`${upcomingLeases[0].leaseEnd}T00:00:00`).toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })}` : 'No lease renewals due in the next 60 days'}</small></div></article></div></section>
-        <section className="panel" aria-label="Auto rent reminders"><div className="panel-heading"><div><p className="eyebrow">Collections</p><h2>Auto rent reminders</h2></div><span className="live-badge">{rentReminderQueue.length} pending</span></div>{rentReminderQueue.length ? <div className="due-list">{visibleReminders.map(({ id, tenant, status, dueLabel }) => <div key={id}><span><strong>{tenant.name}</strong><small>{tenant.property} · {getTenantUnitLabel(tenant)} · {dueLabel}</small></span><span className={`payment-state ${status === 'Overdue' ? 'due' : 'paid'}`}>{status}</span><button type="button" className="reminder-button" onClick={() => sendRentReminder(tenant)}>{rentReminderChannel}</button></div>)}</div> : <p className="overview-empty" style={{ padding: '18px 0 10px' }}>All tenants are up to date. No rent reminders are queued right now.</p>}{rentReminderQueue.length > overviewPageSize && <Pagination page={Math.min(overviewReminderPage, reminderPageCount)} pageCount={reminderPageCount} onPageChange={setOverviewReminderPage} />}</section>
+        <section className="panel" aria-label="Rent reminder queue"><div className="panel-heading"><div><p className="eyebrow">Collections</p><h2>Rent reminder queue</h2></div><span className="live-badge">{rentReminderQueue.length} pending</span></div>{rentReminderQueue.length ? <div className="due-list">{visibleReminders.map(({ id, tenant, status, dueLabel }) => <div key={id}><span><strong>{tenant.name}</strong><small>{tenant.property} · {getTenantUnitLabel(tenant)} · {dueLabel}</small></span><span className={`payment-state ${status === 'Overdue' ? 'due' : 'paid'}`}>{status}</span><button type="button" className="reminder-button" onClick={() => sendRentReminder(tenant)}>{rentReminderChannel}</button></div>)}</div> : <p className="overview-empty" style={{ padding: '18px 0 10px' }}>All tenants are up to date. No rent reminders are queued right now.</p>}{rentReminderQueue.length > overviewPageSize && <Pagination page={Math.min(overviewReminderPage, reminderPageCount)} pageCount={reminderPageCount} onPageChange={setOverviewReminderPage} />}</section>
         <section className="panel properties-panel"><div className="panel-heading"><div><p className="eyebrow">Your portfolio</p><h2>Properties</h2></div><div className="panel-actions"><label className="search-box"><Search size={16} /><input value={query} onChange={(event) => { setQuery(event.target.value); setOverviewPropertyPage(1) }} placeholder="Search properties" /></label><button className="filter-button"><ClipboardList size={16} /> Filters</button></div></div><div className="table-wrap"><table><thead><tr><th>Property</th><th>Occupancy</th><th>Monthly income</th><th>Status</th><th></th></tr></thead><tbody>{visibleOverviewProperties.map((property) => <tr key={property.name}><td><span className={`property-thumb ${property.color}`}><Building2 size={18} /></span><span><strong>{property.name}</strong><small>{property.address}</small></span></td><td><div className="occupancy"><span>{property.occupied} / {property.units} units</span><div><i style={{ width: `${property.units ? property.occupied / property.units * 100 : 0}%` }}></i></div></div></td><td><strong>{property.income}</strong><small>per month</small></td><td><span className={`status ${property.status.toLowerCase()}`}>{property.status}</span></td><td><button className="row-arrow" aria-label={`Open ${property.name}`} onClick={() => { setActiveSection('Properties'); setSelectedProperty(property.name) }}><ArrowUpRight size={17} /></button></td></tr>)}</tbody></table></div>{filteredProperties.length > propertyPageSize && <Pagination page={Math.min(overviewPropertyPage, propertyPageCount)} pageCount={propertyPageCount} onPageChange={setOverviewPropertyPage} />}</section>
         {pendingWaterBillInvoices.length > 0 && <section className="panel water-bill-pending-panel" role="status">
           <div className="panel-heading"><div><p className="eyebrow">Invoice waiting</p><h2>Water bill needed</h2><p>These rents are due, but the current-cycle water bill has not been updated. Update the bill to release the tenant invoice.</p></div><span className="live-badge">{pendingWaterBillInvoices.length} pending</span></div>
@@ -2406,7 +2395,7 @@ function App() {
                         section={activeSection}
                         propertyNames={propertyList.map(property => property.name)}
                         rows={activeSection === 'Properties'
-                          ? propertyList.map(property => `${property.name} · ${property.units} units · ${property.occupied} occupied`)
+                          ? propertyList.map(property => `${property.name} · ${property.units} units · ${property.occupied} occupied${property.waterUnitPrice === undefined ? '' : ` · Water KSh ${property.waterUnitPrice.toLocaleString()}/unit`}`)
                           : activeSection === 'Tenants'
                             ? tenantList.map(tenant => `${tenant.name} · Unit ${tenant.unit} · ${tenant.unitType} · KSh ${tenant.rent} · ${tenant.property} · ${tenant.waterBill ?? '0'}`)
                             : activeSection === 'Payments'
@@ -2439,13 +2428,18 @@ function App() {
                                 : null}
                       />
                     : null}
-        {canAccessSystem && modalType && <AddModal type={modalType} properties={propertyList} unitDetails={unitDetails} initialValues={modalType === 'waterBill' && selectedTenant ? { amount: selectedTenant.waterBill ?? '' } : modalType === 'tenant' && editingApplicant ? { name: editingApplicant.name, phone: editingApplicant.phone, property: editingApplicant.property, unit: editingApplicant.unit } : undefined} onClose={() => { setModalType(null); setEditingApplicant(null) }} onSave={(values, sendPortalWhatsApp, unitMix) => {
+        {canAccessSystem && modalType && <AddModal type={modalType} properties={propertyList} unitDetails={unitDetails} waterReadingInitialized={selectedTenant?.waterCurrentReading !== undefined} initialValues={modalType === 'waterBill' && selectedTenant ? {
+          previousReading: String(selectedTenant.waterCurrentReading ?? selectedTenant.waterPreviousReading ?? 0),
+          currentReading: '',
+          unitPrice: String(propertyList.find(property => property.name === selectedTenant.property)?.waterUnitPrice ?? tenantList.find(tenant => tenant.property === selectedTenant.property && tenant.waterUnitPrice !== undefined)?.waterUnitPrice ?? ''),
+        } : modalType === 'tenant' && editingApplicant ? { name: editingApplicant.name, phone: editingApplicant.phone, property: editingApplicant.property, unit: editingApplicant.unit } : undefined} onClose={() => { setModalType(null); setEditingApplicant(null) }} onSave={(values, sendPortalWhatsApp, unitMix) => {
           if (modalType === 'property') {
             const mix = unitMix.map((item) => ({ type: item.type.trim(), count: Number(item.count), rent: Number(item.rent) }))
             const units = mix.reduce((total, item) => total + item.count, 0)
             const income = mix.reduce((total, item) => total + item.count * item.rent, 0)
             const records = mix.flatMap((item) => Array.from({ length: item.count }, (_, index) => ({ unit: `${item.type}-${index + 1}`, type: item.type, tenant: 'Vacant', status: 'Vacant', rent: `KSh ${item.rent.toLocaleString()}` })))
-            setPropertyList((current) => [...current, { name: values.name, address: values.address, units, occupied: 0, income: `KSh ${income.toLocaleString()}`, status: 'Attention', color: 'blue' }])
+            const waterUnitPrice = values.waterUnitPrice.trim() ? Number(values.waterUnitPrice) : undefined
+            setPropertyList((current) => [...current, { name: values.name, address: values.address, units, occupied: 0, income: `KSh ${income.toLocaleString()}`, status: 'Attention', color: 'blue', waterUnitPrice }])
             setUnitDetails((current) => ({ ...current, [values.name]: records }))
           } else if (modalType === 'tenant') {
             const selectedUnit = (unitDetails[values.property] ?? []).find((unit) => unit.unit === values.unit && unit.status === 'Vacant')
@@ -2474,7 +2468,19 @@ function App() {
               }
             }
           } else if (modalType === 'waterBill' && selectedTenant) {
-            setTenantList((current) => current.map((tenant) => tenant.name === selectedTenant.name && tenant.unit === selectedTenant.unit && tenant.property === selectedTenant.property ? { ...tenant, waterBill: values.amount, waterBillUpdatedAt: new Date().toISOString() } : tenant))
+            const previousReading = Number(values.previousReading)
+            const currentReading = Number(values.currentReading)
+            const unitPrice = Number(values.unitPrice)
+            const calculatedWaterBill = ((currentReading - previousReading) * unitPrice).toFixed(2)
+            setPropertyList((current) => current.map(property => property.name === selectedTenant.property ? { ...property, waterUnitPrice: unitPrice } : property))
+            setTenantList((current) => current.map((tenant) => tenant.name === selectedTenant.name && tenant.unit === selectedTenant.unit && tenant.property === selectedTenant.property ? {
+              ...tenant,
+              waterBill: calculatedWaterBill,
+              waterBillUpdatedAt: new Date().toISOString(),
+              waterPreviousReading: previousReading,
+              waterCurrentReading: currentReading,
+              waterUnitPrice: unitPrice,
+            } : tenant))
             setSelectedTenant(null)
           } else {
             const section = modalType === 'maintenance' ? 'Maintenance' : modalType === 'payment' ? 'Payments' : 'Documents'
@@ -2533,6 +2539,7 @@ function App() {
                 <div><span>Property</span><strong>{viewingTenant.property}</strong></div>
                 <div><span>Monthly Rent</span><strong>KSh {Number(viewingTenant.rent.replace(/[^0-9.]/g, '')).toLocaleString()}</strong></div>
                 <div><span>Water Bill</span><strong>KSh {Number(viewingTenant.waterBill ?? '0').toLocaleString()}</strong></div>
+                {viewingTenant.waterCurrentReading !== undefined && <div><span>Water meter</span><strong>{viewingTenant.waterPreviousReading?.toLocaleString() ?? '0'} → {viewingTenant.waterCurrentReading.toLocaleString()} units at KSh {viewingTenant.waterUnitPrice?.toLocaleString()}/unit</strong></div>}
                 <div><span>Lease</span><strong>{viewingTenant.lease}</strong></div>
                 {viewingTenant.email && <div><span>Email</span><strong>{viewingTenant.email}</strong></div>}
                 {viewingTenant.phone && <div><span>Phone</span><strong>{viewingTenant.phone}</strong></div>}
@@ -2574,16 +2581,27 @@ function App() {
         {/* Edit Property Modal */}
         {canAccessSystem && editingProperty && (
           <div className="modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setEditingProperty(null) }}>
-            <div className="add-modal">
-              <button type="button" className="modal-close" onClick={() => setEditingProperty(null)}>×</button>
-              <p className="eyebrow">Property management</p>
-              <h2>Edit property</h2>
-              <p className="modal-description">Currently viewing {editingProperty.name}. Full property editing coming soon.</p>
-              <div className="modal-actions">
-                <button type="button" className="primary-button" onClick={() => setEditingProperty(null)}>Close</button>
-              </div>
-            </div>
-          </div>
+           <form className="add-modal" onSubmit={event => {
+             event.preventDefault()
+             const formData = new FormData(event.currentTarget)
+             const priceValue = String(formData.get('waterUnitPrice') ?? '').trim()
+             const parsedPrice = Number(priceValue)
+             if (priceValue && (!Number.isFinite(parsedPrice) || parsedPrice <= 0)) return
+             const waterUnitPrice = priceValue ? parsedPrice : undefined
+             setPropertyList(current => current.map(property => property.name === editingProperty.name ? { ...property, waterUnitPrice } : property))
+             setEditingProperty(null)
+           }}>
+             <button type="button" className="modal-close" onClick={() => setEditingProperty(null)}>×</button>
+             <p className="eyebrow">Property management</p>
+             <h2>Water price per unit</h2>
+             <p className="modal-description">Set the shared water rate for {editingProperty.name}. It will be used for future tenant meter readings.</p>
+             <label className="form-field"><span>Price per unit (KSh)</span><input name="waterUnitPrice" type="number" min="0.01" step="0.01" placeholder="e.g. 120" defaultValue={editingProperty.waterUnitPrice ?? ''} /><small>Leave blank to remove the shared rate.</small></label>
+             <div className="modal-actions">
+               <button type="button" className="cancel-button" onClick={() => setEditingProperty(null)}>Cancel</button>
+               <button type="submit" className="primary-button">Save water rate</button>
+             </div>
+           </form>
+         </div>
         )}
         {/* Edit Payment Inline */}
         {canAccessSystem && editingPaymentIdx !== null && (
@@ -3005,13 +3023,16 @@ function SectionView({ section, rows, propertyNames, completedMaintenance = {}, 
   const addLabel = section === 'Properties' ? 'property' : section === 'Help center' ? 'topic' : section.slice(0, -1).toLowerCase()
   const pageSize = 15
   const [page, setPage] = useState(1)
-  const [tenantSearch, setTenantSearch] = useState('')
+  const [tenantProperty, setTenantProperty] = useState('')
   const [paymentProperty, setPaymentProperty] = useState('')
-  const tenantRows = rows.map((row, index) => ({ row, index })).filter(({ row, index }) => {
-    if (section !== 'Tenants' || !tenantSearch.trim()) return true
-    const tenant = tenantDirectory[index]
-    return `${row} ${tenant?.email ?? ''} ${tenant?.portalCode ?? ''} ${tenant?.rentAccountRef ?? ''}`.toLowerCase().includes(tenantSearch.trim().toLowerCase())
-  })
+  const tenantPropertyNames = [...new Map([
+    ...propertyNames,
+    ...tenantDirectory.map(tenant => tenant.property),
+  ].map(name => name.trim()).filter(Boolean).map(name => [name.toLocaleLowerCase(), name])).values()]
+    .sort((first, second) => first.localeCompare(second))
+  const tenantRows = rows.map((row, index) => ({ row, index })).filter(({ row, index }) =>
+    section !== 'Tenants' || !tenantProperty || (tenantDirectory[index]?.property ?? row.split(' · ')[4] ?? '').trim().toLocaleLowerCase() === tenantProperty.toLocaleLowerCase(),
+  )
   const paymentPropertyNames = [...new Map([
     ...propertyNames,
     ...directRentPayments.map(payment => payment.property_name),
@@ -3029,7 +3050,7 @@ function SectionView({ section, rows, propertyNames, completedMaintenance = {}, 
   const visiblePaymentIndices = section === 'Payments' ? paymentRows.slice(start, start + pageSize).map(({ index }) => index) : undefined
   const pageRows = filteredRows.slice(start, start + pageSize)
   return <section className={`section-view panel ${section.toLowerCase()}-view`}>
-    <div className="section-view-heading"><div><p className="eyebrow">{detail.eyebrow}</p><h2>{detail.title}</h2><p>{detail.description}</p></div>{section === 'Tenants' && <label className="search-box tenant-directory-search"><Search size={16} /><input value={tenantSearch} onChange={event => { setTenantSearch(event.target.value); setPage(1) }} placeholder="Search name, property, email or code" aria-label="Search tenants by name, property, email or portal code" /></label>}{section === 'Payments' && <label className="search-box payment-property-search"><Search size={16} /><select value={paymentProperty} onChange={event => { setPaymentProperty(event.target.value); setPage(1) }} aria-label="Filter manual payments by apartment"><option value="">All apartments</option>{paymentPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{onAdd && <button className="primary-button" onClick={onAdd}><Plus size={17} /> Add {addLabel}</button>}</div>
+    <div className="section-view-heading"><div><p className="eyebrow">{detail.eyebrow}</p><h2>{detail.title}</h2><p>{detail.description}</p></div>{section === 'Tenants' && <label className="search-box payment-property-search tenant-property-search"><Search size={16} /><select value={tenantProperty} onChange={event => { setTenantProperty(event.target.value); setPage(1) }} aria-label="Filter tenants by apartment"><option value="">All apartments</option>{tenantPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{section === 'Payments' && <label className="search-box payment-property-search"><Search size={16} /><select value={paymentProperty} onChange={event => { setPaymentProperty(event.target.value); setPage(1) }} aria-label="Filter manual payments by apartment"><option value="">All apartments</option>{paymentPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{onAdd && <button className="primary-button" onClick={onAdd}><Plus size={17} /> Add {addLabel}</button>}</div>
     {section === 'Properties' && <PropertySection rows={pageRows} onRowClick={(index) => onRowClick?.(start + index)} onEdit={(index) => onEditProperty?.(start + index)} onDelete={(index) => onDeleteProperty?.(start + index)} />}
     {section === 'Tenants' && <TenantPortalCodeLookup />}
     {section === 'Tenants' && <TenantSection rows={pageRows} originalIndices={visibleTenantIndices} onWaterBillUpdate={(index) => onWaterBillUpdate?.(index)} onGenerateInvoice={(index) => onGenerateInvoice?.(index)} onRemoveTenant={(index) => onRemoveTenant?.(index)} onViewProfile={(index) => onViewTenantProfile?.(index)} onEditTenant={(index) => onEditTenant?.(index)} />}
@@ -3272,11 +3293,12 @@ function PropertySection({ rows, onRowClick, onEdit, onDelete }: { rows: string[
 
 function TenantPortalCodeLookup() {
   const tenants = useContext(TenantDirectoryContext)
-  const [query, setQuery] = useState('')
+  const [tenantProperty, setTenantProperty] = useState('')
   const [copied, setCopied] = useState('')
   const [copyError, setCopyError] = useState('')
-  const searchTerm = query.trim().toLowerCase()
-  const matches = tenants.filter(tenant => `${tenant.name} ${tenant.property} ${tenant.unit} ${tenant.email ?? ''} ${tenant.portalCode ?? ''}`.toLowerCase().includes(searchTerm)).slice(0, 8)
+  const propertyNames = [...new Map(tenants.map(tenant => tenant.property.trim()).filter(Boolean).map(name => [name.toLocaleLowerCase(), name])).values()]
+    .sort((first, second) => first.localeCompare(second))
+  const matches = tenants.filter(tenant => !tenantProperty || tenant.property.trim().toLocaleLowerCase() === tenantProperty.toLocaleLowerCase())
 
   const copyCode = async (tenant: TenantRecord) => {
     if (!tenant.portalCode) return
@@ -3292,15 +3314,14 @@ function TenantPortalCodeLookup() {
 
   return <section className="tenant-code-lookup" aria-labelledby="tenant-code-title">
     <div className="tenant-code-lookup-heading"><div><p className="eyebrow">Tenant access</p><h3 id="tenant-code-title">Portal code lookup</h3><p>Find a tenant and share their portal code if they forget it.</p></div><KeyRoundIcon /></div>
-    <label className="search-box tenant-code-search"><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search tenant, property, unit, email or code" aria-label="Search tenants for portal code" /></label>
+    <label className="search-box payment-property-search tenant-code-search"><Search size={16} /><select value={tenantProperty} onChange={event => setTenantProperty(event.target.value)} aria-label="Filter portal codes by apartment"><option value="">All apartments</option>{propertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
     {copyError && <p className="settings-error" role="alert">{copyError}</p>}
-    {tenants.length === 0 ? <p className="overview-empty">Add a tenant to generate a portal code.</p> : matches.length === 0 ? <p className="overview-empty">No tenant matches that search.</p> : <div className="tenant-code-results">{matches.map(tenant => <article className="tenant-code-result" key={`${tenant.property}-${tenant.unit}-${tenant.email ?? tenant.name}`}>
+    {tenants.length === 0 ? <p className="overview-empty">Add a tenant to generate a portal code.</p> : matches.length === 0 ? <p className="overview-empty">No tenants are listed for this apartment.</p> : <div className="tenant-code-results">{matches.map(tenant => <article className="tenant-code-result" key={`${tenant.property}-${tenant.unit}-${tenant.email ?? tenant.name}`}>
       <span className="user-avatar">{tenant.name.slice(0, 2).toUpperCase()}</span>
       <div className="tenant-code-result-info"><strong>{tenant.name}</strong><small>{tenant.property} · Unit {getTenantUnitLabel(tenant)}{tenant.email ? ` · ${tenant.email}` : ''}</small></div>
       <div className="tenant-code-value"><small>Portal code</small><strong>{tenant.portalCode || 'Not set'}</strong></div>
       {tenant.portalCode && <button type="button" className="portal-code-copy" onClick={() => void copyCode(tenant)}>{copied === tenant.portalCode ? <CheckCircle2 size={13} /> : <Copy size={13} />}{copied === tenant.portalCode ? 'Copied' : 'Copy code'}</button>}
     </article>)}</div>}
-    {tenants.length > matches.length && <small className="tenant-code-more">Showing {matches.length} matching tenants. Refine your search to narrow the list.</small>}
   </section>
 }
 
@@ -3316,7 +3337,11 @@ function TenantSection({ rows, originalIndices, onWaterBillUpdate, onGenerateInv
     {rows.map((row, index) => {
       const recordIndex = originalIndices?.[index] ?? index
       const [name, unit = '', type = '', rent = '', property = '', waterBill = '0', email = '', portalCode = ''] = row.split(' · ')
-      const unitLabel = getTenantUnitLabel(tenantDirectory[recordIndex] ?? { unit })
+      const tenant = tenantDirectory[recordIndex]
+      const unitLabel = getTenantUnitLabel(tenant ?? { unit })
+      const waterConsumption = tenant?.waterCurrentReading === undefined
+        ? null
+        : tenant.waterCurrentReading - (tenant.waterPreviousReading ?? 0)
       return <div className="tenant-record" key={`${row}-${recordIndex}`}>
         <span className="user-avatar">{name.slice(0, 2).toUpperCase()}</span>
         <span className="tenant-record-main">
@@ -3329,7 +3354,7 @@ function TenantSection({ rows, originalIndices, onWaterBillUpdate, onGenerateInv
           {email && <small>{email}</small>}
         </span>
         <span><strong>{unitLabel}</strong><small>{type} {rent}</small></span>
-        <span className="water-bill-cell"><strong>KSh {Number(waterBill).toLocaleString()}</strong><button type="button" className="water-bill-button" onClick={() => onWaterBillUpdate(recordIndex)}><Droplets size={13} /> Update</button><button type="button" className="invoice-button" onClick={() => onGenerateInvoice(recordIndex)}><FileText size={13} /> Invoice</button></span>
+        <span className="water-bill-cell"><strong>KSh {Number(waterBill).toLocaleString()}</strong>{waterConsumption !== null && <small>{waterConsumption.toLocaleString()} units × KSh {tenant?.waterUnitPrice?.toLocaleString()}/unit</small>}<button type="button" className="water-bill-button" onClick={() => onWaterBillUpdate(recordIndex)}><Droplets size={13} /> Read meter</button><button type="button" className="invoice-button" onClick={() => onGenerateInvoice(recordIndex)}><FileText size={13} /> Invoice</button></span>
         <span className="access-status connected">Active</span>
         <div className="tenant-actions"><button type="button" className="tenant-action-btn view" onClick={() => onViewProfile?.(recordIndex)} title="View profile">👤</button><button type="button" className="tenant-action-btn edit" onClick={() => onEditTenant?.(recordIndex)} title="Edit tenant">✏️</button><button type="button" className="remove-tenant-button" onClick={() => onRemoveTenant(recordIndex)}><UserX size={13} /> Vacate</button></div>
       </div>
@@ -3495,7 +3520,7 @@ function ConfirmedRentPaymentSection({ payments, propertyNames }: { payments: Re
           })
         }} title="Share receipt PDF on WhatsApp"><MessageCircle size={14} /><span>WhatsApp</span></button>
       </div>
-    </article>})}</div> : <p className="overview-empty">No confirmed rent payments for {paymentProperty}.</p> : <p className="overview-empty">No confirmed Paybill rent payments yet.</p>}
+    </article>})}</div> : <p className="overview-empty">No confirmed rent payments for {paymentProperty}.</p> : <p className="overview-empty">{refreshing ? 'Loading confirmed rent payments…' : 'No confirmed Paybill rent payments yet.'}</p>}
     {shareStatus && <p className="share-message" role="status">{shareStatus}</p>}
     {filteredPayments.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}
     {receipt && <PaymentReceiptModal receipt={receipt} workspaceName="Moha Rental Management System" onClose={() => setReceipt(null)} onShare={() => shareManualPaymentReceipt(receipt, 'Moha Rental Management System')} />}
@@ -3538,6 +3563,10 @@ function InvoiceModal({ tenant, invoice, workspaceName, paymentDetails, onEmailC
   const rent = Number(tenant.rent.replace(/[^0-9.]/g, '')) || 0
   const waterBill = Number((tenant.waterBill ?? '0').replace(/[^0-9.]/g, '')) || 0
   const total = rent + waterBill
+  const currentWaterReading = tenant.waterCurrentReading
+  const waterUsage = currentWaterReading === undefined
+    ? null
+    : currentWaterReading - (tenant.waterPreviousReading ?? 0)
   const invoiceNumber = invoice.id
   const issuedAt = new Date(invoice.issuedAt)
 
@@ -3666,6 +3695,9 @@ function InvoiceModal({ tenant, invoice, workspaceName, paymentDetails, onEmailC
           <span><strong>Water bill</strong><small>Monthly water usage charge</small></span>
           <strong>KSh ${waterBill.toLocaleString()}</strong>
         </div>
+        ${waterUsage !== null ? `<div><span><strong>Previous water reading</strong><small>Meter reading before this billing period</small></span><strong>${(tenant.waterPreviousReading ?? 0).toLocaleString()} units</strong></div>
+        <div><span><strong>Current water reading</strong><small>Meter reading at the end of this billing period</small></span><strong>${currentWaterReading!.toLocaleString()} units</strong></div>
+        <div><span><strong>Water usage calculation</strong><small>${waterUsage.toLocaleString()} units × KSh ${(tenant.waterUnitPrice ?? 0).toLocaleString()} per unit</small></span><strong>KSh ${waterBill.toLocaleString()}</strong></div>` : ''}
         <div class="inv-total">
           <span><small>Total amount due</small><strong>KSh ${total.toLocaleString()}</strong></span>
           <span class="inv-due-label">Due ${dueDateStr}</span>
@@ -3761,6 +3793,20 @@ function InvoiceModal({ tenant, invoice, workspaceName, paymentDetails, onEmailC
             <span><strong>Water bill</strong><small>Monthly water usage charge</small></span>
             <strong>KSh {waterBill.toLocaleString()}</strong>
           </div>
+          {waterUsage !== null && <>
+            <div>
+              <span><strong>Previous water reading</strong><small>Meter reading before this billing period</small></span>
+              <strong>{(tenant.waterPreviousReading ?? 0).toLocaleString()} units</strong>
+            </div>
+            <div>
+              <span><strong>Current water reading</strong><small>Meter reading at the end of this billing period</small></span>
+              <strong>{currentWaterReading!.toLocaleString()} units</strong>
+            </div>
+            <div>
+              <span><strong>Water usage calculation</strong><small>{waterUsage.toLocaleString()} units × KSh {(tenant.waterUnitPrice ?? 0).toLocaleString()} per unit</small></span>
+              <strong>KSh {waterBill.toLocaleString()}</strong>
+            </div>
+          </>}
           <div className="invoice-total">
             <span><small>Total amount due</small><strong>KSh {total.toLocaleString()}</strong></span>
             <span className="invoice-due-label">Due {dueDateStr}</span>
@@ -4705,16 +4751,17 @@ function SettingsView({
           <i className={notifWeekly ? 'on' : ''}><b /></i>
         </button>
         <button className="toggle-row" onClick={onToggleRentReminder}>
-          <span><strong>Auto rent reminders</strong><small>Alert unpaid tenants before rent is due.</small></span>
+          <span><strong>Rent reminder queue</strong><small>Track unpaid tenants and prepare a message before rent is due.</small></span>
           <i className={rentReminderEnabled ? 'on' : ''}><b /></i>
         </button>
         {rentReminderEnabled && (
           <div className="compact-form" style={{ marginTop: 10 }}>
             <label className="form-field"><span>Reminder window (days)</span><input type="number" min={1} max={30} value={rentReminderDays} onChange={e => onChangeRentReminderDays(Math.max(1, Math.min(30, Number(e.target.value) || 1)))} /></label>
             <label className="form-field"><span>Default delivery channel</span><select value={rentReminderChannel} onChange={e => onChangeRentReminderChannel(e.target.value as RentReminderChannel)}>
+              <option value="SMS">SMS</option>
               <option value="WhatsApp">WhatsApp</option>
-              <option value="Email">Email</option>
             </select></label>
+            <small>SMS opens a prefilled message on your device. Review it and tap Send.</small>
           </div>
         )}
       </div>}
@@ -4821,7 +4868,7 @@ function SettingsView({
 
           {isPlatformAdmin && activeSettingsSection === 'landlord-approvals' && <section className="subscription-review landlord-signup-review" id="settings-landlord-approvals">
             <div className="subscription-review-heading">
-              <div><h3>Landlord registrations awaiting approval</h3><p>Approve access before a new landlord can open their workspace.</p></div>
+              <div><h3>Landlord registrations awaiting approval</h3><p>Approve immediately, or leave a request pending and the system will approve workspace access after 30 minutes.</p></div>
               <span className="subscription-review-count">{pendingLandlordApprovals.length} pending</span>
             </div>
             {createError && <p className="settings-error" role="alert">{createError}</p>}
@@ -5683,7 +5730,7 @@ function TenantStatementPage({ tenant, workspaceName, propertyGroup, statement, 
             <div><span><strong>{tenant.status}</strong><small>Status</small></span><span className="payment-state due">{tenant.leaseEnd ? `Lease ends ${tenant.leaseEnd}` : 'Active'}</span></div>
           </div>
           <div className="tenant-portal-actions">
-            <button className="primary-button" type="button" onClick={() => onSendReminder()}>Send reminder</button>
+            <button className="primary-button" type="button" onClick={() => onSendReminder()}>Text me a reminder</button>
             <button className="filter-button" type="button" onClick={exportStatement}>Download statement</button>
           </div>
         </article>
@@ -5902,16 +5949,21 @@ function PublicLandlordSignupPage({ workspaceName, onBack }: { workspaceName: st
 }
 
 function LandlordApprovalStatusPage({ workspaceName, registration, onRefresh, onBack }: { workspaceName: string; registration: { name: string; email: string; plan: PublicLandlordPlan | null; status: 'pending' | 'rejected' }; onRefresh: () => void; onBack: () => void }) {
+  useEffect(() => {
+    if (registration.status !== 'pending') return
+    const refreshInterval = window.setInterval(onRefresh, 30_000)
+    return () => window.clearInterval(refreshInterval)
+  }, [onRefresh, registration.status])
   return <main className="login-shell landlord-approval-shell">
     <section className="login-card landlord-approval-card" aria-labelledby="landlord-approval-title">
       <div className="login-mobile-brand"><span className="login-logo"><MohaLogo size={20} /></span><span>{workspaceName}</span></div>
       <p className="login-kicker">LANDLORD REGISTRATION</p>
       <h1 id="landlord-approval-title">{registration.status === 'pending' ? 'Approval pending' : 'Registration not approved'}<span>.</span></h1>
       <p className="login-copy">{registration.status === 'pending'
-        ? `Hello ${registration.name}, your account is waiting for Platform Administrator approval. You will get access after it is approved.`
+        ? `Hello ${registration.name}, your workspace access will be approved by the Platform Administrator or automatically after 30 minutes if no decision is made. Silver plan payment still requires verification. This page checks for approval automatically.`
         : 'Your registration was not approved. Contact the platform administrator if you think this is a mistake.'}</p>
       <div className="signup-approval-summary"><span>Email</span><strong>{registration.email}</strong><span>Selected plan</span><strong>{registration.plan === 'test' ? 'Test · Free for one month' : registration.plan === 'silver_monthly' ? 'Silver Monthly · KSh 1,350' : registration.plan === 'silver_yearly' ? 'Silver Yearly · KSh 13,500' : 'Not selected'}</strong></div>
-      <div className="modal-actions"><button type="button" className="cancel-button" onClick={onBack}>Sign out</button>{registration.status === 'pending' && <button type="button" className="primary-button" onClick={onRefresh}>Check approval status</button>}</div>
+      <div className="modal-actions"><button type="button" className="cancel-button" onClick={onBack}>Sign out</button>{registration.status === 'pending' && <button type="button" className="primary-button" onClick={onRefresh}>Check now</button>}</div>
     </section>
   </main>
 }
@@ -6073,7 +6125,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         <span>Secure access for every member of your property community</span>
       </div>
       <div className="portal-home-signup portal-home-signup-quick">
-        <div><strong>New landlord? Get your first month free.</strong><span>Choose the free one-month Test plan when you register. Workspace access begins after admin approval.</span></div>
+        <div><strong>New landlord? Get your first month free.</strong><span>Choose the free one-month Test plan when you register. Workspace access is approved by an administrator or automatically after 30 minutes.</span></div>
         <button type="button" className="portal-home-signup-button" onClick={onOpenLandlordSignup}>Get one month free <ArrowUpRight size={17} /></button>
       </div>
       <div className="portal-home-grid">
@@ -6158,7 +6210,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
           <button type="button" onClick={onOpenLandlordSignup}>Register as landlord <ArrowUpRight size={16} /></button>
         </article>
       </div>
-      <p className="portal-home-pricing-note">Access to a new landlord workspace begins after administrator approval. Silver plans require payment and administrator verification.</p>
+      <p className="portal-home-pricing-note">Workspace access is approved by an administrator or automatically after 30 minutes. Silver plans still require payment and administrator verification before the subscription is activated.</p>
     </section>}
 
     {activeContent === 'contact' && <section className="portal-home-contact" id="contact-moha" aria-labelledby="contact-moha-title">
@@ -6501,11 +6553,12 @@ function HelpCenterView() {
   )
 }
 
-function AddModal({ type, properties, unitDetails, initialValues, onClose, onSave }: { type: ModalType; properties: PropertyRecord[]; unitDetails: Record<string, UnitRecord[]>; initialValues?: Record<string, string>; onClose: () => void; onSave: (values: Record<string, string>, sendPortalWhatsApp: boolean, unitMix: UnitMixRow[]) => void }) {
+function AddModal({ type, properties, unitDetails, initialValues, waterReadingInitialized = false, onClose, onSave }: { type: ModalType; properties: PropertyRecord[]; unitDetails: Record<string, UnitRecord[]>; initialValues?: Record<string, string>; waterReadingInitialized?: boolean; onClose: () => void; onSave: (values: Record<string, string>, sendPortalWhatsApp: boolean, unitMix: UnitMixRow[]) => void }) {
   const config = modalConfig[type]
   const [values, setValues] = useState<Record<string, string>>(() => ({ ...(type === 'tenant' ? { assignedDate: localDateString() } : {}), ...initialValues }))
   const [propertyMix, setPropertyMix] = useState<UnitMixRow[]>([])
   const [propertyMixError, setPropertyMixError] = useState('')
+  const [waterReadingError, setWaterReadingError] = useState('')
   const [portalCode] = useState(() => type === 'tenant' ? makeTenantPortalCode() : '')
   const [portalCodeCopied, setPortalCodeCopied] = useState(false)
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -6527,6 +6580,10 @@ function AddModal({ type, properties, unitDetails, initialValues, onClose, onSav
         setPropertyMixError('Enter a name, at least one unit, and a valid monthly rent for every type.')
         return
       }
+      if (values.waterUnitPrice.trim() && (!Number.isFinite(Number(values.waterUnitPrice)) || Number(values.waterUnitPrice) <= 0)) {
+        setPropertyMixError('Enter a water price per unit above zero, or leave it blank to set it later.')
+        return
+      }
       if (new Set(labels).size !== labels.length) {
         setPropertyMixError('Each unit type must have a different name.')
         return
@@ -6534,6 +6591,17 @@ function AddModal({ type, properties, unitDetails, initialValues, onClose, onSav
       setPropertyMixError('')
       onSave(values, false, propertyMix)
       return
+    }
+    if (type === 'waterBill') {
+      const previousReading = Number(values.previousReading)
+      const currentReading = Number(values.currentReading)
+      const unitPrice = Number(values.unitPrice)
+      const charge = (currentReading - previousReading) * unitPrice
+      if (![previousReading, currentReading, unitPrice, charge].every(Number.isFinite) || previousReading < 0 || currentReading < previousReading || unitPrice <= 0) {
+        setWaterReadingError('Enter valid readings and a unit price above zero. The current reading cannot be lower than the previous reading.')
+        return
+      }
+      setWaterReadingError('')
     }
     onSave(values, false, [])
   }
@@ -6556,7 +6624,7 @@ function AddModal({ type, properties, unitDetails, initialValues, onClose, onSav
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <form className="add-modal" onSubmit={handleSubmit}>
       <button type="button" className="modal-close" onClick={onClose} aria-label="Close dialog">×</button>
-      <p className="eyebrow">New record</p>
+      <p className="eyebrow">{type === 'waterBill' ? 'Water billing' : 'New record'}</p>
       <h2>{config.title}</h2>
       <p className="modal-description">{config.description}</p>
       {config.fields.map((field) => <label className="form-field" key={field.key}>
@@ -6569,6 +6637,8 @@ function AddModal({ type, properties, unitDetails, initialValues, onClose, onSav
           ? <><div className="portal-code-row"><input readOnly value={portalCode} aria-label="Generated tenant portal code" /><button type="button" className="portal-code-copy" aria-label="Copy tenant portal code" title="Copy tenant portal code" onClick={() => { void navigator.clipboard.writeText(portalCode).then(() => { setPortalCodeCopied(true); window.setTimeout(() => setPortalCodeCopied(false), 1800) }) }}><Copy size={15} /></button></div><small className="portal-code-help">Share this code with the tenant. It is separate from the M-Pesa Paybill account reference.</small>{portalCodeCopied && <small className="portal-code-copied" role="status">Portal code copied.</small>}</>
           : type === 'payment' && field.key === 'amount'
           ? <input required type="number" readOnly value={selectedPaymentUnit ? selectedPaymentUnit.rent.replace(/[^0-9.]/g, '') : ''} placeholder="Select a house or unit first" />
+          : type === 'waterBill'
+          ? <><input required min="0" step="any" type="number" readOnly={field.key === 'previousReading' && waterReadingInitialized} placeholder={field.placeholder} value={values[field.key] ?? ''} onChange={(event) => { setValues((current) => ({ ...current, [field.key]: event.target.value })); setWaterReadingError('') }} />{field.key === 'previousReading' && waterReadingInitialized && <small>Carried forward from the last saved current reading.</small>}</>
           : type === 'payment' && field.key === 'property'
           ? <select required value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, property: event.target.value, houseNumber: '', amount: '' }))}><option value="">Select a property</option>{properties.map((property) => <option key={property.name} value={property.name}>{property.name}</option>)}</select>
           : type === 'payment' && field.key === 'houseNumber'
@@ -6595,6 +6665,8 @@ function AddModal({ type, properties, unitDetails, initialValues, onClose, onSav
               value={values[field.key] ?? ''}
               onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}
             />
+          : type === 'property' && field.key === 'waterUnitPrice'
+          ? <><input min="0.01" step="0.01" type="number" placeholder={field.placeholder} value={values[field.key] ?? ''} onChange={(event) => { setValues((current) => ({ ...current, [field.key]: event.target.value })); setPropertyMixError('') }} /><small>Shared by all tenants in this apartment.</small></>
           : type === 'maintenance' && field.key === 'maintenanceType'
           ? <select required value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}><option value="">Select a maintenance type</option><option value="Electrical repair">Electrical repair</option><option value="Plumbing repair">Plumbing repair</option><option value="Painting">Painting</option><option value="Carpentry">Carpentry</option><option value="Masonry">Masonry</option><option value="Appliance repair">Appliance repair</option><option value="Other">Other</option></select>
           : type === 'maintenance' && field.key === 'priority'
@@ -6612,6 +6684,10 @@ function AddModal({ type, properties, unitDetails, initialValues, onClose, onSav
           : <input required type={field.type ?? 'text'} placeholder={field.placeholder} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} />
         }
       </label>)}
+      {type === 'waterBill' && <section className="property-unit-mix" aria-live="polite">
+        <div className="property-unit-mix-heading"><div><strong>Calculated water charge</strong><p>(Current reading − previous reading) × price per unit</p></div><strong>KSh {Math.max(0, (Number(values.currentReading) - Number(values.previousReading)) * Number(values.unitPrice || 0)).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>
+        {waterReadingError && <p className="property-unit-error" role="alert">{waterReadingError}</p>}
+      </section>}
       {type === 'property' && <section className="property-unit-mix" aria-labelledby="property-unit-mix-title">
         <div className="property-unit-mix-heading">
           <div><strong id="property-unit-mix-title">Unit types</strong><p>Use any types this property has, such as Single room, Shop, Bedsitter, or 1 Bedroom.</p></div>
@@ -6628,7 +6704,7 @@ function AddModal({ type, properties, unitDetails, initialValues, onClose, onSav
       </section>}
       <div className="modal-actions">
         <button type="button" className="cancel-button" onClick={onClose}>Cancel</button>
-        {type === 'tenant' ? <>
+        {type === 'waterBill' ? <button type="submit" className="primary-button"><Droplets size={15} /> Save water reading</button> : type === 'tenant' ? <>
           <button type="submit" className="cancel-button" name="submitAction" value="save">Save tenant</button>
           <button type="submit" className="primary-button" name="submitAction" value="save-and-whatsapp"><MessageCircle size={16} /> Save &amp; WhatsApp</button>
         </> : <button type="submit" className="primary-button"><Plus size={16} /> Save {type}</button>}
