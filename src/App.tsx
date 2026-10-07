@@ -49,6 +49,7 @@ type RentalWorkspaceSettings = { workspaceName: string; propertyGroup: string; d
 type RentalWorkspaceData = { properties: PropertyRecord[]; units: Record<string, UnitRecord[]>; tenants: TenantRecord[]; records: Record<string, string[]>; invoices: InvoiceRecord[]; maintenance: Record<string, boolean>; expenses: ExpenseRecord[]; applicants: ApplicantRecord[]; settings?: RentalWorkspaceSettings }
 type PlatformCaretakerAssignment = { caretakerId: string; caretakerName: string; caretakerEmail?: string; property: string; unit: string }
 type PlatformCaretaker = { id: string; name: string; email?: string }
+type PlatformCaretakerDirectoryEntry = PlatformCaretaker & { landlord: AccessUser; assignments: PlatformCaretakerAssignment[] }
 type PlatformLandlordWorkspace = { landlord: AccessUser; data: Partial<RentalWorkspaceData>; directPayments: RentPaymentRecord[]; rentPayouts: RentPayoutRecord[]; caretakers: PlatformCaretaker[]; caretakerAssignments: PlatformCaretakerAssignment[]; updatedAt?: string }
 type PlatformRentPayoutEntry = { landlord: AccessUser; payment: RentPaymentRecord; payout: RentPayoutRecord | null }
 type ManualRentPayoutDetails = { ownerId: string; receipt: string; method: 'mpesa' | 'bank_transfer' | 'cash'; reference: string; paidAt: string }
@@ -1970,6 +1971,7 @@ function App() {
           <p className="nav-label nav-label-spaced">Quick links</p>
           <button className={`nav-item ${activeSection === 'User directory' ? 'active' : ''}`} onClick={() => { setSettingsSectionShortcut('users'); navigate('User directory'); setSidebarOpen(false) }}><Users size={18} /><span>User directory</span></button>
           <button className={`nav-item ${activeSection === 'Landlord workspaces' ? 'active' : ''}`} onClick={() => { navigate('Landlord workspaces'); setSidebarOpen(false) }}><Building2 size={18} /><span>Landlord workspaces</span></button>
+          <button className={`nav-item ${activeSection === 'Caretakers' ? 'active' : ''}`} onClick={() => { navigate('Caretakers'); setSidebarOpen(false) }}><Wrench size={18} /><span>Caretakers</span></button>
           <button className={`nav-item ${activeSection === 'Landlord approvals' ? 'active' : ''}`} onClick={() => { setSettingsSectionShortcut('landlord-approvals'); navigate('Landlord approvals'); setSidebarOpen(false) }}><ShieldCheck size={18} /><span>Landlord approvals</span></button>
           <button className={`nav-item ${activeSection === 'Subscription payments' ? 'active' : ''}`} onClick={() => { setSettingsSectionShortcut('subscription-payments'); navigate('Subscription payments'); setSidebarOpen(false) }}><ReceiptText size={18} /><span>Subscription payments</span></button>
           <button className={`nav-item ${activeSection === 'Landlord payouts' ? 'active' : ''}`} onClick={() => { navigate('Landlord payouts'); setSidebarOpen(false) }}><WalletCards size={18} /><span>Landlord payouts</span></button>
@@ -2105,9 +2107,9 @@ function App() {
       <div className="content-wrap">
         <section className="welcome-row">
           <div>
-            <p className="eyebrow">{isPlatformAdministrator ? activeSection === 'User directory' ? 'PLATFORM ADMINISTRATION' : 'PLATFORM PORTFOLIO' : today}</p>
-            <h1>{isPlatformAdministrator ? activeSection === 'User directory' ? 'User directory' : activeSection === 'Landlord workspaces' ? 'Landlord workspaces' : 'Portfolio overview' : <>Welcome back, {sessionUser.name} <span>✦</span></>}</h1>
-            <p className="subhead">{isPlatformAdministrator ? activeSection === 'User directory' ? 'Manage platform accounts, access, and account status.' : activeSection === 'Landlord workspaces' ? 'Browse landlord workspaces and open a portfolio for details.' : 'Review property performance across every landlord workspace.' : <>Signed in as <strong>{sessionUser.username}</strong> · {sessionUser.role} &nbsp;|&nbsp; {propertyGroup}</>}</p>
+            <p className="eyebrow">{isPlatformAdministrator ? activeSection === 'User directory' || activeSection === 'Caretakers' ? 'PLATFORM ADMINISTRATION' : 'PLATFORM PORTFOLIO' : today}</p>
+            <h1>{isPlatformAdministrator ? activeSection === 'User directory' ? 'User directory' : activeSection === 'Caretakers' ? 'Caretakers' : activeSection === 'Landlord workspaces' ? 'Landlord workspaces' : 'Portfolio overview' : <>Welcome back, {sessionUser.name} <span>✦</span></>}</h1>
+            <p className="subhead">{isPlatformAdministrator ? activeSection === 'User directory' ? 'Manage platform accounts, access, and account status.' : activeSection === 'Caretakers' ? 'View caretaker accounts and their landlord, property, and unit assignments.' : activeSection === 'Landlord workspaces' ? 'Browse landlord workspaces and open a portfolio for details.' : 'Review property performance across every landlord workspace.' : <>Signed in as <strong>{sessionUser.username}</strong> · {sessionUser.role} &nbsp;|&nbsp; {propertyGroup}</>}</p>
           </div>
           <div className="welcome-row-actions">
             {!isPlatformAdministrator && can.addProperty && <button className="primary-button" onClick={() => setModalType('property')}><Plus size={17} /> Add property</button>}
@@ -2352,6 +2354,10 @@ function App() {
               ? isPlatformAdministrator
                 ? <PlatformRentPayoutQueue workspaces={platformLandlordWorkspaces} loading={platformPortfolioLoading} error={platformPortfolioError} onRefresh={() => void refreshPlatformPortfolio()} onRecordPayout={recordManualRentPayout} />
                 : <AccessDeniedView section="Landlord payouts" />
+              : activeSection === 'Caretakers'
+              ? isPlatformAdministrator
+                ? <PlatformAdminCaretakerDirectory workspaces={platformLandlordWorkspaces} loading={platformPortfolioLoading} error={platformPortfolioError} onRefresh={() => void refreshPlatformPortfolio()} />
+                : <AccessDeniedView section="Caretakers" />
               : activeSection === 'Help center'
               ? <HelpCenterView />
               : activeSection === 'Documents'
@@ -2842,7 +2848,6 @@ function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loa
   const [selectedLandlordId, setSelectedLandlordId] = useState<string | null>(null)
   const [selectedPropertyName, setSelectedPropertyName] = useState<string | null>(null)
   const [landlordPage, setLandlordPage] = useState(1)
-  const [caretakerPage, setCaretakerPage] = useState(1)
   const pageSize = 12
   const selectedWorkspace = workspaces.find(workspace => workspace.landlord.id === selectedLandlordId) ?? null
   const getWorkspaceStats = (workspace: PlatformLandlordWorkspace) => {
@@ -2870,17 +2875,9 @@ function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loa
     ...workspace.caretakers.map(caretaker => caretaker.id),
     ...workspace.caretakerAssignments.map(assignment => assignment.caretakerId),
   ])).size
-  const caretakerDirectory = workspaces.flatMap(workspace => workspace.caretakers.map(caretaker => ({
-    ...caretaker,
-    landlord: workspace.landlord,
-    assignments: workspace.caretakerAssignments.filter(assignment => assignment.caretakerId === caretaker.id),
-  })))
   const landlordPageCount = Math.max(1, Math.ceil(workspaces.length / pageSize))
   const currentLandlordPage = Math.min(landlordPage, landlordPageCount)
   const visibleWorkspaces = workspaces.slice((currentLandlordPage - 1) * pageSize, currentLandlordPage * pageSize)
-  const caretakerPageCount = Math.max(1, Math.ceil(caretakerDirectory.length / pageSize))
-  const currentCaretakerPage = Math.min(caretakerPage, caretakerPageCount)
-  const visibleCaretakers = caretakerDirectory.slice((currentCaretakerPage - 1) * pageSize, currentCaretakerPage * pageSize)
   const allCollected = workspaces.reduce((total, workspace) => total + (workspace.data.records?.Payments ?? []).reduce((sum, row) => sum + (Number((row.split(' · ')[0] ?? '').replace(/[^0-9.]/g, '')) || 0), 0) + workspace.directPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0), 0)
 
   if (selectedWorkspace) {
@@ -3012,19 +3009,192 @@ function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loa
       </article>
     })}</div>}
     {workspacesOnly && workspaces.length > pageSize && <Pagination page={currentLandlordPage} pageCount={landlordPageCount} onPageChange={setLandlordPage} />}
-    {!workspacesOnly && <div className="platform-landlord-list-heading"><div><p className="eyebrow">TEAM DIRECTORY</p><h2>Caretakers</h2></div><span>{caretakerDirectory.length} accounts</span></div>}
-    {!workspacesOnly && (caretakerDirectory.length ? <div className="platform-landlord-list">{visibleCaretakers.map(caretaker => (
+  </section>
+}
+
+function PlatformAdminCaretakerDirectory({ workspaces, loading, error, onRefresh }: {
+  workspaces: PlatformLandlordWorkspace[]
+  loading: boolean
+  error: string
+  onRefresh: () => void
+}) {
+  const [page, setPage] = useState(1)
+  const pageSize = 12
+  const caretakers: PlatformCaretakerDirectoryEntry[] = workspaces.flatMap(workspace => workspace.caretakers.map(caretaker => ({
+    ...caretaker,
+    landlord: workspace.landlord,
+    assignments: workspace.caretakerAssignments.filter(assignment => assignment.caretakerId === caretaker.id),
+  })))
+  const pageCount = Math.max(1, Math.ceil(caretakers.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+  const visibleCaretakers = caretakers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  return <section className="panel platform-caretaker-directory" aria-busy={loading}>
+    <div className="panel-heading">
+      <div><p className="eyebrow">TEAM DIRECTORY</p><h2>Caretakers</h2><small>Browse caretaker accounts and their landlord, property, and unit assignments.</small></div>
+      <div className="panel-actions"><span className="live-badge">{caretakers.length} accounts</span><button type="button" className="filter-button" onClick={onRefresh} disabled={loading}><RefreshCw size={15} className={loading ? 'platform-refresh-spinning' : undefined} />{loading ? 'Refreshing…' : 'Refresh'}</button></div>
+    </div>
+    {error && <p className="settings-error" role="alert">{error}</p>}
+    {loading && <p className="overview-empty" role="status">Loading caretaker accounts…</p>}
+    {!loading && !error && caretakers.length > 0 && <div className="platform-landlord-list">{visibleCaretakers.map(caretaker => (
       <article className="platform-landlord-row platform-caretaker-directory-row" key={caretaker.id}>
         <div className="platform-landlord-identity"><span className="user-avatar">{caretaker.name.slice(0, 2).toUpperCase()}</span><span><strong>{caretaker.name}</strong><small>{caretaker.email ?? 'Caretaker account'} · Landlord: {caretaker.landlord.name}</small></span><span className="live-badge">{caretaker.assignments.length} assignments</span></div>
         <div className="platform-landlord-caretakers">{caretaker.assignments.length ? caretaker.assignments.map((assignment, index) => <span key={`${assignment.property}-${assignment.unit}-${index}`}><Wrench size={13} /><strong>{assignment.property}</strong><small>Unit {assignment.unit}</small></span>) : <span><Wrench size={13} /><strong>Unassigned</strong><small>No property/unit assignment recorded</small></span>}</div>
       </article>
-    ))}</div> : !loading && <p className="overview-empty">No caretaker accounts are linked to these landlord workspaces yet.</p>)}
-    {!workspacesOnly && caretakerDirectory.length > pageSize && <Pagination page={currentCaretakerPage} pageCount={caretakerPageCount} onPageChange={setCaretakerPage} />}
+    ))}</div>}
+    {!loading && !error && caretakers.length === 0 && <p className="overview-empty">No caretaker accounts are linked to these landlord workspaces yet.</p>}
+    {caretakers.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}
   </section>
+}
+
+function csvCell(value: string | number) {
+  let text = String(value)
+  if (/^[\s\u0000-\u001f]*[=+\-@]/.test(text)) text = `'${text}`
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+function downloadPaymentsCsv(manualRows: string[], confirmedPayments: RentPaymentRecord[], payouts: RentPayoutRecord[], propertyFilter: string) {
+  const headers = ['Payment type', 'Amount (KSh)', 'Tenant', 'Property', 'Unit', 'Payment date', 'Payment method', 'Payment reference', 'Account reference', 'Period', 'Landlord payout status', 'Landlord payout method', 'Landlord payout reference', 'Landlord payout date']
+  const rows: Array<{ date: number; values: Array<string | number> }> = manualRows.map(row => {
+    const receipt = buildManualPaymentReceipt(row, [])
+    return {
+      date: Date.parse(receipt.date) || 0,
+      values: [
+        'Manual',
+        Number(receipt.amount.replace(/[^0-9.]/g, '')) || 0,
+        receipt.tenant,
+        receipt.property,
+        receipt.house.replace(/^House\s+/i, ''),
+        receipt.date,
+        receipt.method,
+        receipt.reference,
+        '',
+        receipt.period,
+        '',
+        '',
+        '',
+        '',
+      ],
+    }
+  })
+  for (const payment of confirmedPayments) {
+    const payout = payouts.find(item => item.mpesa_receipt === payment.mpesa_receipt)
+    const payoutStatus = payout?.status === 'paid' || payout?.status === 'completed'
+      ? 'Paid'
+      : payout?.status === 'needs_review' || payout?.status === 'processing' || payout?.status === 'timeout'
+        ? 'Review required'
+        : 'Awaiting payout'
+    rows.push({
+      date: Date.parse(payment.transacted_at) || 0,
+      values: [
+        'Confirmed Paybill',
+        Number(payment.amount) || 0,
+        payment.tenant_name,
+        payment.property_name,
+        payment.unit_name,
+        payment.transacted_at,
+        'M-Pesa',
+        payment.mpesa_receipt,
+        payment.account_reference,
+        '',
+        payoutStatus,
+        payout?.payment_method?.replace(/_/g, ' ') ?? '',
+        payout?.payout_reference ?? '',
+        payout?.paid_at ?? '',
+      ],
+    })
+  }
+  if (!rows.length) return
+  const csv = [headers, ...rows.sort((first, second) => second.date - first.date).map(row => row.values)]
+    .map(row => row.map(csvCell).join(','))
+    .join('\r\n')
+  const safeProperty = propertyFilter
+    ? propertyFilter.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    : 'all-properties'
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `moha-payments-${safeProperty}-${localDateString()}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+function downloadPlatformPaymentsCsv(workspaces: PlatformLandlordWorkspace[]) {
+  const headers = ['Landlord', 'Payment type', 'Amount (KSh)', 'Tenant', 'Property', 'Unit', 'Payment date', 'Payment method', 'Payment reference', 'Account reference', 'Period', 'Landlord payout status', 'Landlord payout method', 'Landlord payout reference', 'Landlord payout date']
+  const rows: Array<{ date: number; values: Array<string | number> }> = []
+  for (const workspace of workspaces) {
+    const manualPayments = workspace.data.records?.Payments ?? []
+    for (const row of manualPayments) {
+      const payment = buildManualPaymentReceipt(row, [])
+      rows.push({
+        date: Date.parse(payment.date) || 0,
+        values: [
+          workspace.landlord.name,
+          'Manual',
+          Number(payment.amount.replace(/[^0-9.]/g, '')) || 0,
+          payment.tenant,
+          payment.property,
+          payment.house.replace(/^House\s+/i, ''),
+          payment.date,
+          payment.method,
+          payment.reference,
+          '',
+          payment.period,
+          '',
+          '',
+          '',
+          '',
+        ],
+      })
+    }
+    const payoutsByReceipt = new Map(workspace.rentPayouts.map(payout => [payout.mpesa_receipt, payout]))
+    for (const payment of workspace.directPayments) {
+      const payout = payoutsByReceipt.get(payment.mpesa_receipt)
+      const payoutStatus = payout?.status === 'paid' || payout?.status === 'completed'
+        ? 'Paid'
+        : payout?.status === 'needs_review' || payout?.status === 'processing' || payout?.status === 'timeout'
+          ? 'Review required'
+          : 'Awaiting payout'
+      rows.push({
+        date: Date.parse(payment.transacted_at) || 0,
+        values: [
+          workspace.landlord.name,
+          'Confirmed Paybill',
+          Number(payment.amount) || 0,
+          payment.tenant_name,
+          payment.property_name,
+          payment.unit_name,
+          payment.transacted_at,
+          'M-Pesa',
+          payment.mpesa_receipt,
+          payment.account_reference,
+          '',
+          payoutStatus,
+          payout?.payment_method?.replace(/_/g, ' ') ?? '',
+          payout?.payout_reference ?? '',
+          payout?.paid_at ?? '',
+        ],
+      })
+    }
+  }
+  if (!rows.length) return
+  const csv = [headers, ...rows.sort((first, second) => second.date - first.date).map(row => row.values)]
+    .map(row => row.map(csvCell).join(','))
+    .join('\r\n')
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `moha-platform-payments-${localDateString()}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function SectionView({ section, rows, propertyNames, completedMaintenance = {}, onAdd, onRowClick, onWaterBillUpdate, onGenerateInvoice, onRemoveTenant, onOpenMaintenance, onEditProperty, onDeleteProperty, onViewTenantProfile, onEditTenant, onEditPayment, onDeletePayment, onEditMaintenance, onDeleteMaintenance, onMarkMaintenanceDone }: { section: string; rows: string[]; propertyNames: string[]; completedMaintenance?: Record<string, boolean>; showConfirmedRentPayments?: boolean; onAdd: (() => void) | null; onRowClick?: (index: number) => void; onWaterBillUpdate?: (index: number) => void; onGenerateInvoice?: (index: number) => void; onRemoveTenant?: (index: number) => void; onOpenMaintenance?: (index: number) => void; onEditProperty?: (index: number) => void; onDeleteProperty?: (index: number) => void; onViewTenantProfile?: (index: number) => void; onEditTenant?: (index: number) => void; onEditPayment?: (index: number) => void; onDeletePayment?: (index: number) => void; onEditMaintenance?: (index: number) => void; onDeleteMaintenance?: (index: number) => void; onMarkMaintenanceDone?: (index: number) => void }) {
   const directRentPayments = useContext(ConfirmedRentPaymentsContext)
+  const rentPayouts = useContext(RentPayoutsContext)
   const tenantDirectory = useContext(TenantDirectoryContext)
   const detail = sectionDetails[section]
   const addLabel = section === 'Properties' ? 'property' : section === 'Help center' ? 'topic' : section.slice(0, -1).toLowerCase()
@@ -3049,6 +3219,9 @@ function SectionView({ section, rows, propertyNames, completedMaintenance = {}, 
   const paymentRows = rows.map((row, index) => ({ row, index })).filter(({ row }) =>
     section !== 'Payments' || !paymentProperty || (row.split(' · ')[3] ?? '').trim().toLocaleLowerCase() === paymentProperty.toLocaleLowerCase(),
   )
+  const filteredDirectRentPayments = directRentPayments.filter(payment =>
+    !paymentProperty || payment.property_name.trim().toLocaleLowerCase() === paymentProperty.toLocaleLowerCase(),
+  )
   const filteredRows = section === 'Tenants' ? tenantRows.map(({ row }) => row) : section === 'Payments' ? paymentRows.map(({ row }) => row) : rows
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
   const currentPage = Math.min(page, pageCount)
@@ -3057,7 +3230,7 @@ function SectionView({ section, rows, propertyNames, completedMaintenance = {}, 
   const visiblePaymentIndices = section === 'Payments' ? paymentRows.slice(start, start + pageSize).map(({ index }) => index) : undefined
   const pageRows = filteredRows.slice(start, start + pageSize)
   return <section className={`section-view panel ${section.toLowerCase()}-view`}>
-    <div className="section-view-heading"><div><p className="eyebrow">{detail.eyebrow}</p><h2>{detail.title}</h2><p>{detail.description}</p></div>{section === 'Tenants' && <label className="search-box payment-property-search tenant-property-search"><Search size={16} /><select value={tenantProperty} onChange={event => { setTenantProperty(event.target.value); setPage(1) }} aria-label="Filter tenants by apartment"><option value="">All apartments</option>{tenantPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{section === 'Payments' && <label className="search-box payment-property-search"><Search size={16} /><select value={paymentProperty} onChange={event => { setPaymentProperty(event.target.value); setPage(1) }} aria-label="Filter manual payments by apartment"><option value="">All apartments</option>{paymentPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{onAdd && <button className="primary-button" onClick={onAdd}><Plus size={17} /> Add {addLabel}</button>}</div>
+    <div className="section-view-heading"><div><p className="eyebrow">{detail.eyebrow}</p><h2>{detail.title}</h2><p>{detail.description}</p></div>{section === 'Tenants' && <label className="search-box payment-property-search tenant-property-search"><Search size={16} /><select value={tenantProperty} onChange={event => { setTenantProperty(event.target.value); setPage(1) }} aria-label="Filter tenants by apartment"><option value="">All apartments</option>{tenantPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{section === 'Payments' && <label className="search-box payment-property-search"><Search size={16} /><select value={paymentProperty} onChange={event => { setPaymentProperty(event.target.value); setPage(1) }} aria-label="Filter payments by apartment"><option value="">All apartments</option>{paymentPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{section === 'Payments' && <button type="button" className="filter-button" disabled={!paymentRows.length && !filteredDirectRentPayments.length} onClick={() => downloadPaymentsCsv(paymentRows.map(({ row }) => row), filteredDirectRentPayments, rentPayouts, paymentProperty)}><Download size={16} /> Download payments CSV</button>}{onAdd && <button className="primary-button" onClick={onAdd}><Plus size={17} /> Add {addLabel}</button>}</div>
     {section === 'Properties' && <PropertySection rows={pageRows} onRowClick={(index) => onRowClick?.(start + index)} onEdit={(index) => onEditProperty?.(start + index)} onDelete={(index) => onDeleteProperty?.(start + index)} />}
     {section === 'Tenants' && <TenantPortalCodeLookup />}
     {section === 'Tenants' && <TenantSection rows={pageRows} originalIndices={visibleTenantIndices} onWaterBillUpdate={(index) => onWaterBillUpdate?.(index)} onGenerateInvoice={(index) => onGenerateInvoice?.(index)} onRemoveTenant={(index) => onRemoveTenant?.(index)} onViewProfile={(index) => onViewTenantProfile?.(index)} onEditTenant={(index) => onEditTenant?.(index)} />}
@@ -3108,6 +3281,9 @@ function PlatformRentPayoutQueue({ workspaces, loading, error: loadError, onRefr
   const historyPageCount = Math.max(1, Math.ceil(settledEntries.length / pageSize))
   const currentHistoryPage = Math.min(historyPage, historyPageCount)
   const visibleHistoryEntries = settledEntries.slice((currentHistoryPage - 1) * pageSize, currentHistoryPage * pageSize)
+  const allPaymentCount = workspaces.reduce((total, workspace) =>
+    total + (workspace.data.records?.Payments?.length ?? 0) + workspace.directPayments.length,
+  0)
 
   useEffect(() => {
     if (!selectedEntry) return
@@ -3156,7 +3332,7 @@ function PlatformRentPayoutQueue({ workspaces, loading, error: loadError, onRefr
   }
 
   return <section id="platform-rent-payout-queue" className="panel manual-landlord-payout-panel platform-rent-payout-queue" aria-busy={loading}>
-    <div className="panel-heading"><div><p className="eyebrow">SHARED PAYBILL SETTLEMENT</p><h2>Landlord payout approvals</h2><small>Confirmed tenant payments awaiting landlord settlement. Pay the landlord first, then approve the payout here.</small></div><div className="panel-actions"><span className="live-badge">{entries.length} awaiting</span><button type="button" className="filter-button" onClick={onRefresh} disabled={loading}><RefreshCw size={15} /> {loading ? 'Refreshing…' : 'Refresh'}</button></div></div>
+    <div className="panel-heading"><div><p className="eyebrow">SHARED PAYBILL SETTLEMENT</p><h2>Landlord payout approvals</h2><small>Confirmed tenant payments awaiting landlord settlement. Pay the landlord first, then approve the payout here.</small></div><div className="panel-actions"><span className="live-badge">{entries.length} awaiting</span><button type="button" className="filter-button" onClick={() => downloadPlatformPaymentsCsv(workspaces)} disabled={loading || !allPaymentCount}><Download size={15} /> Download all payments CSV</button><button type="button" className="filter-button" onClick={onRefresh} disabled={loading}><RefreshCw size={15} /> {loading ? 'Refreshing…' : 'Refresh'}</button></div></div>
     {loadError && <p className="settings-error" role="alert">{loadError}</p>}
     {loading && <p className="overview-empty" role="status">Loading confirmed payments and payout records…</p>}
     {message && <p className="subscription-payment-success" role="status">{message}</p>}
@@ -6441,6 +6617,7 @@ function HelpCenterView() {
       topics: [
         { question: 'How do tenants pay rent by Paybill?', answer: 'For automatic confirmation, choose Use Moha Paybill in Settings → Rent collection, then give tenants the Paybill and unique account reference shown on their invoice or tenant profile. Confirmed payments appear in Payments with the M-Pesa receipt. The Platform Administrator sends landlord payouts manually and records the payment status and reference in the landlord portfolio. The account reference is generated by the app; never use a tenant National ID. Payments to a landlord’s separate Paybill must be recorded manually unless that Paybill has its own integration.' },
         { question: 'How do I record a manual payment?', answer: 'Go to Payments and click Add payment. Select the property and unit — the tenant name and scheduled rent amount fill in automatically. Add the payment date, method, and receipt reference. Safaricom-confirmed Paybill rent appears separately in Confirmed rent payments.' },
+        { question: 'How do I download my payments as a CSV file?', answer: 'Open Payments and choose Download payments CSV. The file includes all matching manual and Safaricom-confirmed payments, not only the current page. If you select an apartment filter first, the download includes payments for that apartment only. The Platform Administrator can download all landlords’ manual and confirmed Paybill payments from Overview or Landlord payouts.' },
         { question: 'How do I generate an invoice?', answer: 'Go to Tenants, find the tenant, and click the Invoice button on their row. The invoice shows rent plus water bill. You can print it, email it, or share it via WhatsApp.' },
         { question: 'How do I track expenses?', answer: 'Go to Operations → Expense & profit report. Select a category (Repairs, Utilities, etc.), choose a property or portfolio-wide, enter the amount, date, and an optional note.' },
       ],
