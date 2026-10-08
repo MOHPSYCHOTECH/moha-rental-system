@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
 import type { FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { jsPDF } from 'jspdf'
-import { ArrowUpRight, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Copy, Download, Droplets, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Pencil, Plus, ReceiptText, RefreshCw, Search, Settings, ShieldCheck, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
+import { ArrowUpRight, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Pencil, Plus, ReceiptText, RefreshCw, Search, Settings, ShieldCheck, ShoppingBag, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
 import './App.css'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 
@@ -38,6 +38,22 @@ type PlatformAdminAccountRow = { user_id: string; display_name: string | null; e
 type AdminSubscriptionPaymentQueueRow = { request_id: string; user_id: string; plan: SubscriptionRequestPlan; amount: number; mpesa_code: string; payment_method: LandlordPaymentMethod; status: 'pending'; submitted_at: string; reviewed_at: string | null; profile_name: string; profile_email: string | null; profile_phone: string | null; user_type: string; account_role: string; account_active: boolean }
 type SubscriptionPaymentHistoryFilter = 'approved' | 'rejected' | 'all'
 type PublicPlatformStats = { landlord_count: number; tenant_count: number; total_collected: number }
+type PublicHomeSection = 'home' | 'portals' | 'about' | 'portfolio' | 'pricing' | 'contact'
+const publicHomePaths: Record<PublicHomeSection, string> = {
+  home: '/home',
+  portals: '/portals',
+  about: '/about',
+  portfolio: '/portfolio',
+  pricing: '/pricing',
+  contact: '/contact',
+}
+function getPublicHomeSection(pathname: string): PublicHomeSection | null {
+  if (pathname === '/') return 'home'
+  for (const section of Object.keys(publicHomePaths) as PublicHomeSection[]) {
+    if (publicHomePaths[section] === pathname) return section
+  }
+  return null
+}
 type SettingsSection = 'workspace' | 'rent-collection' | 'notifications' | 'account' | 'team-invites' | 'subscription-method' | 'landlord-approvals' | 'users' | 'subscription-payments' | 'workspace-history'
 type AdminSubscriptionPaymentHistoryRow = Omit<AdminSubscriptionPaymentQueueRow, 'status'> & { status: 'approved' | 'rejected' }
 type AdminSubscriptionPaymentHistoryResult = { total_count: number; requests: AdminSubscriptionPaymentHistoryRow[] }
@@ -653,7 +669,7 @@ function App() {
   const [tenantPortalSession, setTenantPortalSession] = useState<TenantPortalSession | null>(null)
   const [tenantPortalForm, setTenantPortalForm] = useState({ email: '', portalCode: '' })
   const [tenantPortalError, setTenantPortalError] = useState('')
-  const [homePage, setHomePage] = useState(() => typeof window !== 'undefined' && window.location.pathname === '/')
+  const [homePage, setHomePage] = useState(() => typeof window !== 'undefined' && getPublicHomeSection(window.location.pathname) !== null)
   const [tenantPublicView, setTenantPublicView] = useState(() => typeof window !== 'undefined' ? ['/tenant', '/tenants', '/portal'].includes(window.location.pathname) : false)
   const [authUser, setAuthUser] = useState<User | null>(null)
   const [landlordSignupPage, setLandlordSignupPage] = useState(() => typeof window !== 'undefined' && window.location.pathname === '/landlord-signup')
@@ -1908,7 +1924,7 @@ function App() {
   useEffect(() => {
     const updatePublicRoute = () => {
       const path = window.location.pathname
-      setHomePage(path === '/')
+      setHomePage(getPublicHomeSection(path) !== null)
       setLandlordSignupPage(path === '/landlord-signup')
       setTenantPublicView(['/', '/landlord', '/admin', '/administrator', '/caretaker'].includes(path) ? false : ['/tenant', '/tenants', '/portal'].includes(path))
     }
@@ -1941,7 +1957,7 @@ function App() {
   if (landlordSignupPage && !sessionUser) return <PublicLandlordSignupPage workspaceName={workspaceName} onBack={openHomePage} />
   if (homePage && !sessionUser) return <PortalHomePage workspaceName={workspaceName} onOpenRolePage={openRoleLoginPage} onOpenTenantPortal={openTenantPublicPage} onOpenLandlordSignup={openLandlordSignupPage} />
   if (tenantPublicView) return <TenantPublicLoginPage darkMode={darkMode} workspaceName={workspaceName} tenantList={tenantList} tenantPortalForm={tenantPortalForm} tenantPortalError={tenantPortalError} onTenantPortalFormChange={(key, value) => setTenantPortalForm(current => ({ ...current, [key]: value }))} onTenantPortalSubmit={submitTenantPortalLogin} onBackToHome={openHomePage} />
-  if (!sessionUser) return <LoginView darkMode={darkMode} workspaceName={workspaceName} authMessage={authMessage} onOpenTenantPortal={openTenantPublicPage} onOpenRolePage={openRoleLoginPage} onOpenLandlordSignup={openLandlordSignupPage} />
+  if (!sessionUser) return <LoginView darkMode={darkMode} workspaceName={workspaceName} authMessage={authMessage} onBackToHome={openHomePage} onOpenTenantPortal={openTenantPublicPage} onOpenRolePage={openRoleLoginPage} onOpenLandlordSignup={openLandlordSignupPage} />
   return <LandlordPaybillContext.Provider value={landlordPaymentDetails}><TenantDirectoryContext.Provider value={tenantList}><ConfirmedRentPaymentRefreshContext.Provider value={{ refresh: refreshConfirmedRentPayments, refreshing: rentPaymentsRefreshing, error: rentPaymentsRefreshError }}><ConfirmedRentPaymentsContext.Provider value={directRentPayments}><RentPayoutsContext.Provider value={rentPayouts}><div className={`app-shell ${darkMode ? 'dark' : ''}${isPlatformAdministrator ? ' platform-admin-shell' : ''}`}>
     {/* Subscription Warning Banner (7 days before expiry) */}
     {subStatus.isExpiring && (
@@ -5961,7 +5977,7 @@ function TenantPublicLoginPage({ darkMode, workspaceName, tenantList, tenantPort
       <div className="tenant-public-card">
         <div className="tenant-public-card-header">
           <p className="login-kicker">TENANT PORTAL</p>
-          <button className="tenant-public-back" type="button" onClick={onBackToHome}>Portal home</button>
+          <button className="tenant-public-back" type="button" onClick={onBackToHome}><Home size={15} aria-hidden="true" /> Back to home</button>
         </div>
 
         <h1 id="tenant-public-title">Resident sign in<span>.</span></h1>
@@ -6157,13 +6173,21 @@ function LandlordApprovalStatusPage({ workspaceName, registration, onRefresh, on
 }
 
 function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onOpenLandlordSignup }: { workspaceName: string; onOpenRolePage: (role: 'Landlord' | 'Administrator' | 'Caretaker') => void; onOpenTenantPortal: () => void; onOpenLandlordSignup: () => void }) {
-  const [activeContent, setActiveContent] = useState<'home' | 'portals' | 'about' | 'pricing' | 'contact'>('home')
+  const [activeContent, setActiveContent] = useState<PublicHomeSection>(() => getPublicHomeSection(window.location.pathname) ?? 'home')
   const [publicStats, setPublicStats] = useState<PublicPlatformStats | null>(null)
   const [displayedStats, setDisplayedStats] = useState<PublicPlatformStats>({ landlord_count: 0, tenant_count: 0, total_collected: 0 })
   const [statsLoading, setStatsLoading] = useState(true)
   const [statsError, setStatsError] = useState('')
   const [statsRetry, setStatsRetry] = useState(0)
   const isHome = activeContent === 'home'
+  useEffect(() => {
+    const syncSectionFromPath = () => {
+      const section = getPublicHomeSection(window.location.pathname)
+      if (section) setActiveContent(section)
+    }
+    window.addEventListener('popstate', syncSectionFromPath)
+    return () => window.removeEventListener('popstate', syncSectionFromPath)
+  }, [])
   useEffect(() => {
     let active = true
     const loadPublicStats = async () => {
@@ -6238,6 +6262,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     { title: 'Tenant', description: 'Existing tenants: view rent statements and payment history.', icon: Users, onSelect: onOpenTenantPortal, accent: 'tenant' },
   ]
   const showContent = (content: typeof activeContent) => {
+    window.history.pushState({}, '', publicHomePaths[content])
     setActiveContent(content)
     window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   }
@@ -6252,6 +6277,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         <button type="button" className={isHome ? 'active' : ''} aria-pressed={isHome} onClick={() => showContent('home')}>Home</button>
         <button type="button" className={activeContent === 'portals' ? 'active' : ''} aria-pressed={activeContent === 'portals'} onClick={() => showContent('portals')}>Portals</button>
         <button type="button" className={activeContent === 'about' ? 'active' : ''} aria-pressed={activeContent === 'about'} onClick={() => showContent('about')}>About Us</button>
+        <button type="button" className={activeContent === 'portfolio' ? 'active' : ''} aria-pressed={activeContent === 'portfolio'} onClick={() => showContent('portfolio')}>Portfolio</button>
         <button type="button" className={activeContent === 'pricing' ? 'active' : ''} aria-pressed={activeContent === 'pricing'} onClick={() => showContent('pricing')}>Pricing</button>
         <button type="button" className={activeContent === 'contact' ? 'active' : ''} aria-pressed={activeContent === 'contact'} onClick={() => showContent('contact')}>Contact</button>
       </nav>
@@ -6357,6 +6383,104 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       </div>
     </section>}
 
+    {activeContent === 'portfolio' && <section className="portal-home-portfolio" aria-labelledby="developer-portfolio-title">
+      <header className="portal-home-portfolio-intro">
+        <div>
+          <p className="portal-home-eyebrow">DEVELOPER PORTFOLIO</p>
+          <h2 id="developer-portfolio-title">Hussein Mohammed</h2>
+          <p className="portal-home-portfolio-role">Web &amp; Application Developer</p>
+          <p>I build practical websites and web applications that help people and organizations present their work, serve customers, and manage everyday tasks.</p>
+          <button type="button" className="portal-home-overview-primary" onClick={() => showContent('contact')}>Get in touch <ArrowUpRight size={16} /></button>
+        </div>
+        <div className="portal-home-portfolio-mark" aria-hidden="true"><Code2 size={52} strokeWidth={1.4} /></div>
+      </header>
+
+      <section className="portal-home-portfolio-block" aria-labelledby="portfolio-services-title">
+        <div className="portal-home-section-heading">
+          <div><p className="portal-home-eyebrow">WHAT I DO</p><h3 id="portfolio-services-title">Services</h3></div>
+          <span>Web solutions designed around real needs.</span>
+        </div>
+        <div className="portal-home-portfolio-services">
+          <article><span className="portal-home-portfolio-service-icon"><LayoutDashboard size={19} /></span><h4>Website development</h4><p>Informative, professional websites for businesses, projects, and personal brands.</p></article>
+          <article><span className="portal-home-portfolio-service-icon responsive"><Home size={19} /></span><h4>Responsive web design</h4><p>Interfaces designed to work clearly across phones, tablets, and desktop screens.</p></article>
+          <article><span className="portal-home-portfolio-service-icon apps"><Code2 size={19} /></span><h4>Custom web applications</h4><p>Interactive tools and dashboards that organize workflows and useful information.</p></article>
+        </div>
+      </section>
+
+      <section className="portal-home-portfolio-block" aria-labelledby="portfolio-skills-title">
+        <div className="portal-home-section-heading">
+          <div><p className="portal-home-eyebrow">TOOLS I WORK WITH</p><h3 id="portfolio-skills-title">Programming languages &amp; technologies</h3></div>
+        </div>
+        <ul className="portal-home-technology-list" aria-label="Programming languages and technologies">
+          <li><strong>JavaScript</strong><span>Adds interactive features and dynamic behavior to websites.</span></li>
+          <li><strong>HTML</strong><span>Structures the content and elements of web pages.</span></li>
+          <li><strong>CSS</strong><span>Styles pages with layouts, colors, and responsive designs.</span></li>
+          <li><strong>PHP</strong><span>Supports server-side features and dynamic web applications.</span></li>
+          <li><strong>React.js</strong><span>A JavaScript library for building interactive interfaces from reusable components.</span></li>
+        </ul>
+      </section>
+
+      <section className="portal-home-portfolio-block" aria-labelledby="portfolio-projects-title">
+        <div className="portal-home-section-heading">
+          <div><p className="portal-home-eyebrow">SELECTED WORK</p><h3 id="portfolio-projects-title">Projects</h3></div>
+          <span>A selection of web applications and platforms.</span>
+        </div>
+        <div className="portal-home-project-grid">
+          <article className="portal-home-project-card">
+            <img className="portal-home-project-screenshot" src="/moha-rental-management-screenshot.png" alt="Moha Rental Management System administrator dashboard showing property, payment, occupancy, and maintenance summaries" loading="lazy" />
+            <div className="portal-home-project-heading">
+              <span className="portal-home-project-icon"><Building2 size={23} /></span>
+              <div><p>WEB APPLICATION</p><h4>Moha Rental Management System</h4><small>React.js · Supabase</small></div>
+            </div>
+            <p>A rental-management application for landlords, administrators, caretakers, and tenants. It brings property and tenant records, rent tracking, water-meter billing, invoices, and tenant statements into one workspace.</p>
+            <ul>
+              <li>Property, unit, tenant, and caretaker management</li>
+              <li>Manual and confirmed rent payment tracking</li>
+              <li>Metered water-bill calculations and itemized invoices</li>
+              <li>Tenant portal, payment records, and CSV exports</li>
+            </ul>
+            <button type="button" className="portal-home-text-link" onClick={() => showContent('portals')}>Explore the Moha platform <ArrowUpRight size={16} /></button>
+          </article>
+          <article className="portal-home-project-card">
+            <img className="portal-home-project-screenshot" src="/vyrosocial-screenshot.png" alt="VyroSocial social networking platform with house hunting, marketplace, and Airbnb or hotel booking sections" loading="lazy" />
+            <div className="portal-home-project-heading">
+              <span className="portal-home-project-icon social"><Users size={23} /></span>
+              <div><p>SOCIAL NETWORKING PLATFORM</p><h4>VyroSocial</h4><small>React.js · JavaScript · CSS</small></div>
+            </div>
+            <p>A social networking platform that brings community connections together with house hunting, Airbnb and hotel bookings, and a marketplace.</p>
+            <ul>
+              <li>Social networking and community connections</li>
+              <li>House hunting</li>
+              <li>Airbnb and hotel bookings</li>
+              <li>Marketplace</li>
+            </ul>
+            <a className="portal-home-project-link" href="https://vyrosocial.com" target="_blank" rel="noreferrer">Visit VyroSocial <ArrowUpRight size={16} /></a>
+          </article>
+          <article className="portal-home-project-card">
+            <img className="portal-home-project-screenshot" src="/shopping254-screenshot.png" alt="Shopping254 online store showing its shop page and product categories" loading="lazy" />
+            <div className="portal-home-project-heading">
+              <span className="portal-home-project-icon shopping"><ShoppingBag size={23} /></span>
+              <div><p>E-COMMERCE PLATFORM</p><h4>Shopping254</h4><small>CSS · JavaScript · React.js</small></div>
+            </div>
+            <p>Shopping254 is an online store for browsing products across categories like phones, electronics, clothing, shoes, and home essentials. Shoppers can search for products, explore categories, and add items to their cart.</p>
+            <a className="portal-home-project-link" href="https://shopping254.com" target="_blank" rel="noreferrer">Visit Shopping254 <ArrowUpRight size={16} /></a>
+          </article>
+        </div>
+      </section>
+
+      <section className="portal-home-portfolio-faq" aria-labelledby="portfolio-faq-title">
+        <div className="portal-home-section-heading">
+          <div><p className="portal-home-eyebrow">QUICK ANSWERS</p><h3 id="portfolio-faq-title">Frequently asked questions</h3></div>
+        </div>
+        <div className="portal-home-faq-list">
+          <details><summary>What kind of projects do you build?</summary><p>I build websites and web applications, including responsive business sites, custom interfaces, and tools for managing information and workflows.</p></details>
+          <details><summary>Which programming languages and technologies do you use?</summary><p>My toolkit includes JavaScript, HTML, CSS, PHP, and React.js.</p></details>
+          <details><summary>What is the Moha Rental Management System?</summary><p>It is a web application that helps rental teams organize properties, tenants, rent payments, water bills, invoices, and tenant access.</p></details>
+          <details><summary>How can I discuss a project with you?</summary><p>Use the Contact link above to find the available email and phone details.</p></details>
+        </div>
+      </section>
+    </section>}
+
     {activeContent === 'pricing' && <section className="portal-home-pricing" id="pricing" aria-labelledby="pricing-title">
       <div className="portal-home-section-heading">
         <div><p className="portal-home-eyebrow">SIMPLE PLANS</p><h2 id="pricing-title">Pricing that grows with your rental business</h2></div>
@@ -6421,7 +6545,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         <div className="portal-home-team-grid">
           <article className="portal-home-team-card">
             <span className="portal-home-team-avatar" aria-hidden="true">HM</span>
-            <div><h4>Hussein Mohamed</h4><p>Front &amp; Back End Developer</p></div>
+            <div><h4>Hussein Mohammed</h4><p>Front &amp; Back End Developer</p></div>
           </article>
           <article className="portal-home-team-card">
             <span className="portal-home-team-avatar administrator" aria-hidden="true">MN</span>
@@ -6443,6 +6567,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
           <button type="button" onClick={() => showContent('home')}>Home</button>
           <button type="button" onClick={() => showContent('portals')}>Portals</button>
           <button type="button" onClick={() => showContent('about')}>About Us</button>
+          <button type="button" onClick={() => showContent('portfolio')}>Portfolio</button>
           <button type="button" onClick={() => showContent('pricing')}>Pricing</button>
           <button type="button" onClick={() => showContent('contact')}>Contact</button>
         </nav>
@@ -6461,7 +6586,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
   </main>
 }
 
-function LoginView({ darkMode, workspaceName, authMessage, onOpenTenantPortal, onOpenRolePage, onOpenLandlordSignup }: { darkMode: boolean; workspaceName: string; authMessage: string; onOpenTenantPortal: () => void; onOpenRolePage: (role: 'Landlord' | 'Administrator' | 'Caretaker') => void; onOpenLandlordSignup: () => void }) {
+function LoginView({ darkMode, workspaceName, authMessage, onBackToHome, onOpenTenantPortal, onOpenRolePage, onOpenLandlordSignup }: { darkMode: boolean; workspaceName: string; authMessage: string; onBackToHome: () => void; onOpenTenantPortal: () => void; onOpenRolePage: (role: 'Landlord' | 'Administrator' | 'Caretaker') => void; onOpenLandlordSignup: () => void }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(authMessage)
@@ -6516,6 +6641,7 @@ function LoginView({ darkMode, workspaceName, authMessage, onOpenTenantPortal, o
     </aside>
     <section className="login-card" aria-labelledby="login-title">
       <div className="login-mobile-brand"><span className="login-logo"><MohaLogo size={20} /></span><span>{workspaceName}</span></div>
+      <button type="button" className="login-return-home" onClick={onBackToHome}><Home size={16} aria-hidden="true" /> Back to home</button>
       <p className="login-kicker">SECURE WORKSPACE</p>
       <h1 id="login-title">Welcome back<span>.</span></h1>
       <p className="login-copy">Sign in to manage your properties, tenants, payments, and maintenance.</p>
