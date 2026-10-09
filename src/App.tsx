@@ -4,10 +4,13 @@ import type { User } from '@supabase/supabase-js'
 import { jsPDF } from 'jspdf'
 import { ArrowUpRight, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Pencil, Plus, ReceiptText, RefreshCw, Search, Settings, ShieldCheck, ShoppingBag, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
 import './App.css'
+import { TenantGroupChat } from './TenantGroupChat'
+import { TenantMaintenance } from './TenantMaintenance'
+import { TenantNotices } from './TenantNotices'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 
 type PropertyRecord = { name: string; address: string; units: number; occupied: number; income: string; status: string; color: string; waterUnitPrice?: number }
-type TenantRecord = { name: string; unit: string; unitDisplayName?: string; unitType: string; property: string; rent: string; lease: string; leaseEnd?: string; movedIn?: string; rentAccountRef?: string; portalCode?: string; status: string; waterBill?: string; waterBillUpdatedAt?: string; waterPreviousReading?: number; waterCurrentReading?: number; waterUnitPrice?: number; email?: string; phone?: string; idNumber?: string }
+type TenantRecord = { name: string; unit: string; unitDisplayName?: string; unitType: string; property: string; rent: string; lease: string; leaseEnd?: string; movedIn?: string; rentAccountRef?: string; portalCode?: string; status: string; securityDeposit?: number; waterBill?: string; waterBillUpdatedAt?: string; waterPreviousReading?: number; waterCurrentReading?: number; waterUnitPrice?: number; email?: string; phone?: string; idNumber?: string }
 type InvoiceRecord = { id: string; tenantName: string; email?: string; property: string; unit: string; unitType: string; rent: string; waterBill: string; issuedAt: string; movedIn?: string }
 type RentPaymentRecord = { id: string; owner_id: string; account_reference: string; mpesa_receipt: string; amount: number; transacted_at: string; phone?: string; tenant_name: string; property_name: string; unit_name: string }
 type RentPayoutRecord = { id: string; owner_id: string; mpesa_receipt: string; amount: number; status: 'pending' | 'paid' | 'needs_review' | 'queued' | 'processing' | 'completed' | 'failed' | 'timeout'; payment_method?: 'mpesa' | 'bank_transfer' | 'cash' | null; payout_reference?: string | null; paid_by?: string | null; paid_at?: string | null; requested_at: string }
@@ -57,7 +60,7 @@ function getPublicHomeSection(pathname: string): PublicHomeSection | null {
 type SettingsSection = 'workspace' | 'rent-collection' | 'notifications' | 'account' | 'team-invites' | 'subscription-method' | 'landlord-approvals' | 'users' | 'subscription-payments' | 'workspace-history'
 type AdminSubscriptionPaymentHistoryRow = Omit<AdminSubscriptionPaymentQueueRow, 'status'> & { status: 'approved' | 'rejected' }
 type AdminSubscriptionPaymentHistoryResult = { total_count: number; requests: AdminSubscriptionPaymentHistoryRow[] }
-type TenantPortalSession = { name: string; property: string; unit: string; email: string; portalCode: string }
+type TenantPortalSession = { tenant: TenantRecord; email: string; portalCode: string; workspaceName: string; propertyGroup: string; paymentHistory: Array<{ label: string; amount: number; date: string; method: string }> }
 type ExpenseRecord = { id: string; category: string; property: string; amount: number; date: string; note: string; paid?: boolean }
 type ApplicantRecord = { id: string; name: string; phone: string; property: string; unit: string; stage: 'Viewing' | 'Applied' | 'Approved' | 'Moved in' }
 type RentReminderChannel = 'SMS' | 'WhatsApp'
@@ -73,7 +76,7 @@ const properties: PropertyRecord[] = []
 type ModalType = 'property' | 'tenant' | 'maintenance' | 'payment' | 'document' | 'waterBill'
 const modalConfig: Record<ModalType, { title: string; description: string; fields: { key: string; label: string; placeholder: string; type?: string }[] }> = {
   property: { title: 'Add property', description: 'Add this apartment’s unit types, rents, and shared water price per unit.', fields: [{ key: 'name', label: 'Property name', placeholder: 'e.g. Willow Gardens' }, { key: 'address', label: 'Address', placeholder: 'e.g. 24 Willow Lane' }, { key: 'waterUnitPrice', label: 'Water price per unit (KSh)', placeholder: 'e.g. 120', type: 'number' }] },
-  tenant: { title: 'Add tenant', description: 'Select a property and vacant unit. The first rent payment is due 30 days after the tenant is assigned. A portal login code is generated automatically.', fields: [{ key: 'name', label: 'Tenant name', placeholder: 'e.g. Alex Morgan' }, { key: 'email', label: 'Tenant email address', placeholder: 'e.g. alex@example.com', type: 'email' }, { key: 'phone', label: 'Mobile number', placeholder: 'e.g. 0712 345 678', type: 'tel' }, { key: 'idNumber', label: 'National ID / passport', placeholder: 'e.g. 12345678' }, { key: 'property', label: 'Property / apartment', placeholder: 'Select a property' }, { key: 'unit', label: 'Available unit', placeholder: 'Select a vacant unit' }, { key: 'assignedDate', label: 'Tenant assigned / move-in date', placeholder: '', type: 'date' }, { key: 'leaseEnd', label: 'Lease end date', placeholder: '', type: 'date' }, { key: 'portalCode', label: 'Tenant portal code', placeholder: '' }] },
+  tenant: { title: 'Add tenant', description: 'Select a property and vacant unit. The first rent payment is due 30 days after the tenant is assigned. A portal login code is generated automatically.', fields: [{ key: 'name', label: 'Tenant name', placeholder: 'e.g. Alex Morgan' }, { key: 'email', label: 'Tenant email address', placeholder: 'e.g. alex@example.com', type: 'email' }, { key: 'phone', label: 'Mobile number', placeholder: 'e.g. 0712 345 678', type: 'tel' }, { key: 'idNumber', label: 'National ID / passport', placeholder: 'e.g. 12345678' }, { key: 'property', label: 'Property / apartment', placeholder: 'Select a property' }, { key: 'unit', label: 'Available unit', placeholder: 'Select a vacant unit' }, { key: 'assignedDate', label: 'Tenant assigned / move-in date', placeholder: '', type: 'date' }, { key: 'leaseEnd', label: 'Lease end date', placeholder: '', type: 'date' }, { key: 'securityDeposit', label: 'Security deposit held (KSh)', placeholder: 'e.g. 18000', type: 'number' }, { key: 'portalCode', label: 'Tenant portal code', placeholder: '' }] },
   maintenance: { title: 'Add maintenance request', description: 'Log an issue for your maintenance team and identify the exact house or unit.', fields: [{ key: 'maintenanceType', label: 'Maintenance type', placeholder: 'Select a maintenance type' }, { key: 'issue', label: 'Issue description', placeholder: 'e.g. Broken window' }, { key: 'property', label: 'Property / apartment', placeholder: 'e.g. Juniper Court' }, { key: 'houseNumber', label: 'House / unit number', placeholder: 'e.g. 2A' }, { key: 'priority', label: 'Priority', placeholder: 'Select priority' }] },
   payment: { title: 'Add payment', description: 'Manually record cash, bank, or other payments. Direct Paybill rent is recorded automatically after Safaricom confirms it.', fields: [{ key: 'amount', label: 'Amount (KSh)', placeholder: 'e.g. 1800', type: 'number' }, { key: 'property', label: 'Property / apartment', placeholder: 'Select a property' }, { key: 'houseNumber', label: 'House / unit number', placeholder: 'Select a house or unit' }, { key: 'paymentMethod', label: 'Payment method', placeholder: 'Select a method' }, { key: 'reference', label: 'M-Pesa / receipt reference', placeholder: 'e.g. QWE123ABCD' }, { key: 'period', label: 'Payment period', placeholder: 'e.g. January 2025' }, { key: 'date', label: 'Payment date', placeholder: '', type: 'date' }] },
   document: { title: 'Add document', description: 'Save a reference to an important property document.', fields: [{ key: 'name', label: 'Document name', placeholder: 'e.g. Lease agreement' }, { key: 'property', label: 'Property', placeholder: 'e.g. Parkview Lofts' }, { key: 'date', label: 'Document date', placeholder: '', type: 'date' }] },
@@ -83,6 +86,7 @@ const sectionDetails: Record<string, { eyebrow: string; title: string; descripti
   Properties: { eyebrow: 'Portfolio', title: 'Properties', description: 'Manage buildings, units, occupancy, and property performance.', rows: [] },
   Tenants: { eyebrow: 'Residents', title: 'Tenants', description: 'Keep track of residents, leases, and contact details in one place.', rows: [] },
   Maintenance: { eyebrow: 'Operations', title: 'Maintenance', description: 'Review open requests and keep every property running smoothly.', rows: [] },
+  Notices: { eyebrow: 'Residents', title: 'Notice to vacate', description: 'Review tenant-submitted move-out notices and respond to each request.', rows: [] },
   Payments: { eyebrow: 'Finance', title: 'Payments', description: 'Monitor rent collection, upcoming charges, and payment history.', rows: [] },
   Documents: { eyebrow: 'Records', title: 'Documents', description: 'Access leases, inspection reports, and important property records.', rows: [] },
   Settings: { eyebrow: 'Workspace', title: 'Settings', description: 'Configure your workspace, notifications, and team access.', rows: [] },
@@ -1765,6 +1769,7 @@ function App() {
     { label: 'Properties',   icon: Building2 },
     { label: 'Tenants',      icon: Users },
     { label: 'Tenant portal', icon: Home },
+    ...(role === 'Administrator' || role === 'Manager' ? [{ label: 'Notices', icon: Bell }] : []),
     ...(can.viewMaintenance  ? [{ label: 'Maintenance', icon: Wrench, count: openMaintenance || undefined }] : []),
     ...(can.viewPayments     ? [{ label: 'Payments',    icon: CircleDollarSign }] : []),
     ...(can.viewOperations   ? [{ label: 'Operations',  icon: WalletCards }] : []),
@@ -1842,32 +1847,61 @@ function App() {
     await supabase.auth.signOut()
   }
 
-  const submitTenantPortalLogin = (event: FormEvent<HTMLFormElement>) => {
+  const submitTenantPortalLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const email = tenantPortalForm.email.trim().toLowerCase()
     const code = tenantPortalForm.portalCode.trim()
-    const tenant = tenantList.find(item => item.email?.trim().toLowerCase() === email && (item.portalCode ?? '').trim().toLowerCase() === code.toLowerCase())
+    let tenant = tenantList.find(item => item.email?.trim().toLowerCase() === email && (item.portalCode ?? '').trim().toLowerCase() === code.toLowerCase())
+    let portalWorkspaceName = workspaceName
+    let portalPropertyGroup = propertyGroup
+    let remotePaymentHistory: TenantPortalSession['paymentHistory'] | null = null
+    if (supabase) {
+      const { data, error } = await supabase.rpc('tenant_portal_login', { p_email: email, p_portal_code: code })
+      if (error) {
+        setTenantPortalError(`Tenant sign-in could not be verified. Confirm that supabase/tenant_group_chat.sql has been run. Details: ${error.message}`)
+        return
+      }
+      tenant = data?.[0]?.tenant ? data[0].tenant as TenantRecord : undefined
+      if (tenant) {
+        portalWorkspaceName = data[0].workspace_name || portalWorkspaceName
+        portalPropertyGroup = data[0].property_group || portalPropertyGroup
+        remotePaymentHistory = (data[0].payment_history ?? []) as TenantPortalSession['paymentHistory']
+      }
+    }
     if (!tenant) {
       setTenantPortalError('Invalid tenant email or portal code. Use the code shared by your landlord.')
       return
     }
-    setTenantPortalSession({ name: tenant.name, property: tenant.property, unit: tenant.unit, email: tenant.email ?? email, portalCode: tenant.portalCode ?? code })
+    const localHistory = (savedRows.Payments ?? []).filter(row => {
+      const parts = row.split(' · ')
+      return parts[1] === tenant?.name && parts[3] === tenant?.property && parts[2]?.replace('House ', '') === tenant?.unit
+    }).map(row => {
+      const parts = row.split(' · ')
+      return { label: parts[6] || 'Manual payment', amount: Number((parts[0] ?? '').replace(/[^0-9.]/g, '')) || 0, date: parts[4] || '', method: parts[5] || 'Manual' }
+    })
+    setTenantPortalSession({
+      tenant,
+      email: tenant.email ?? email,
+      portalCode: tenant.portalCode ?? code,
+      workspaceName: portalWorkspaceName,
+      propertyGroup: portalPropertyGroup,
+      paymentHistory: remotePaymentHistory ?? localHistory,
+    })
     setTenantPublicView(false)
     setTenantPortalError('')
   }
 
   const tenantPortalStatement = useMemo(() => {
     if (!tenantPortalSession) return null
-    const tenant = tenantList.find(item => item.name === tenantPortalSession.name && item.property === tenantPortalSession.property && item.unit === tenantPortalSession.unit)
-    if (!tenant) return null
-    const directMatches = directRentPayments.filter(payment => payment.property_name === tenant.property && payment.unit_name === tenant.unit)
+    const tenant = tenantPortalSession.tenant
+    const directMatches = directRentPayments.filter(payment => payment.tenant_name === tenant.name && payment.property_name === tenant.property && payment.unit_name === tenant.unit)
     const manualMatches = (savedRows.Payments ?? []).filter(row => {
       const parts = row.split(' · ')
       const rowProperty = parts[3] ?? ''
       const rowUnit = parts[2]?.replace('House ', '') ?? ''
-      return rowProperty === tenant.property && (rowUnit === tenant.unit || row.includes(tenant.unit))
+      return parts[1] === tenant.name && rowProperty === tenant.property && (rowUnit === tenant.unit || rowUnit === tenant.unitDisplayName)
     })
-    const history = [
+    const history = tenantPortalSession.paymentHistory.length ? tenantPortalSession.paymentHistory : [
       ...manualMatches.map((row) => {
         const parts = row.split(' · ')
         const amount = Number((parts[0] ?? '').replace(/[^0-9.]/g, '')) || 0
@@ -1878,7 +1912,7 @@ function App() {
     const amountDue = Number((tenant.rent || '0').replace(/[^0-9.]/g, '')) || 0
     const totalPaid = history.reduce((sum, item) => sum + item.amount, 0)
     return { tenant, amountDue, totalPaid, balance: Math.max(amountDue - totalPaid, 0), history }
-  }, [tenantPortalSession, tenantList, directRentPayments, savedRows.Payments])
+  }, [tenantPortalSession, directRentPayments, savedRows.Payments])
   
   // Check subscription status (informational only - doesn't block access)
   const checkSubscription = () => {
@@ -1946,7 +1980,7 @@ function App() {
 
   if (showPasswordRecovery) return <PasswordRecoveryView darkMode={darkMode} onSave={saveRecoveredPassword} />
   if (pendingLandlordApproval) return <LandlordApprovalStatusPage workspaceName={workspaceName} registration={pendingLandlordApproval} onRefresh={() => window.location.reload()} onBack={signOut} />
-  if (tenantPortalSession && tenantPortalStatement) return <TenantStatementPage tenant={tenantPortalStatement.tenant} workspaceName={workspaceName} propertyGroup={propertyGroup} statement={tenantPortalStatement} onBack={() => { setTenantPortalSession(null); setTenantPublicView(false) }} onSendReminder={(message) => {
+  if (tenantPortalSession && tenantPortalStatement) return <TenantStatementPage tenant={tenantPortalStatement.tenant} workspaceName={tenantPortalSession.workspaceName} propertyGroup={tenantPortalSession.propertyGroup} statement={tenantPortalStatement} chatIdentity={{ email: tenantPortalSession.email, portalCode: tenantPortalSession.portalCode }} onBack={() => { setTenantPortalSession(null); setTenantPublicView(false) }} onSendReminder={(message) => {
     const tenant = tenantPortalStatement.tenant
     const reminderText = message || `Hello ${tenant.name}, your rent balance with ${workspaceName} is KSh ${tenantPortalStatement.balance.toLocaleString()} for ${tenant.property}, Unit ${getTenantUnitLabel(tenant)}.`
     openRentReminderSms(tenant.phone, reminderText)
@@ -1956,7 +1990,7 @@ function App() {
   if (authUser && sessionUser && !cloudOwnerId) return <main className="login-shell"><section className="login-card"><p className="login-kicker">SUPABASE WORKSPACE</p><h1>Workspace unavailable<span>.</span></h1><p className="login-copy">{cloudStatus}</p><button type="button" className="login-button" onClick={signOut}>Sign out</button></section></main>
   if (landlordSignupPage && !sessionUser) return <PublicLandlordSignupPage workspaceName={workspaceName} onBack={openHomePage} />
   if (homePage && !sessionUser) return <PortalHomePage workspaceName={workspaceName} onOpenRolePage={openRoleLoginPage} onOpenTenantPortal={openTenantPublicPage} onOpenLandlordSignup={openLandlordSignupPage} />
-  if (tenantPublicView) return <TenantPublicLoginPage darkMode={darkMode} workspaceName={workspaceName} tenantList={tenantList} tenantPortalForm={tenantPortalForm} tenantPortalError={tenantPortalError} onTenantPortalFormChange={(key, value) => setTenantPortalForm(current => ({ ...current, [key]: value }))} onTenantPortalSubmit={submitTenantPortalLogin} onBackToHome={openHomePage} />
+  if (tenantPublicView) return <TenantPublicLoginPage darkMode={darkMode} workspaceName={workspaceName} tenantPortalForm={tenantPortalForm} tenantPortalError={tenantPortalError} onTenantPortalFormChange={(key, value) => setTenantPortalForm(current => ({ ...current, [key]: value }))} onTenantPortalSubmit={submitTenantPortalLogin} onBackToHome={openHomePage} />
   if (!sessionUser) return <LoginView darkMode={darkMode} workspaceName={workspaceName} authMessage={authMessage} onBackToHome={openHomePage} onOpenTenantPortal={openTenantPublicPage} onOpenRolePage={openRoleLoginPage} onOpenLandlordSignup={openLandlordSignupPage} />
   return <LandlordPaybillContext.Provider value={landlordPaymentDetails}><TenantDirectoryContext.Provider value={tenantList}><ConfirmedRentPaymentRefreshContext.Provider value={{ refresh: refreshConfirmedRentPayments, refreshing: rentPaymentsRefreshing, error: rentPaymentsRefreshError }}><ConfirmedRentPaymentsContext.Provider value={directRentPayments}><RentPayoutsContext.Provider value={rentPayouts}><div className={`app-shell ${darkMode ? 'dark' : ''}${isPlatformAdministrator ? ' platform-admin-shell' : ''}`}>
     {/* Subscription Warning Banner (7 days before expiry) */}
@@ -2226,6 +2260,7 @@ function App() {
               propertyGroup={propertyGroup}
               paymentRows={savedRows.Payments ?? []}
               directRentPayments={directRentPayments}
+              ownerId={cloudOwnerId}
             /> : activeSection === 'Settings' || activeSection === 'User directory' || activeSection === 'Landlord approvals' || activeSection === 'Subscription payments' ? (can.viewSettings ? <SettingsView
               key={activeSection}
               sessionUser={sessionUser}
@@ -2431,6 +2466,9 @@ function App() {
                               ? savedRows.Payments ?? []
                               : savedRows[activeSection] ?? sectionDetails[activeSection].rows}
                         completedMaintenance={completedMaintenance}
+                        maintenanceOwnerId={cloudOwnerId}
+                        maintenanceTenants={tenantList}
+                        noticeCanReview={role === 'Administrator' || role === 'Manager'}
                         showConfirmedRentPayments={Boolean(effectiveRentPaybill)}
                         onRowClick={activeSection === 'Properties' ? index => setSelectedProperty(propertyList[index].name) : undefined}
                         onWaterBillUpdate={activeSection === 'Tenants' && can.addTenant ? index => { setSelectedTenant(tenantList[index]); setModalType('waterBill') } : undefined}
@@ -2450,8 +2488,8 @@ function App() {
                           ? () => setModalType('property')
                           : activeSection === 'Tenants' && can.addTenant
                             ? () => setModalType('tenant')
-                            : activeSection === 'Maintenance' && can.addMaintenance
-                              ? () => setModalType('maintenance')
+                            : activeSection === 'Maintenance'
+                                ? null
                               : activeSection === 'Payments' && can.addPayment
                                 ? () => setModalType('payment')
                                 : null}
@@ -2475,7 +2513,7 @@ function App() {
             if (selectedUnit) {
               const movedIn = values.assignedDate || localDateString()
               const leaseEnd = values.leaseEnd || oneYearAfter(movedIn)
-              const newTenant: TenantRecord = { name: values.name, email: values.email, phone: values.phone, idNumber: values.idNumber, unit: selectedUnit.unit, unitDisplayName: selectedUnit.displayName || selectedUnit.unit, unitType: selectedUnit.type, property: values.property, rent: selectedUnit.rent.replace('KSh ', ''), lease: `Ends ${new Date(`${leaseEnd}T00:00:00`).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })}`, leaseEnd, movedIn, rentAccountRef: makeRentAccountReference(), portalCode: values.portalCode, status: 'Active', waterBill: '0' }
+              const newTenant: TenantRecord = { name: values.name, email: values.email, phone: values.phone, idNumber: values.idNumber, unit: selectedUnit.unit, unitDisplayName: selectedUnit.displayName || selectedUnit.unit, unitType: selectedUnit.type, property: values.property, rent: selectedUnit.rent.replace('KSh ', ''), lease: `Ends ${new Date(`${leaseEnd}T00:00:00`).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })}`, leaseEnd, movedIn, rentAccountRef: makeRentAccountReference(), portalCode: values.portalCode, status: 'Active', securityDeposit: values.securityDeposit.trim() ? Number(values.securityDeposit) : undefined, waterBill: '0' }
               setTenantList((current) => [...current, newTenant])
               setUnitDetails((current) => ({ ...current, [values.property]: (current[values.property] ?? []).map((unit) => unit.unit === selectedUnit.unit ? { ...unit, tenant: values.name, status: 'Occupied' } : unit) }))
               setPropertyList((current) => current.map((property) => property.name === values.property ? { ...property, occupied: Math.min(property.occupied + 1, property.units), status: 'Healthy' } : property))
@@ -2590,7 +2628,7 @@ function App() {
         {/* Edit Tenant Modal */}
         {canAccessSystem && editingTenant && (
           <div className="modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setEditingTenant(null) }}>
-            <form className="add-modal" onSubmit={e => { e.preventDefault(); const leaseEnd = (e.currentTarget.elements.namedItem('leaseEnd') as HTMLInputElement).value || editingTenant.leaseEnd || oneYearAfter(editingTenant.movedIn ?? localDateString()); const updated = { ...editingTenant, name: (e.currentTarget.elements.namedItem('name') as HTMLInputElement).value, email: (e.currentTarget.elements.namedItem('email') as HTMLInputElement).value, phone: (e.currentTarget.elements.namedItem('phone') as HTMLInputElement).value, idNumber: (e.currentTarget.elements.namedItem('idNumber') as HTMLInputElement).value, leaseEnd, lease: `Ends ${new Date(`${leaseEnd}T00:00:00`).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })}` }; saveEditTenant(updated, editingTenant) }}>
+            <form className="add-modal" onSubmit={e => { e.preventDefault(); const leaseEnd = (e.currentTarget.elements.namedItem('leaseEnd') as HTMLInputElement).value || editingTenant.leaseEnd || oneYearAfter(editingTenant.movedIn ?? localDateString()); const depositValue = (e.currentTarget.elements.namedItem('securityDeposit') as HTMLInputElement).value; const updated = { ...editingTenant, name: (e.currentTarget.elements.namedItem('name') as HTMLInputElement).value, email: (e.currentTarget.elements.namedItem('email') as HTMLInputElement).value, phone: (e.currentTarget.elements.namedItem('phone') as HTMLInputElement).value, idNumber: (e.currentTarget.elements.namedItem('idNumber') as HTMLInputElement).value, securityDeposit: depositValue === '' ? undefined : Number(depositValue), leaseEnd, lease: `Ends ${new Date(`${leaseEnd}T00:00:00`).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })}` }; saveEditTenant(updated, editingTenant) }}>
               <button type="button" className="modal-close" onClick={() => setEditingTenant(null)}>×</button>
               <p className="eyebrow">Tenant management</p>
               <h2>Edit tenant</h2>
@@ -2599,6 +2637,7 @@ function App() {
               <label className="form-field"><span>Email</span><input type="email" name="email" defaultValue={editingTenant.email ?? ''} /></label>
               <label className="form-field"><span>Mobile number</span><input required type="tel" name="phone" inputMode="numeric" pattern="254[0-9]{9}" maxLength={12} placeholder="254712345678" defaultValue={normalizeKenyanPhone(editingTenant.phone)} /></label>
               <label className="form-field"><span>ID Number</span><input name="idNumber" defaultValue={editingTenant.idNumber ?? ''} /></label>
+              <label className="form-field"><span>Security deposit held (KSh)</span><input type="number" name="securityDeposit" min="0" step="0.01" defaultValue={editingTenant.securityDeposit ?? ''} /></label>
               <label className="form-field"><span>Lease end date</span><input type="date" name="leaseEnd" defaultValue={editingTenant.leaseEnd ?? (editingTenant.movedIn ? oneYearAfter(editingTenant.movedIn) : oneYearAfter(localDateString()))} /></label>
               <div className="modal-actions">
                 <button type="button" className="cancel-button" onClick={() => setEditingTenant(null)}>Cancel</button>
@@ -3208,7 +3247,7 @@ function downloadPlatformPaymentsCsv(workspaces: PlatformLandlordWorkspace[]) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
-function SectionView({ section, rows, propertyNames, completedMaintenance = {}, onAdd, onRowClick, onWaterBillUpdate, onGenerateInvoice, onRemoveTenant, onOpenMaintenance, onEditProperty, onDeleteProperty, onViewTenantProfile, onEditTenant, onEditPayment, onDeletePayment, onEditMaintenance, onDeleteMaintenance, onMarkMaintenanceDone }: { section: string; rows: string[]; propertyNames: string[]; completedMaintenance?: Record<string, boolean>; showConfirmedRentPayments?: boolean; onAdd: (() => void) | null; onRowClick?: (index: number) => void; onWaterBillUpdate?: (index: number) => void; onGenerateInvoice?: (index: number) => void; onRemoveTenant?: (index: number) => void; onOpenMaintenance?: (index: number) => void; onEditProperty?: (index: number) => void; onDeleteProperty?: (index: number) => void; onViewTenantProfile?: (index: number) => void; onEditTenant?: (index: number) => void; onEditPayment?: (index: number) => void; onDeletePayment?: (index: number) => void; onEditMaintenance?: (index: number) => void; onDeleteMaintenance?: (index: number) => void; onMarkMaintenanceDone?: (index: number) => void }) {
+function SectionView({ section, rows, propertyNames, completedMaintenance = {}, maintenanceOwnerId, maintenanceTenants, noticeCanReview = false, onAdd, onRowClick, onWaterBillUpdate, onGenerateInvoice, onRemoveTenant, onOpenMaintenance, onEditProperty, onDeleteProperty, onViewTenantProfile, onEditTenant, onEditPayment, onDeletePayment, onEditMaintenance, onDeleteMaintenance, onMarkMaintenanceDone }: { section: string; rows: string[]; propertyNames: string[]; completedMaintenance?: Record<string, boolean>; maintenanceOwnerId?: string | null; maintenanceTenants?: TenantRecord[]; noticeCanReview?: boolean; showConfirmedRentPayments?: boolean; onAdd: (() => void) | null; onRowClick?: (index: number) => void; onWaterBillUpdate?: (index: number) => void; onGenerateInvoice?: (index: number) => void; onRemoveTenant?: (index: number) => void; onOpenMaintenance?: (index: number) => void; onEditProperty?: (index: number) => void; onDeleteProperty?: (index: number) => void; onViewTenantProfile?: (index: number) => void; onEditTenant?: (index: number) => void; onEditPayment?: (index: number) => void; onDeletePayment?: (index: number) => void; onEditMaintenance?: (index: number) => void; onDeleteMaintenance?: (index: number) => void; onMarkMaintenanceDone?: (index: number) => void }) {
   const directRentPayments = useContext(ConfirmedRentPaymentsContext)
   const rentPayouts = useContext(RentPayoutsContext)
   const tenantDirectory = useContext(TenantDirectoryContext)
@@ -3217,15 +3256,21 @@ function SectionView({ section, rows, propertyNames, completedMaintenance = {}, 
   const pageSize = 15
   const [page, setPage] = useState(1)
   const [tenantProperty, setTenantProperty] = useState('')
+  const [tenantSearch, setTenantSearch] = useState('')
   const [paymentProperty, setPaymentProperty] = useState('')
   const tenantPropertyNames = [...new Map([
     ...propertyNames,
     ...tenantDirectory.map(tenant => tenant.property),
   ].map(name => name.trim()).filter(Boolean).map(name => [name.toLocaleLowerCase(), name])).values()]
     .sort((first, second) => first.localeCompare(second))
-  const tenantRows = rows.map((row, index) => ({ row, index })).filter(({ row, index }) =>
-    section !== 'Tenants' || !tenantProperty || (tenantDirectory[index]?.property ?? row.split(' · ')[4] ?? '').trim().toLocaleLowerCase() === tenantProperty.toLocaleLowerCase(),
-  )
+  const tenantRows = rows.map((row, index) => ({ row, index })).filter(({ row, index }) => {
+    if (section !== 'Tenants') return true
+    const tenant = tenantDirectory[index]
+    const matchesProperty = !tenantProperty || (tenant?.property ?? row.split(' · ')[4] ?? '').trim().toLocaleLowerCase() === tenantProperty.toLocaleLowerCase()
+    const search = tenantSearch.trim().toLocaleLowerCase()
+    const matchesSearch = !search || `${tenant?.name ?? row} ${tenant?.email ?? ''} ${tenant?.property ?? ''} ${getTenantUnitLabel(tenant ?? { unit: row.split(' · ')[1] ?? '' })}`.toLocaleLowerCase().includes(search)
+    return matchesProperty && matchesSearch
+  })
   const paymentPropertyNames = [...new Map([
     ...propertyNames,
     ...directRentPayments.map(payment => payment.property_name),
@@ -3245,16 +3290,23 @@ function SectionView({ section, rows, propertyNames, completedMaintenance = {}, 
   const visibleTenantIndices = section === 'Tenants' ? tenantRows.slice(start, start + pageSize).map(({ index }) => index) : undefined
   const visiblePaymentIndices = section === 'Payments' ? paymentRows.slice(start, start + pageSize).map(({ index }) => index) : undefined
   const pageRows = filteredRows.slice(start, start + pageSize)
+  if (section === 'Notices') return <TenantNotices variant="landlord" ownerId={maintenanceOwnerId} canReview={noticeCanReview} />
   return <section className={`section-view panel ${section.toLowerCase()}-view`}>
-    <div className="section-view-heading"><div><p className="eyebrow">{detail.eyebrow}</p><h2>{detail.title}</h2><p>{detail.description}</p></div>{section === 'Tenants' && <label className="search-box payment-property-search tenant-property-search"><Search size={16} /><select value={tenantProperty} onChange={event => { setTenantProperty(event.target.value); setPage(1) }} aria-label="Filter tenants by apartment"><option value="">All apartments</option>{tenantPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{section === 'Payments' && <label className="search-box payment-property-search"><Search size={16} /><select value={paymentProperty} onChange={event => { setPaymentProperty(event.target.value); setPage(1) }} aria-label="Filter payments by apartment"><option value="">All apartments</option>{paymentPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{section === 'Payments' && <button type="button" className="filter-button" disabled={!paymentRows.length && !filteredDirectRentPayments.length} onClick={() => downloadPaymentsCsv(paymentRows.map(({ row }) => row), filteredDirectRentPayments, rentPayouts, paymentProperty)}><Download size={16} /> Download payments CSV</button>}{onAdd && <button className="primary-button" onClick={onAdd}><Plus size={17} /> Add {addLabel}</button>}</div>
+    <div className="section-view-heading"><div><p className="eyebrow">{detail.eyebrow}</p><h2>{detail.title}</h2><p>{detail.description}</p></div>{section === 'Tenants' && <div className="tenant-directory-controls"><label className="search-box tenant-directory-search"><Search size={16} /><input type="search" value={tenantSearch} onChange={event => { setTenantSearch(event.target.value); setPage(1) }} placeholder="Search name, email or unit" aria-label="Search tenants by name, email or unit" /></label><label className="search-box payment-property-search tenant-property-search"><Building2 size={16} /><select value={tenantProperty} onChange={event => { setTenantProperty(event.target.value); setPage(1) }} aria-label="Filter tenants by apartment"><option value="">All apartments</option>{tenantPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label></div>}{section === 'Payments' && <label className="search-box payment-property-search"><Search size={16} /><select value={paymentProperty} onChange={event => { setPaymentProperty(event.target.value); setPage(1) }} aria-label="Filter payments by apartment"><option value="">All apartments</option>{paymentPropertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}{section === 'Payments' && <button type="button" className="filter-button" disabled={!paymentRows.length && !filteredDirectRentPayments.length} onClick={() => downloadPaymentsCsv(paymentRows.map(({ row }) => row), filteredDirectRentPayments, rentPayouts, paymentProperty)}><Download size={16} /> Download payments CSV</button>}{onAdd && <button className="primary-button" onClick={onAdd}><Plus size={17} /> Add {addLabel}</button>}</div>
+    {section === 'Tenants' && <div className="tenant-directory-summary" aria-label="Tenant directory summary">
+      <article><span className="tenant-directory-summary-icon"><Users size={17} /></span><span><strong>{tenantDirectory.length}</strong><small>Total tenants</small></span></article>
+      <article><span className="tenant-directory-summary-icon active"><CheckCircle2 size={17} /></span><span><strong>{tenantDirectory.filter(tenant => tenant.status.toLocaleLowerCase() === 'active').length}</strong><small>Active leases</small></span></article>
+      <article><span className="tenant-directory-summary-icon properties"><Building2 size={17} /></span><span><strong>{tenantPropertyNames.length}</strong><small>Properties</small></span></article>
+    </div>}
     {section === 'Properties' && <PropertySection rows={pageRows} onRowClick={(index) => onRowClick?.(start + index)} onEdit={(index) => onEditProperty?.(start + index)} onDelete={(index) => onDeleteProperty?.(start + index)} />}
     {section === 'Tenants' && <TenantPortalCodeLookup />}
     {section === 'Tenants' && <TenantSection rows={pageRows} originalIndices={visibleTenantIndices} onWaterBillUpdate={(index) => onWaterBillUpdate?.(index)} onGenerateInvoice={(index) => onGenerateInvoice?.(index)} onRemoveTenant={(index) => onRemoveTenant?.(index)} onViewProfile={(index) => onViewTenantProfile?.(index)} onEditTenant={(index) => onEditTenant?.(index)} />}
+    {section === 'Maintenance' && <TenantMaintenance variant="landlord" ownerId={maintenanceOwnerId} tenants={maintenanceTenants} />}
     {section === 'Maintenance' && <MaintenanceSection rows={pageRows} completedMaintenance={completedMaintenance} onOpen={(index) => onOpenMaintenance?.(start + index)} onEdit={(index) => onEditMaintenance?.(start + index)} onDelete={(index) => onDeleteMaintenance?.(start + index)} onMarkDone={(index) => onMarkMaintenanceDone?.(start + index)} />}
     {section === 'Payments' && <PaymentSection rows={pageRows} selectedProperty={paymentProperty} onEdit={(index) => onEditPayment?.(visiblePaymentIndices?.[index] ?? start + index)} onDelete={(index) => onDeletePayment?.(visiblePaymentIndices?.[index] ?? start + index)} />}
     {section === 'Payments' && <ConfirmedRentPaymentSection payments={directRentPayments} propertyNames={paymentPropertyNames} />}
     {section === 'Documents' && <DocumentSection rows={pageRows} />}
-    <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
+    {filteredRows.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}
   </section>
 }
 
@@ -3488,7 +3540,7 @@ function ManualLandlordPayoutPanel({ landlordName, ownerId, payments, payouts, o
 }
 
 function Pagination({ page, pageCount, onPageChange }: { page: number; pageCount: number; onPageChange: (page: number) => void }) {
-  return <div className="pagination"><span>Page {page} of {pageCount}</span><div><button disabled={page === 1} onClick={() => onPageChange(page - 1)}>Previous</button><button disabled={page === pageCount} onClick={() => onPageChange(page + 1)}>Next</button></div></div>
+  return <nav className="pagination" aria-label="Pagination"><span>Page {page} of {pageCount}</span><div><button type="button" disabled={page === 1} onClick={() => onPageChange(page - 1)}>Previous</button><button type="button" disabled={page === pageCount} onClick={() => onPageChange(page + 1)}>Next</button></div></nav>
 }
 
 function PropertySection({ rows, onRowClick, onEdit, onDelete }: { rows: string[]; onRowClick?: (index: number) => void; onEdit?: (index: number) => void; onDelete?: (index: number) => void }) {
@@ -3498,11 +3550,16 @@ function PropertySection({ rows, onRowClick, onEdit, onDelete }: { rows: string[
 function TenantPortalCodeLookup() {
   const tenants = useContext(TenantDirectoryContext)
   const [tenantProperty, setTenantProperty] = useState('')
+  const [page, setPage] = useState(1)
   const [copied, setCopied] = useState('')
   const [copyError, setCopyError] = useState('')
+  const pageSize = 8
   const propertyNames = [...new Map(tenants.map(tenant => tenant.property.trim()).filter(Boolean).map(name => [name.toLocaleLowerCase(), name])).values()]
     .sort((first, second) => first.localeCompare(second))
   const matches = tenants.filter(tenant => !tenantProperty || tenant.property.trim().toLocaleLowerCase() === tenantProperty.toLocaleLowerCase())
+  const pageCount = Math.max(1, Math.ceil(matches.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+  const visibleTenants = matches.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const copyCode = async (tenant: TenantRecord) => {
     if (!tenant.portalCode) return
@@ -3518,14 +3575,14 @@ function TenantPortalCodeLookup() {
 
   return <section className="tenant-code-lookup" aria-labelledby="tenant-code-title">
     <div className="tenant-code-lookup-heading"><div><p className="eyebrow">Tenant access</p><h3 id="tenant-code-title">Portal code lookup</h3><p>Find a tenant and share their portal code if they forget it.</p></div><KeyRoundIcon /></div>
-    <label className="search-box payment-property-search tenant-code-search"><Search size={16} /><select value={tenantProperty} onChange={event => setTenantProperty(event.target.value)} aria-label="Filter portal codes by apartment"><option value="">All apartments</option>{propertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
+    <label className="search-box payment-property-search tenant-code-search"><Building2 size={16} /><select value={tenantProperty} onChange={event => { setTenantProperty(event.target.value); setPage(1) }} aria-label="Filter portal codes by apartment"><option value="">All apartments</option>{propertyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
     {copyError && <p className="settings-error" role="alert">{copyError}</p>}
-    {tenants.length === 0 ? <p className="overview-empty">Add a tenant to generate a portal code.</p> : matches.length === 0 ? <p className="overview-empty">No tenants are listed for this apartment.</p> : <div className="tenant-code-results">{matches.map(tenant => <article className="tenant-code-result" key={`${tenant.property}-${tenant.unit}-${tenant.email ?? tenant.name}`}>
+    {tenants.length === 0 ? <p className="overview-empty">Add a tenant to generate a portal code.</p> : matches.length === 0 ? <p className="overview-empty">No tenants are listed for this apartment.</p> : <><p className="tenant-code-result-count">Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, matches.length)} of {matches.length} tenants</p><div className="tenant-code-results">{visibleTenants.map(tenant => <article className="tenant-code-result" key={`${tenant.property}-${tenant.unit}-${tenant.email ?? tenant.name}`}>
       <span className="user-avatar">{tenant.name.slice(0, 2).toUpperCase()}</span>
       <div className="tenant-code-result-info"><strong>{tenant.name}</strong><small>{tenant.property} · Unit {getTenantUnitLabel(tenant)}{tenant.email ? ` · ${tenant.email}` : ''}</small></div>
       <div className="tenant-code-value"><small>Portal code</small><strong>{tenant.portalCode || 'Not set'}</strong></div>
       {tenant.portalCode && <button type="button" className="portal-code-copy" onClick={() => void copyCode(tenant)}>{copied === tenant.portalCode ? <CheckCircle2 size={13} /> : <Copy size={13} />}{copied === tenant.portalCode ? 'Copied' : 'Copy code'}</button>}
-    </article>)}</div>}
+    </article>)}</div>{matches.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}</>}
   </section>
 }
 
@@ -3749,7 +3806,16 @@ function DocumentsView({ invoices, legacyRows, canAdd, onAdd, onReopenInvoice }:
     <div className="section-view-heading"><div><p className="eyebrow">Records</p><h2>Documents</h2><p>Store tenant invoices and important property records in one place.</p></div>{canAdd && <button className="primary-button" onClick={onAdd}><Plus size={17} /> Add document</button>}</div>
     <div className="invoice-archive">
       <div className="archive-heading"><div><p className="eyebrow">Billing archive</p><h3>Tenant invoices</h3></div><span>{invoices.length} generated</span></div>
-      {invoices.length ? <div className="invoice-list">{visibleInvoices.map(invoice => <article className="invoice-list-item" key={invoice.id}><span className="invoice-list-icon"><FileText size={18} /></span><div><strong>{invoice.id}</strong><small>{invoice.tenantName} · Unit {invoice.unit} · {invoice.property}</small></div><span className="invoice-list-total">KSh {(Number(invoice.rent.replace(/[^0-9.]/g, '')) + Number(invoice.waterBill.replace(/[^0-9.]/g, ''))).toLocaleString()}<small>{new Date(invoice.issuedAt).toLocaleDateString()}</small></span><button className="invoice-reopen-btn" onClick={() => onReopenInvoice?.(invoice)} title="Reopen invoice"><ArrowUpRight size={14} /> View</button></article>)}</div> : <p className="empty-invoices">Generated tenant invoices will appear here.</p>}
+      {invoices.length ? <div className="invoice-list">{visibleInvoices.map(invoice => <article className="invoice-list-item" key={invoice.id}>
+        <span className="invoice-list-icon"><FileText size={18} /></span>
+        <div className="invoice-list-details">
+          <div className="invoice-list-heading"><strong>{invoice.id}</strong><span className="invoice-list-status">Generated</span></div>
+          <small>{invoice.tenantName} · Unit {invoice.unit}</small>
+          <small>{invoice.property}</small>
+        </div>
+        <span className="invoice-list-total">KSh {(Number(invoice.rent.replace(/[^0-9.]/g, '')) + Number(invoice.waterBill.replace(/[^0-9.]/g, ''))).toLocaleString()}<small>Issued {new Date(invoice.issuedAt).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })}</small></span>
+        <button className="invoice-reopen-btn" onClick={() => onReopenInvoice?.(invoice)} title="Reopen invoice"><ArrowUpRight size={14} /> View</button>
+      </article>)}</div> : <p className="empty-invoices">Generated tenant invoices will appear here.</p>}
       {invoices.length > pageSize && <Pagination page={currentInvoicePage} pageCount={invoicePageCount} onPageChange={setInvoicePage} />}
     </div>
     <div className="document-archive-legacy">
@@ -4380,15 +4446,21 @@ const defaultRoleForType: Record<AccessUser['userType'], AccessUser['role']> = {
   'Caretaker': 'Caretaker',
 }
 
-function TenantPortalView({ tenants, workspaceName, propertyGroup, paymentRows, directRentPayments }: { tenants: TenantRecord[]; workspaceName: string; propertyGroup: string; paymentRows: string[]; directRentPayments: RentPaymentRecord[] }) {
+function TenantPortalView({ tenants, workspaceName, propertyGroup, paymentRows, directRentPayments, ownerId }: { tenants: TenantRecord[]; workspaceName: string; propertyGroup: string; paymentRows: string[]; directRentPayments: RentPaymentRecord[]; ownerId: string | null }) {
   const paymentDetails = useContext(LandlordPaybillContext)
   const [selectedTenantKey, setSelectedTenantKey] = useState(tenants[0] ? `${tenants[0].name}::${tenants[0].property}::${tenants[0].unit}` : '')
+  const [groupChatOpen, setGroupChatOpen] = useState(false)
   const [tenantPage, setTenantPage] = useState(1)
   const [historyPage, setHistoryPage] = useState(1)
   const [serviceRequestPage, setServiceRequestPage] = useState(1)
   const [reminderShareStatus, setReminderShareStatus] = useState('')
   const pageSize = 12
   const selectedTenant = tenants.find(tenant => `${tenant.name}::${tenant.property}::${tenant.unit}` === selectedTenantKey) ?? tenants[0] ?? null
+
+  useEffect(() => {
+    if (groupChatOpen) document.getElementById('landlord-tenant-group-chat')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [groupChatOpen])
+
   const shareTenantReminder = (reminder: { label: string; dueLabel: string }) => {
     if (!selectedTenant) return
     const message = `Hello ${selectedTenant.name}, ${reminder.label} for ${selectedTenant.property}, Unit ${getTenantUnitLabel(selectedTenant)}. Please settle your balance with the property office.`
@@ -4450,7 +4522,15 @@ function TenantPortalView({ tenants, workspaceName, propertyGroup, paymentRows, 
   const serviceRequestPageCount = Math.max(1, Math.ceil(tenantServiceRequests.length / pageSize))
   const visibleServiceRequests = tenantServiceRequests.slice((Math.min(serviceRequestPage, serviceRequestPageCount) - 1) * pageSize, Math.min(serviceRequestPage, serviceRequestPageCount) * pageSize)
 
-  return <section className="utility-view panel"><div className="utility-heading"><div><p className="eyebrow">Tenant experience</p><h2>Tenant portal</h2><p>Statement overview, reminders, payment history, and support for each tenant.</p></div></div>
+  return <section className="utility-view panel landlord-tenant-portal"><div className="utility-heading"><div><p className="eyebrow">Tenant experience</p><h2>Tenant portal</h2><p>Statement overview, reminders, payment history, and support for each tenant.</p></div></div>
+    {selectedTenant && <nav className="tenant-portal-quick-links" aria-label="Tenant portal quick links">
+      <span className="tenant-portal-quick-links-label">Quick links</span>
+      <button type="button" className={`tenant-portal-quick-link${groupChatOpen ? ' active' : ''}`} aria-pressed={groupChatOpen} onClick={() => setGroupChatOpen(current => !current)}>
+        <MessageCircle size={16} aria-hidden="true" />
+        <span>{groupChatOpen ? 'Close group chat' : 'Group chat'}</span>
+        <small>{selectedTenant.property}</small>
+      </button>
+    </nav>}
     <div className="portfolio-health panel" style={{ marginBottom: 18 }}>
       <div className="panel-heading"><div><p className="eyebrow">Statement</p><h2>{workspaceName}</h2></div><span className="live-badge">{propertyGroup}</span></div>
       <div className="health-grid">
@@ -4508,6 +4588,9 @@ function TenantPortalView({ tenants, workspaceName, propertyGroup, paymentRows, 
         </div>
       </article>}
     </div>
+    {selectedTenant && groupChatOpen && <div id="landlord-tenant-group-chat" className="landlord-tenant-group-chat">
+      <TenantGroupChat key={`${ownerId}-${selectedTenant.property}`} variant="landlord" ownerId={ownerId} property={selectedTenant.property} />
+    </div>}
   </section>
 }
 
@@ -5868,7 +5951,15 @@ function OperationsCenter({ tenants, properties, payments, expenses, applicants,
   )
 }
 
-function TenantStatementPage({ tenant, workspaceName, propertyGroup, statement, onBack, onSendReminder }: { tenant: TenantRecord; workspaceName: string; propertyGroup: string; statement: { amountDue: number; totalPaid: number; balance: number; history: Array<{ label: string; amount: number; date: string; method: string }> }; onBack: () => void; onSendReminder: (message?: string) => void }) {
+function TenantStatementPage({ tenant, workspaceName, propertyGroup, statement, chatIdentity, onBack, onSendReminder }: { tenant: TenantRecord; workspaceName: string; propertyGroup: string; statement: { amountDue: number; totalPaid: number; balance: number; history: Array<{ label: string; amount: number; date: string; method: string }> }; chatIdentity: { email: string; portalCode: string }; onBack: () => void; onSendReminder: (message?: string) => void }) {
+  const [openQuickLink, setOpenQuickLink] = useState<'chat' | 'maintenance' | 'notices' | null>(null)
+
+  useEffect(() => {
+    if (!openQuickLink) return
+    const sectionId = openQuickLink === 'chat' ? 'tenant-group-chat' : openQuickLink === 'maintenance' ? 'tenant-maintenance' : 'tenant-notices'
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [openQuickLink])
+
   const exportStatement = () => {
     const rows = [
       'Tenant statement',
@@ -5903,8 +5994,23 @@ function TenantStatementPage({ tenant, workspaceName, propertyGroup, statement, 
             <p className="tenant-resident-location"><Building2 size={14} /> {tenant.property} <span>·</span> Unit {getTenantUnitLabel(tenant)}</p>
           </div>
         </div>
-        <button className="tenant-logout-button" type="button" aria-label="Back to tenant sign in" onClick={onBack}><ArrowUpRight size={15} className="tenant-back-icon" /><span>Back to sign in</span></button>
+        <div className="tenant-portal-header-actions">
+          <button className={`tenant-chat-shortcut${openQuickLink === 'chat' ? ' active' : ''}`} type="button" aria-pressed={openQuickLink === 'chat'} onClick={() => setOpenQuickLink(current => current === 'chat' ? null : 'chat')}><MessageCircle size={15} aria-hidden="true" /><span>Group chat</span></button>
+          <button className={`tenant-chat-shortcut${openQuickLink === 'maintenance' ? ' active' : ''}`} type="button" aria-pressed={openQuickLink === 'maintenance'} onClick={() => setOpenQuickLink(current => current === 'maintenance' ? null : 'maintenance')}><ClipboardList size={15} aria-hidden="true" /><span>Maintenance</span></button>
+          <button className={`tenant-chat-shortcut${openQuickLink === 'notices' ? ' active' : ''}`} type="button" aria-pressed={openQuickLink === 'notices'} onClick={() => setOpenQuickLink(current => current === 'notices' ? null : 'notices')}><Bell size={15} aria-hidden="true" /><span>Notice to vacate</span></button>
+          <button className="tenant-logout-button" type="button" aria-label="Back to tenant sign in" onClick={onBack}><ArrowUpRight size={15} className="tenant-back-icon" /><span>Back to sign in</span></button>
+        </div>
       </header>
+
+      {openQuickLink === 'chat' && <div id="tenant-group-chat">
+        <TenantGroupChat variant="tenant" property={tenant.property} tenantIdentity={chatIdentity} />
+      </div>}
+      {openQuickLink === 'maintenance' && <div id="tenant-maintenance">
+        <TenantMaintenance variant="tenant" tenantIdentity={{ ...chatIdentity, property: tenant.property, unit: getTenantUnitLabel(tenant) }} />
+      </div>}
+      {openQuickLink === 'notices' && <div id="tenant-notices">
+        <TenantNotices variant="tenant" tenantIdentity={{ ...chatIdentity, property: tenant.property, unit: getTenantUnitLabel(tenant) }} />
+      </div>}
 
       <div className="tenant-portal-summary panel">
         <div className="panel-heading">
@@ -5950,7 +6056,7 @@ function TenantStatementPage({ tenant, workspaceName, propertyGroup, statement, 
   </main>
 }
 
-function TenantPublicLoginPage({ darkMode, workspaceName, tenantList, tenantPortalForm, tenantPortalError, onTenantPortalFormChange, onTenantPortalSubmit, onBackToHome }: { darkMode: boolean; workspaceName: string; tenantList: TenantRecord[]; tenantPortalForm: { email: string; portalCode: string }; tenantPortalError: string; onTenantPortalFormChange: (key: 'email' | 'portalCode', value: string) => void; onTenantPortalSubmit: (event: FormEvent<HTMLFormElement>) => void; onBackToHome: () => void }) {
+function TenantPublicLoginPage({ darkMode, workspaceName, tenantPortalForm, tenantPortalError, onTenantPortalFormChange, onTenantPortalSubmit, onBackToHome }: { darkMode: boolean; workspaceName: string; tenantPortalForm: { email: string; portalCode: string }; tenantPortalError: string; onTenantPortalFormChange: (key: 'email' | 'portalCode', value: string) => void; onTenantPortalSubmit: (event: FormEvent<HTMLFormElement>) => void; onBackToHome: () => void }) {
   const tenantHeroPhoto = 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1500&q=85'
 
   return <main className={`tenant-public-shell ${darkMode ? 'dark' : ''}`}>
@@ -5987,10 +6093,10 @@ function TenantPublicLoginPage({ darkMode, workspaceName, tenantList, tenantPort
           <label className="login-field"><span>Tenant email</span><input required type="email" value={tenantPortalForm.email} onChange={(event) => onTenantPortalFormChange('email', event.target.value)} placeholder="tenant@example.com" /></label>
           <label className="login-field"><span>Portal code</span><input required value={tenantPortalForm.portalCode} onChange={(event) => onTenantPortalFormChange('portalCode', event.target.value)} placeholder="Use the code shared by your landlord" /></label>
           {tenantPortalError && <p className="login-error" role="alert">{tenantPortalError}</p>}
-          <button className="login-button" type="submit" style={{ width: '100%' }} disabled={tenantList.length === 0}>Open my rent statement</button>
+          <button className="login-button" type="submit" style={{ width: '100%' }}>Open my rent statement</button>
         </form>
 
-        <div className="login-note"><span className="login-note-dot" />Private tenant access for resident statements and rent reminders.</div>
+        <div className="login-note"><span className="login-note-dot" />Private tenant access for statements, rent reminders, and your property group chat with the landlord.</div>
       </div>
     </section>
   </main>
@@ -6952,6 +7058,8 @@ function AddModal({ type, properties, unitDetails, initialValues, waterReadingIn
         <span>{field.key === 'leaseEnd' ? 'Lease end date' : field.key === 'reference' && values.paymentMethod ? referenceLabel[values.paymentMethod] ?? field.label : field.label}</span>
         {type === 'tenant' && field.key === 'phone'
           ? <div className="kenyan-phone-input"><span>+254</span><input required type="tel" inputMode="numeric" pattern="[0-9]{9}" maxLength={9} placeholder="712345678" aria-label="Tenant mobile number, nine digits after country code 254" value={getKenyanPhoneDigits(values.phone)} onChange={(event) => setValues((current) => ({ ...current, phone: event.target.value.replace(/\D/g, '').slice(0, 9) }))} /></div>
+          : type === 'tenant' && field.key === 'securityDeposit'
+          ? <><input min="0" step="0.01" type="number" placeholder={field.placeholder} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} /><small>Optional. Enter the deposit amount already held for this tenant.</small></>
           : type === 'tenant' && field.key === 'assignedDate'
           ? <><input required type="date" value={values.assignedDate ?? localDateString()} onChange={(event) => setValues((current) => ({ ...current, assignedDate: event.target.value }))} /><small>First rent is due {getFirstRentDueDate(values.assignedDate ?? localDateString())?.toLocaleDateString('en-KE', { year: 'numeric', month: 'long', day: 'numeric' }) ?? '30 days after assignment'} (30 days after this date).</small></>
           : type === 'tenant' && field.key === 'portalCode'
