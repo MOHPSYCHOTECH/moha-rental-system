@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
 import type { FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { jsPDF } from 'jspdf'
-import { ArrowUpRight, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Pencil, Plus, ReceiptText, RefreshCw, Search, Settings, ShieldCheck, ShoppingBag, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
+import { ArrowUpRight, Bell, Building2, CalendarDays, Calculator, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Palette, Pencil, Plus, Printer, ReceiptText, RefreshCw, Search, Settings, Share2, ShieldCheck, ShoppingBag, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
 import './App.css'
 import { TenantGroupChat } from './TenantGroupChat'
 import { TenantMaintenance } from './TenantMaintenance'
@@ -6225,9 +6225,9 @@ function PublicLandlordSignupPage({ workspaceName, onBack }: { workspaceName: st
     <section className="login-card landlord-signup-card" aria-labelledby="landlord-signup-title">
       <div className="login-mobile-brand"><span className="login-logo"><MohaLogo size={20} /></span><span>{workspaceName}</span></div>
       <button type="button" className="signup-back-button" onClick={onBack}><ArrowUpRight size={15} /> Back to portal</button>
-      <p className="login-kicker">LANDLORD REGISTRATION</p>
+      <p className="login-kicker landlord-signup-kicker">LANDLORD REGISTRATION</p>
       <h1 id="landlord-signup-title">Start managing your properties<span>.</span></h1>
-      <p className="login-copy">Create your account and choose a plan. A Platform Administrator must approve your account before you can access the system.</p>
+      <p className="login-copy landlord-signup-copy">Create your account and choose a plan. A Platform Administrator must approve your account before you can access the system.</p>
       {success ? <div className="signup-success" role="status"><CheckCircle2 size={20} /><div><strong>Registration received</strong><p>{success}</p></div></div> : <form className="landlord-signup-form" onSubmit={submit}>
         <div className="landlord-signup-fields">
           <label className="login-field"><span>Full name</span><input required autoComplete="name" value={form.name} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} placeholder="Your full name" /></label>
@@ -6255,6 +6255,19 @@ function PublicLandlordSignupPage({ workspaceName, onBack }: { workspaceName: st
         <p className="signup-approval-note">After email confirmation, your registration waits for administrator approval. Paid Silver subscriptions also require payment verification.</p>
       </form>}
     </section>
+    <aside className="landlord-signup-features" aria-labelledby="landlord-signup-features-title">
+      <p className="login-kicker landlord-signup-kicker">BUILT FOR RENTAL TEAMS</p>
+      <h2 id="landlord-signup-features-title">Everything you need to run your rental business.</h2>
+      <p className="landlord-signup-features-intro">Keep property operations organized and give your tenants a smoother rental experience.</p>
+      <ul>
+        <li><Building2 size={19} /><span><strong>Properties &amp; tenants</strong><small>Manage buildings, units, occupancy, tenant details, and lease dates.</small></span></li>
+        <li><WalletCards size={19} /><span><strong>Rent &amp; payments</strong><small>Track rent, record payments, send reminders, and review account balances.</small></span></li>
+        <li><FileText size={19} /><span><strong>Invoices &amp; reports</strong><small>Create itemized invoices and keep useful financial records close at hand.</small></span></li>
+        <li><Wrench size={19} /><span><strong>Maintenance &amp; notices</strong><small>Review tenant requests and keep property communication in one place.</small></span></li>
+        <li><Users size={19} /><span><strong>Tenant portal &amp; team access</strong><small>Connect residents and give your team access suited to their roles.</small></span></li>
+      </ul>
+      <div className="landlord-signup-feature-note"><CheckCircle2 size={17} /><span>Choose a plan to get started. Your account is reviewed before access is enabled.</span></div>
+    </aside>
   </main>
 }
 
@@ -6430,8 +6443,8 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     </section>}
 
     {isHome && <section className="portal-home-overview" aria-labelledby="portal-home-overview-title">
-      <div className="portal-home-section-heading">
-        <div><p className="portal-home-eyebrow">A CLEARER WAY TO MANAGE</p><h2 id="portal-home-overview-title">Everything you need, in one place</h2></div>
+      <div className="portal-home-section-heading portal-home-feature-heading">
+        <div><p className="portal-home-eyebrow">A CLEARER WAY TO MANAGE</p><h2 id="portal-home-overview-title">Everything you need, in one place</h2><p className="portal-home-feature-subheading">Bring property, rent, tenant, and day-to-day management into one organized workspace.</p></div>
         <button type="button" className="portal-home-text-link" onClick={() => showContent('about')}>Discover Moha <ArrowUpRight size={16} /></button>
       </div>
       <div className="portal-home-overview-grid">
@@ -6446,9 +6459,8 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     </section>}
 
     {activeContent === 'portals' && <section className="portal-home-portals" id="portal-access" aria-labelledby="portal-home-portals-title">
-      <div className="portal-home-section-heading">
-        <div><p className="portal-home-eyebrow">PORTAL ACCESS</p><h2 id="portal-home-portals-title">Choose your portal</h2></div>
-        <span>Secure access for every member of your property community</span>
+      <div className="portal-home-section-heading portal-home-feature-heading">
+        <div><p className="portal-home-eyebrow">PORTAL ACCESS</p><h2 id="portal-home-portals-title">Choose your portal</h2><p className="portal-home-feature-subheading">Secure access designed for every member of your property community.</p></div>
       </div>
       <div className="portal-home-signup portal-home-signup-quick">
         <div><strong>New landlord? Get your first month free.</strong><span>Choose the free one-month Test plan when you register. Workspace access is approved by an administrator or automatically after 30 minutes.</span></div>
@@ -6465,9 +6477,8 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     </section>}
 
     {activeContent === 'about' && <section className="portal-home-information" id="why-moha" aria-labelledby="why-moha-title">
-      <div className="portal-home-section-heading">
-        <div><p className="portal-home-eyebrow">WHY MOHA RENTAL MANAGEMENT SYSTEM</p><h2 id="why-moha-title">Why choose Moha Rental Management System?</h2></div>
-        <span>Tools for landlords, teams, and residents to stay organized.</span>
+      <div className="portal-home-section-heading portal-home-feature-heading">
+        <div><p className="portal-home-eyebrow">WHY MOHA RENTAL MANAGEMENT SYSTEM</p><h2 id="why-moha-title">Why choose Moha Rental Management System?</h2><p className="portal-home-feature-subheading">Practical tools help landlords, teams, and residents keep rental operations organized.</p></div>
       </div>
       <div className="portal-home-benefits">
         <article><span className="portal-home-benefit-icon"><Building2 size={20} /></span><div><h3>Organize properties</h3><p>Keep property, unit, tenant, and occupancy details together in your workspace.</p></div></article>
@@ -6478,7 +6489,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     </section>}
 
     {activeContent === 'about' && <section className="portal-home-about focused" id="about-moha" aria-labelledby="about-moha-title">
-      <div className="portal-home-about-copy">
+      <div className="portal-home-about-copy portal-home-about-heading">
         <p className="portal-home-eyebrow">ABOUT MOHA RENTAL MANAGEMENT SYSTEM</p>
         <h2 id="about-moha-title">About Moha Rental Management System</h2>
         <p>Moha Rental Management System is a property-management workspace for landlords and their teams. It brings property records, tenant information, rent tracking, and everyday operations into one place, with a dedicated portal for residents.</p>
@@ -6492,30 +6503,33 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     {activeContent === 'portfolio' && <section className="portal-home-portfolio" aria-labelledby="developer-portfolio-title">
       <header className="portal-home-portfolio-intro">
         <div>
-          <p className="portal-home-eyebrow">DEVELOPER PORTFOLIO</p>
+          <p className="portal-home-eyebrow">PROFESSIONAL PORTFOLIO</p>
           <h2 id="developer-portfolio-title">Hussein Mohammed</h2>
-          <p className="portal-home-portfolio-role">Web &amp; Application Developer</p>
-          <p>I build practical websites and web applications that help people and organizations present their work, serve customers, and manage everyday tasks.</p>
+          <p className="portal-home-portfolio-role">Digital, Creative &amp; Business Services</p>
+          <p>I help businesses build a strong online presence, create polished visual materials, manage finances, and promote their work.</p>
           <button type="button" className="portal-home-overview-primary" onClick={() => showContent('contact')}>Get in touch <ArrowUpRight size={16} /></button>
         </div>
         <div className="portal-home-portfolio-mark" aria-hidden="true"><Code2 size={52} strokeWidth={1.4} /></div>
       </header>
 
       <section className="portal-home-portfolio-block" aria-labelledby="portfolio-services-title">
-        <div className="portal-home-section-heading">
-          <div><p className="portal-home-eyebrow">WHAT I DO</p><h3 id="portfolio-services-title">Services</h3></div>
-          <span>Web solutions designed around real needs.</span>
+        <div className="portal-home-section-heading portal-home-portfolio-heading">
+          <div><p className="portal-home-eyebrow">WHAT I DO</p><h3 id="portfolio-services-title">Services</h3><p className="portal-home-portfolio-subheading">Creative and practical support to help your business grow, connect, and stand out.</p></div>
         </div>
         <div className="portal-home-portfolio-services">
           <article><span className="portal-home-portfolio-service-icon"><LayoutDashboard size={19} /></span><h4>Website development</h4><p>Informative, professional websites for businesses, projects, and personal brands.</p></article>
           <article><span className="portal-home-portfolio-service-icon responsive"><Home size={19} /></span><h4>Responsive web design</h4><p>Interfaces designed to work clearly across phones, tablets, and desktop screens.</p></article>
           <article><span className="portal-home-portfolio-service-icon apps"><Code2 size={19} /></span><h4>Custom web applications</h4><p>Interactive tools and dashboards that organize workflows and useful information.</p></article>
+          <article><span className="portal-home-portfolio-service-icon design"><Palette size={19} /></span><h4>Graphic design</h4><p>Professional logos, promotional graphics, and visual assets that help your brand stand out.</p></article>
+          <article><span className="portal-home-portfolio-service-icon accounting"><Calculator size={19} /></span><h4>Professional accounting</h4><p>Organized bookkeeping, financial records, and clear reports to support better business decisions.</p></article>
+          <article><span className="portal-home-portfolio-service-icon social"><Share2 size={19} /></span><h4>Social media management</h4><p>Content planning, page management, and consistent communication to grow your online audience.</p></article>
+          <article><span className="portal-home-portfolio-service-icon printing"><Printer size={19} /></span><h4>Printing &amp; branding</h4><p>Branded business materials and print-ready designs for a consistent, professional look.</p></article>
         </div>
       </section>
 
       <section className="portal-home-portfolio-block" aria-labelledby="portfolio-skills-title">
-        <div className="portal-home-section-heading">
-          <div><p className="portal-home-eyebrow">TOOLS I WORK WITH</p><h3 id="portfolio-skills-title">Programming languages &amp; technologies</h3></div>
+        <div className="portal-home-section-heading portal-home-portfolio-heading">
+          <div><p className="portal-home-eyebrow">TOOLS I WORK WITH</p><h3 id="portfolio-skills-title">Programming languages &amp; technologies</h3><p className="portal-home-portfolio-subheading">A selection of the tools I use to design, build, and support digital experiences.</p></div>
         </div>
         <ul className="portal-home-technology-list" aria-label="Programming languages and technologies">
           <li><strong>JavaScript</strong><span>Adds interactive features and dynamic behavior to websites.</span></li>
@@ -6527,9 +6541,8 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       </section>
 
       <section className="portal-home-portfolio-block" aria-labelledby="portfolio-projects-title">
-        <div className="portal-home-section-heading">
-          <div><p className="portal-home-eyebrow">SELECTED WORK</p><h3 id="portfolio-projects-title">Projects</h3></div>
-          <span>A selection of web applications and platforms.</span>
+        <div className="portal-home-section-heading portal-home-portfolio-heading">
+          <div><p className="portal-home-eyebrow">SELECTED WORK</p><h3 id="portfolio-projects-title">Projects</h3><p className="portal-home-portfolio-subheading">A selection of platforms and digital projects built to solve real-world needs.</p></div>
         </div>
         <div className="portal-home-project-grid">
           <article className="portal-home-project-card">
@@ -6575,22 +6588,23 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       </section>
 
       <section className="portal-home-portfolio-faq" aria-labelledby="portfolio-faq-title">
-        <div className="portal-home-section-heading">
-          <div><p className="portal-home-eyebrow">QUICK ANSWERS</p><h3 id="portfolio-faq-title">Frequently asked questions</h3></div>
+        <div className="portal-home-section-heading portal-home-portfolio-heading">
+          <div><p className="portal-home-eyebrow">QUICK ANSWERS</p><h3 id="portfolio-faq-title">Frequently asked questions</h3><p className="portal-home-portfolio-subheading">Helpful details about my services, work, and how we can collaborate.</p></div>
         </div>
         <div className="portal-home-faq-list">
           <details><summary>What kind of projects do you build?</summary><p>I build websites and web applications, including responsive business sites, custom interfaces, and tools for managing information and workflows.</p></details>
           <details><summary>Which programming languages and technologies do you use?</summary><p>My toolkit includes JavaScript, HTML, CSS, PHP, and React.js.</p></details>
           <details><summary>What is the Moha Rental Management System?</summary><p>It is a web application that helps rental teams organize properties, tenants, rent payments, water bills, invoices, and tenant access.</p></details>
+          <details><summary>What is Shopping254?</summary><p>Shopping254 is an online store where customers can browse products across categories including phones, electronics, clothing, shoes, and home essentials. Visit <a href="https://shopping254.com" target="_blank" rel="noreferrer">shopping254.com</a>.</p></details>
+          <details><summary>What is VyroSocial?</summary><p>VyroSocial is a social networking platform combining community connections with house hunting, Airbnb and hotel bookings, and a marketplace. Visit <a href="https://vyrosocial.com" target="_blank" rel="noreferrer">vyrosocial.com</a>.</p></details>
           <details><summary>How can I discuss a project with you?</summary><p>Use the Contact link above to find the available email and phone details.</p></details>
         </div>
       </section>
     </section>}
 
     {activeContent === 'pricing' && <section className="portal-home-pricing" id="pricing" aria-labelledby="pricing-title">
-      <div className="portal-home-section-heading">
-        <div><p className="portal-home-eyebrow">SIMPLE PLANS</p><h2 id="pricing-title">Pricing that grows with your rental business</h2></div>
-        <span>Choose a plan during landlord registration. Paid subscriptions are activated after payment verification.</span>
+      <div className="portal-home-section-heading portal-home-portfolio-heading">
+        <div><p className="portal-home-eyebrow">SIMPLE PLANS</p><h2 id="pricing-title">Pricing that grows with your rental business</h2><p className="portal-home-portfolio-subheading">Choose a plan during landlord registration. Paid subscriptions are activated after payment verification.</p></div>
       </div>
       <div className="portal-home-pricing-grid">
         <article className="portal-home-plan-card">
