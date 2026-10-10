@@ -97,7 +97,29 @@ Deno.serve(async (request) => {
       await adminClient.auth.admin.deleteUser(data.user.id)
       return json({ error: `User invitation setup failed: ${updateError.message}` }, 500)
     }
-    return json({ userId: data.user.id, email: data.user.email }, 200)
+    const { data: ownerProfile, error: ownerProfileError } = await adminClient.from('profiles')
+      .select('display_name')
+      .eq('user_id', workspaceOwnerId)
+      .maybeSingle()
+    const welcomeName = ownerProfile?.display_name?.trim() || name
+    const { error: welcomeError } = ownerProfileError
+      ? { error: ownerProfileError }
+      : await adminClient.from('tenant_email_jobs').insert({
+        owner_id: workspaceOwnerId,
+        event_type: 'account_welcome',
+        idempotency_key: `account-welcome:${data.user.id}`,
+        tenant_email: email,
+        tenant_name: name,
+        property_name: welcomeName,
+        unit_name: expectedUserType,
+        payload: { account_type: expectedUserType, workspace_name: welcomeName },
+      })
+    return json({
+      userId: data.user.id,
+      email: data.user.email,
+      welcomeEmailQueued: !welcomeError,
+      ...(welcomeError ? { welcomeEmailWarning: `The secure invitation was sent, but the welcome email could not be queued: ${welcomeError.message}` } : {}),
+    }, 200)
   }
 
   if (body.action === 'delete') {

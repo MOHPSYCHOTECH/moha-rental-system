@@ -2715,8 +2715,16 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
   transition: border-color .18s, box-shadow .18s, background .18s;
 }
 .login-field input:focus { border-color: #337d67; box-shadow: 0 0 0 3px rgba(51, 125, 103, .14); background: #fff; }
+.password-field-input-wrap { position: relative; display: block; width: 100%; }
+.password-field-input-wrap > input { padding-right: 48px !important; }
+.password-visibility-toggle { position: absolute; top: 50%; right: 8px; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; transform: translateY(-50%); border: 0; border-radius: 5px; background: transparent; color: #64766a; cursor: pointer; }
+.password-visibility-toggle:hover { background: rgba(51, 125, 103, .1); color: #256b54; }
+.password-visibility-toggle:focus-visible { outline: 2px solid #337d67; outline-offset: 1px; }
 
 .login-error { padding: 11px 13px; background: #fff1eb; color: #9c432f; border: 1px solid #edc2b1; border-radius: 4px; font-size: 12.5px; font-weight: 600; }
+.login-forgot-link { align-self: flex-end; margin-top: -10px; padding: 0; border: 0; background: transparent; color: #256b54; font-size: 12px; font-weight: 700; cursor: pointer; }
+.login-forgot-link:disabled { opacity: .65; cursor: wait; }
+.login-reset-message { padding: 11px 13px; background: #edf8f1; color: #24633c; border: 1px solid #b9dfc5; border-radius: 4px; font-size: 12.5px; font-weight: 600; }
 
 .login-button {
   min-height: 50px;

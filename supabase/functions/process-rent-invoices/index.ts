@@ -121,6 +121,27 @@ function emailTemplate(job: TenantEmailJob) {
   const wrap = (title: string, body: string) => `<main style="font-family:Arial,sans-serif;max-width:620px;margin:auto;padding:24px;color:#17211d"><p style="color:#39765f;font-weight:bold">MOHA RENTAL MANAGEMENT</p><h1 style="font-size:23px">${title}</h1><p>Hello ${tenant},</p>${body}<p style="margin-top:28px;color:#627168;font-size:12px">This is an automated message from your property management team.</p></main>`
 
   switch (job.event_type) {
+    case 'account_welcome': {
+      const accountType = String(payload.account_type ?? '')
+      const route = accountType === 'tenant' ? 'tenant' : accountType === 'landlord' ? 'landlord' : accountType === 'caretaker' ? 'caretaker' : ''
+      if (!route) throw new Error(`Unsupported welcome account type: ${accountType}`)
+      const configuredSiteUrl = denoRuntime.env.get('APP_SITE_URL')
+      if (!configuredSiteUrl) throw new Error('APP_SITE_URL is required to deliver account welcome emails.')
+      const siteUrl = new URL(configuredSiteUrl)
+      if (siteUrl.protocol !== 'https:' && !(siteUrl.protocol === 'http:' && siteUrl.hostname === 'localhost')) {
+        throw new Error('APP_SITE_URL must use HTTPS, except for localhost.')
+      }
+      const loginUrl = escapeHtml(new URL(route, `${siteUrl.origin}/`).toString())
+      const workspaceName = escapeHtml(String(payload.workspace_name ?? job.property_name))
+      const portalCode = accountType === 'tenant' ? String(payload.portal_code ?? '') : ''
+      const accountDetails = accountType === 'tenant'
+        ? `${details}<p><strong>Tenant portal code:</strong> ${escapeHtml(portalCode || 'Contact your landlord for your code.')}</p>`
+        : `<p><strong>Account type:</strong> ${escapeHtml(accountType)}<br><strong>Workspace:</strong> ${workspaceName}</p>`
+      return {
+        subject: 'Welcome to Moha Rental Management',
+        html: `<main style="font-family:Arial,sans-serif;max-width:620px;margin:auto;padding:24px;color:#17211d"><p style="color:#39765f;font-weight:bold">MOHA RENTAL MANAGEMENT</p><h1 style="font-size:23px">Welcome, ${tenant}</h1><p>Your ${escapeHtml(accountType)} account for <strong>${workspaceName}</strong> is ready.</p>${accountDetails}<p><a href="${loginUrl}" style="display:inline-block;background:#39765f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:6px">Sign in to your portal</a></p>${accountType === 'tenant' ? '<p>Keep your portal code private. This email does not contain a password.</p>' : '<p>Use the separate secure invitation email to set your password. This welcome email does not contain a password.</p>'}<p style="margin-top:28px;color:#627168;font-size:12px">Moha Rental Management</p></main>`,
+      }
+    }
     case 'rent_reminder': {
       const dueDate = escapeHtml(String(payload.due_date ?? ''))
       const total = Number(payload.rent_amount ?? 0) + Number(payload.water_bill_amount ?? 0)

@@ -18,7 +18,7 @@ The app now uses Supabase Auth and the authenticated user's `rental_workspaces` 
    supabase functions deploy admin-manage-user
    ```
 
-8. In Settings → Team access, the platform administrator can invite Landlords; each Landlord can invite Caretakers. Supabase sends the invite link; the invitee sets their password through Supabase Auth. Caretakers cannot invite users.
+8. In Settings → Team access, the platform administrator can invite Landlords; each Landlord can invite Caretakers. Supabase sends the secure invite link; the invitee sets their password through Supabase Auth. A separate welcome email includes the correct sign-in URL and account/workspace details. Caretakers cannot invite users.
 
 The app already reads its Supabase URL and publishable key from `.env`. Never add a service-role key to `.env` or frontend code. Supabase provides `SUPABASE_SERVICE_ROLE_KEY` to deployed Edge Functions; it remains server-side.
 
@@ -102,11 +102,11 @@ The same scheduled worker sends itemized monthly invoices through Resend after t
 
 The worker polls every 15 minutes. It holds each rent invoice until the current rent cycle has a water-bill update. It emails the landlord once while the bill is missing; after the landlord or caretaker updates it, a later run emails the invoice to the tenant's registered address. Rent reminders run three days before and on the due date, skipping tenants with a payment recorded for the due month. Receipts and status updates are queued by database triggers. Successful sends use idempotency keys to prevent duplicate delivery.
 
-1. In the Supabase SQL Editor, apply any missing migrations in dependency order: `supabase/schema.sql`, `supabase/subscription_payments.sql`, `supabase/user_hierarchy.sql`, `supabase/subscription_plans.sql`, `supabase/subscription_payment_methods.sql`, `supabase/rent_c2b.sql`, `supabase/tenant_maintenance.sql`, `supabase/tenant_notices.sql`, `supabase/rent_invoice_email.sql`, `supabase/tenant_email_notifications.sql`, then `supabase/landlord_subscription_expiry_emails.sql`. These migrations add private email job tables and triggers; browser clients do not receive access to email queues.
-2. Verify the `vyrosocial.com` sending domain with Resend. From the project root, set `RESEND_API_KEY`, `INVOICE_FROM`, and a long random `INVOICE_CRON_SECRET` as Edge Function secrets. Set `INVOICE_FROM` to `Moha Rental Management <admin@vyrosocial.com>` only after Resend verifies that domain and sender. Enter real secret values directly in your terminal; never add them to frontend `.env`:
+1. In the Supabase SQL Editor, apply any missing migrations in dependency order: `supabase/schema.sql`, `supabase/subscription_payments.sql`, `supabase/user_hierarchy.sql`, `supabase/subscription_plans.sql`, `supabase/subscription_payment_methods.sql`, `supabase/rent_c2b.sql`, `supabase/tenant_maintenance.sql`, `supabase/tenant_notices.sql`, `supabase/rent_invoice_email.sql`, `supabase/tenant_email_notifications.sql`, `supabase/landlord_public_signup.sql`, `supabase/account_welcome_emails.sql`, then `supabase/landlord_subscription_expiry_emails.sql`. These migrations add private email job tables and triggers; browser clients do not receive access to email queues. Newly added tenants are welcomed once, and public landlord sign-ups are welcomed after approval (including automatic approval).
+2. Verify the `vyrosocial.com` sending domain with Resend. From the project root, set `RESEND_API_KEY`, `INVOICE_FROM`, `APP_SITE_URL`, and a long random `INVOICE_CRON_SECRET` as Edge Function secrets. `APP_SITE_URL` must be the deployed app's HTTPS origin, such as `https://rental.example.com` (use `http://localhost:5173` only for local testing). Set `INVOICE_FROM` to `Moha Rental Management <admin@vyrosocial.com>` only after Resend verifies that domain and sender. Enter real secret values directly in your terminal; never add them to frontend `.env`:
 
    ```powershell
-   supabase secrets set RESEND_API_KEY=YOUR_RESEND_API_KEY INVOICE_FROM="Moha Rental Management <admin@vyrosocial.com>" INVOICE_CRON_SECRET=YOUR_LONG_RANDOM_SECRET
+   supabase secrets set RESEND_API_KEY=YOUR_RESEND_API_KEY INVOICE_FROM="Moha Rental Management <admin@vyrosocial.com>" APP_SITE_URL=https://rental.example.com INVOICE_CRON_SECRET=YOUR_LONG_RANDOM_SECRET
    ```
 
 3. Deploy the worker:
@@ -114,10 +114,11 @@ The worker polls every 15 minutes. It holds each rent invoice until the current 
    ```powershell
    supabase functions deploy process-rent-invoices
    supabase functions deploy send-rent-invoice
+   supabase functions deploy admin-manage-user
    ```
 
 4. In Supabase Dashboard → Database → Vault, add a secret named `invoice_cron_secret` with exactly the same value as `INVOICE_CRON_SECRET`.
 5. In Supabase SQL Editor, run `supabase/schedule_rent_invoice_email.sql`. It polls the worker every 15 minutes using `pg_cron` and `pg_net`.
-6. Test by submitting a maintenance request and a notice from the tenant portal, reviewing one as the landlord, recording a payment, and checking a tenant with a due date three days away. Confirm messages in Resend and job outcomes in `public.tenant_email_jobs`. To test subscription-expiry notifications without waiting for a real plan expiry, use a dedicated test landlord account and set its `subscriptions.expires_on` to a past date; confirm the message and delivery status in `public.landlord_subscription_expiry_email_jobs`. Also test a due invoice: the landlord dashboard shows a **Water bill needed** alert while the bill is stale; after an authorized landlord or caretaker updates it, the worker emails the itemized invoice. Invoice outcomes remain in `public.rent_invoice_email_jobs`.
+6. Test by adding a tenant with an email, inviting a caretaker or landlord, approving a public landlord registration, submitting a maintenance request and a notice from the tenant portal, reviewing one as the landlord, recording a payment, and checking a tenant with a due date three days away. Confirm messages in Resend and job outcomes in `public.tenant_email_jobs`; welcome messages include the tenant portal code but never a password, while staff continue to receive the separate secure Supabase invite. To test subscription-expiry notifications without waiting for a real plan expiry, use a dedicated test landlord account and set its `subscriptions.expires_on` to a past date; confirm the message and delivery status in `public.landlord_subscription_expiry_email_jobs`. Also test a due invoice: the landlord dashboard shows a **Water bill needed** alert while the bill is stale; after an authorized landlord or caretaker updates it, the worker emails the itemized invoice. Invoice outcomes remain in `public.rent_invoice_email_jobs`.
 
 The app records `waterBillUpdatedAt` when the bill is edited. Older tenant records without that timestamp intentionally remain blocked until their water bill is updated for a current rent cycle. Clicking **Email tenant** in the invoice modal now sends the invoice PDF through the authenticated `send-rent-invoice` Edge Function using the configured `INVOICE_FROM` sender. If Resend reports an unverified sender, finish domain verification and update the secret before retrying.

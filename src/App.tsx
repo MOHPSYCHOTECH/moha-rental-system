@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, InputHTMLAttributes } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { jsPDF } from 'jspdf'
-import { ArrowUpRight, Bell, Building2, CalendarDays, Calculator, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Palette, Pencil, Plus, Printer, ReceiptText, RefreshCw, Search, Settings, Share2, ShieldCheck, ShoppingBag, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
+import { ArrowUpRight, Bell, Building2, CalendarDays, Calculator, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, Eye, EyeOff, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Palette, Pencil, Plus, Printer, ReceiptText, RefreshCw, Search, Settings, Share2, ShieldCheck, ShoppingBag, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
 import './App.css'
 import { TenantGroupChat } from './TenantGroupChat'
 import { TenantMaintenance } from './TenantMaintenance'
@@ -2396,6 +2396,7 @@ function App() {
                 }
                 if (!data?.userId) throw new Error('Supabase did not return the invited account ID.')
                 setUsers(current => [...current, { ...user, id: data.userId, username: user.email ?? '' }])
+                if (typeof data.welcomeEmailWarning === 'string') setCloudStatus(data.welcomeEmailWarning)
               }}
               onUpdateUser={async (updatedUser, originalUser) => {
                 if (!supabase) throw new Error('Supabase is not configured.')
@@ -2649,7 +2650,7 @@ function App() {
               <p className="eyebrow">Security</p>
               <h2>Change Password</h2>
               <p className="modal-description">Set a new password for your account <strong>@{sessionUser.username}</strong>.</p>
-              <label className="form-field"><span>New password</span><input required type="password" placeholder="Enter new password" value={selfNewPassword} onChange={e => setSelfNewPassword(e.target.value)} /></label>
+              <PasswordField label="New password" fieldClassName="form-field" required placeholder="Enter new password" value={selfNewPassword} onChange={e => setSelfNewPassword(e.target.value)} />
               {selfPasswordMsg && <p className="settings-saved-msg">{selfPasswordMsg}</p>}
               <div className="modal-actions">
                 <button type="button" className="cancel-button" onClick={() => setShowResetSelf(false)}>Cancel</button>
@@ -6418,8 +6419,8 @@ function PublicLandlordSignupPage({ workspaceName, onBack }: { workspaceName: st
           <label className="login-field"><span>Full name</span><input required autoComplete="name" value={form.name} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} placeholder="Your full name" /></label>
           <label className="login-field"><span>Email address</span><input required type="email" autoComplete="email" value={form.email} onChange={event => setForm(current => ({ ...current, email: event.target.value }))} placeholder="you@example.com" /></label>
           <label className="login-field"><span>WhatsApp number</span><div className="kenyan-phone-input"><span>+254</span><input required type="tel" inputMode="numeric" pattern="[0-9]{9}" maxLength={9} value={getKenyanPhoneDigits(form.phone)} onChange={event => setForm(current => ({ ...current, phone: event.target.value.replace(/\D/g, '').slice(0, 9) }))} placeholder="712345678" aria-label="WhatsApp number, nine digits after +254" /></div></label>
-          <label className="login-field"><span>Password</span><input required type="password" minLength={8} autoComplete="new-password" value={form.password} onChange={event => setForm(current => ({ ...current, password: event.target.value }))} /></label>
-          <label className="login-field"><span>Confirm password</span><input required type="password" minLength={8} autoComplete="new-password" value={form.confirmPassword} onChange={event => setForm(current => ({ ...current, confirmPassword: event.target.value }))} /></label>
+          <PasswordField label="Password" required minLength={8} autoComplete="new-password" value={form.password} onChange={event => setForm(current => ({ ...current, password: event.target.value }))} />
+          <PasswordField label="Confirm password" required minLength={8} autoComplete="new-password" value={form.confirmPassword} onChange={event => setForm(current => ({ ...current, confirmPassword: event.target.value }))} />
         </div>
         <fieldset className="signup-plan-fieldset">
           <legend>Choose your plan</legend>
@@ -6909,6 +6910,8 @@ function LoginView({ darkMode, workspaceName, authMessage, onBackToHome, onOpenT
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(authMessage)
+  const [resetMessage, setResetMessage] = useState('')
+  const [sendingReset, setSendingReset] = useState(false)
   const [loginVariant, setLoginVariant] = useState<'Landlord' | 'Administrator' | 'Caretaker'>(() => {
     if (typeof window === 'undefined') return 'Landlord'
     const currentPath = window.location.pathname
@@ -6930,9 +6933,33 @@ function LoginView({ darkMode, workspaceName, authMessage, onBackToHome, onOpenT
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
+    setResetMessage('')
     if (!supabase) { setError('Supabase is not configured for this deployment. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your hosting provider environment settings, then rebuild and redeploy.'); return }
     const { error: signInError } = await supabase.auth.signInWithPassword({ email: username.trim(), password })
     if (signInError) setError(signInError.message)
+  }
+  const sendPasswordReset = async () => {
+    setError('')
+    setResetMessage('')
+    const email = username.trim()
+    if (!email) {
+      setError('Enter your Supabase email above, then select Forgot password.')
+      return
+    }
+    if (!supabase) {
+      setError('Password recovery is not configured for this deployment. Contact the platform administrator.')
+      return
+    }
+    setSendingReset(true)
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/landlord`,
+    })
+    setSendingReset(false)
+    if (resetError) {
+      setError(resetError.message)
+      return
+    }
+    setResetMessage(`If an account exists for ${email}, a password reset link has been sent.`)
   }
   const selectedVariant = variantDetails[loginVariant]
   const handleLoginVariantChange = (role: 'Landlord' | 'Administrator' | 'Caretaker') => {
@@ -6981,14 +7008,41 @@ function LoginView({ darkMode, workspaceName, authMessage, onBackToHome, onOpenT
 
       <form className="login-form" onSubmit={submit}>
         <label className="login-field"><span>Supabase email</span><input required type="email" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} /></label>
-        <label className="login-field"><span>Password</span><input required type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+        <PasswordField label="Password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        {loginVariant === 'Landlord' && <button type="button" className="login-forgot-link" disabled={sendingReset} onClick={() => void sendPasswordReset()}>{sendingReset ? 'Sending reset link...' : 'Forgot password?'}</button>}
         {error && <p className="login-error" role="alert">{error}</p>}
+        {resetMessage && <p className="login-reset-message" role="status">{resetMessage}</p>}
         <button className="login-button" type="submit">Sign in as {selectedVariant.title} <ArrowUpRight size={17} /></button>
       </form>
       {loginVariant === 'Landlord' && <button type="button" className="login-signup-link" onClick={onOpenLandlordSignup}>New here? Create a landlord account</button>}
       <div className="login-note"><span className="login-note-dot" />{isSupabaseConfigured ? 'Your rental workspace is stored securely in Supabase.' : 'Access is managed by your system administrator.'}</div>
     </section>
   </main>
+}
+
+function PasswordField({
+  label,
+  fieldClassName = 'login-field',
+  ...inputProps
+}: { label: string; fieldClassName?: string } & Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <label className={fieldClassName}>
+      <span>{label}</span>
+      <span className="password-field-input-wrap">
+        <input {...inputProps} type={visible ? 'text' : 'password'} />
+        <button
+          type="button"
+          className="password-visibility-toggle"
+          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-pressed={visible}
+          onClick={() => setVisible(current => !current)}
+        >
+          {visible ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
+        </button>
+      </span>
+    </label>
+  )
 }
 
 function PasswordRecoveryView({ darkMode, onSave }: { darkMode: boolean; onSave: (password: string) => Promise<void> }) {
@@ -7018,8 +7072,8 @@ function PasswordRecoveryView({ darkMode, onSave }: { darkMode: boolean; onSave:
       <h1 id="recovery-title">Set a new password<span>.</span></h1>
       <p className="login-copy">Choose a new password for your Supabase account.</p>
       <form className="login-form" onSubmit={submit}>
-        <label className="login-field"><span>New password</span><input required type="password" autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} /></label>
-        <label className="login-field"><span>Confirm password</span><input required type="password" autoComplete="new-password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} /></label>
+        <PasswordField label="New password" required autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} />
+        <PasswordField label="Confirm password" required autoComplete="new-password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} />
         {message && <p className="login-error" role="alert">{message}</p>}
         <button className="login-button" type="submit" disabled={saving}>{saving ? 'Updating...' : 'Update password'}</button>
       </form>
