@@ -12,3 +12,6 @@ verify_jwt = true
 
 [functions.process-rent-invoices]
 verify_jwt = false
+
+[functions.send-rent-invoice]
+verify_jwt = true

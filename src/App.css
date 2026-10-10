@@ -2329,6 +2329,11 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
 .portal-home-team-card > div { min-width: 0; }
 .portal-home-team-card h4 { margin: 0 0 3px; color: #fff; font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
 .portal-home-team-card p { margin: 0; color: rgba(255, 255, 255, .72); font-size: 10.5px; line-height: 1.5; }
+.portal-home-team-member { display: grid; gap: 3px; }
+.portal-home-team-contacts { display: flex; flex-wrap: wrap; gap: 5px 13px; margin-top: 5px; }
+.portal-home-team-contacts a { color: #e8d6af; font-size: 10px; line-height: 1.5; text-decoration: none; overflow-wrap: anywhere; }
+.portal-home-team-contacts a:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+.portal-home-team-contacts a:focus-visible { outline: 2px solid #e5c783; outline-offset: 3px; }
 
 .portal-home-footer { flex: 0 0 auto; width: 100%; margin: auto auto 0; color: #dbe6dc; background: #123b32; }
 .portal-home-footer-main { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(130px, .65fr) minmax(220px, .9fr); gap: 36px; padding: 32px clamp(20px, 4vw, 48px); }
@@ -6602,6 +6607,85 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
   .dark.platform-admin-shell .panel,
   .dark.platform-admin-shell .settings-page { border-color: #263e37; }
   .platform-admin-shell .panel-heading h2 { letter-spacing: -.2px; }
+  .platform-admin-shell .platform-subscriptions { gap: 14px; }
+  .platform-admin-shell .platform-subscriptions .panel-heading { margin-bottom: 0; padding-bottom: 13px; border-bottom: 1px solid #e8eeeb; }
+  .dark.platform-admin-shell .platform-subscriptions .panel-heading { border-color: #263e37; }
+  .platform-admin-shell .platform-subscriptions-search { width: min(100%, 420px); min-height: 40px; border-radius: 9px; }
+  .platform-admin-shell .subscription-landlord-card {
+    overflow: hidden;
+    border: 1px solid #e2ebe6;
+    border-radius: 13px;
+    background: linear-gradient(145deg, #fff, #fbfdfc);
+    box-shadow: 0 4px 14px rgba(26,56,47,.045);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+  .platform-admin-shell .subscription-landlord-card:hover { transform: translateY(-2px); border-color: #b9d7ca; box-shadow: 0 10px 24px rgba(26,56,47,.09); }
+  .platform-admin-shell .subscription-landlord-header {
+    display: grid;
+    grid-template-columns: minmax(200px, 1fr) auto auto;
+    align-items: center;
+    gap: 18px;
+    padding: 16px 18px;
+    border-bottom: 1px solid #eaf0ed;
+  }
+  .platform-admin-shell .subscription-landlord-header .platform-landlord-identity { min-width: 0; }
+  .platform-admin-shell .subscription-landlord-header .platform-landlord-identity > span:last-child { min-width: 0; }
+  .platform-admin-shell .subscription-landlord-header .platform-landlord-identity strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .platform-admin-shell .subscription-landlord-header .platform-landlord-identity small { display: block; overflow-wrap: anywhere; }
+  .platform-admin-shell .subscription-landlord-header .user-avatar { width: 42px; height: 42px; border: 0; border-radius: 13px; background: linear-gradient(145deg, #19765d, #36a47c); color: #fff; font-size: 13px; box-shadow: 0 4px 10px rgba(23,99,79,.2); }
+  .platform-admin-shell .subscription-plan-heading { display: flex; flex-direction: column; gap: 3px; }
+  .platform-admin-shell .subscription-plan-label { color: #74837b; font-size: 9px; font-weight: 800; letter-spacing: .9px; }
+  .platform-admin-shell .subscription-plan-heading strong { color: #155d49; font-size: 13px; }
+  .platform-admin-shell .subscription-landlord-header .subscription-status-badge { padding: 6px 10px; font-size: 10px; }
+  .platform-admin-shell .subscription-landlord-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 18px; }
+  .platform-admin-shell .subscription-landlord-fact { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 10px 12px; border: 1px solid #edf1ef; border-radius: 9px; background: #f8faf9; }
+  .platform-admin-shell .subscription-landlord-fact > span { color: #78857e; font-size: 10px; font-weight: 600; }
+  .platform-admin-shell .subscription-landlord-fact > strong { color: #263b33; font-size: 12px; font-weight: 750; overflow-wrap: anywhere; }
+  .platform-admin-shell .subscription-landlord-fact:last-child > strong { color: #17634f; }
+  .platform-admin-shell .subscription-scheduled-note { margin: 0 18px 12px; padding: 9px 11px; border: 1px solid #f0dfb4; border-radius: 8px; background: #fff9eb; color: #795b1d; font-size: 10px; }
+  .platform-admin-shell .subscription-status-badge { display: inline-flex; width: fit-content; padding: 4px 8px; border-radius: 999px; background: #edf1ef; color: #58655f; font-size: 9px; font-weight: 750; text-transform: capitalize; }
+  .platform-admin-shell .subscription-status-badge.active,
+  .platform-admin-shell .subscription-status-badge.trial,
+  .platform-admin-shell .subscription-status-badge.approved { background: #e5f4ed; color: #17634f; }
+  .platform-admin-shell .subscription-status-badge.pending { background: #fff5dc; color: #8a641d; }
+  .platform-admin-shell .subscription-status-badge.expired,
+  .platform-admin-shell .subscription-status-badge.rejected,
+  .platform-admin-shell .subscription-status-badge.no-plan { background: #fff0eb; color: #9c432f; }
+  .platform-admin-shell .subscription-landlord-history { border-top: 1px solid #edf1ef; background: rgba(247,250,248,.72); }
+  .platform-admin-shell .subscription-landlord-history summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 18px; color: var(--admin-accent-dark); cursor: pointer; font-size: 11px; font-weight: 750; list-style: none; }
+  .platform-admin-shell .subscription-landlord-history summary::-webkit-details-marker { display: none; }
+  .platform-admin-shell .subscription-landlord-history summary > span:first-child { display: inline-flex; align-items: center; gap: 7px; }
+  .platform-admin-shell .subscription-history-count { padding: 4px 8px; border-radius: 999px; background: #e8f4ef; color: #17634f; font-size: 9px; }
+  .platform-admin-shell .platform-subscription-payment-list { display: flex; flex-direction: column; margin-top: 7px; }
+  .platform-admin-shell .platform-subscription-payment { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(190px, .8fr) auto; align-items: center; gap: 14px; margin: 0 18px; padding: 11px 0; border-top: 1px solid #e7eeea; }
+  .platform-admin-shell .platform-subscription-payment > span { min-width: 0; }
+  .platform-admin-shell .platform-subscription-payment strong { display: block; color: var(--text-1); font-size: 11px; text-transform: capitalize; }
+  .platform-admin-shell .platform-subscription-payment small { display: block; margin-top: 3px; color: var(--text-2); font-size: 10px; overflow-wrap: anywhere; }
+  .platform-admin-shell .platform-subscription-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 2px; }
+  .platform-admin-shell .platform-subscription-pagination > small { color: var(--text-2); font-size: 10px; }
+  .platform-admin-shell .platform-subscription-pagination .pagination { flex: 1; margin: 0; padding: 0; border: 0; }
+  .dark.platform-admin-shell .subscription-landlord-card { border-color: #263e37; background: linear-gradient(145deg, #142520, #12211c); }
+  .dark.platform-admin-shell .subscription-landlord-header,
+  .dark.platform-admin-shell .subscription-landlord-history { border-color: #263e37; }
+  .dark.platform-admin-shell .subscription-plan-label { color: #9bada4; }
+  .dark.platform-admin-shell .subscription-plan-heading strong { color: #84d4b1; }
+  .dark.platform-admin-shell .subscription-landlord-fact { border-color: #263e37; background: #182b25; }
+  .dark.platform-admin-shell .subscription-landlord-fact > span { color: #a0b0a8; }
+  .dark.platform-admin-shell .subscription-landlord-fact > strong { color: #e0e9e4; }
+  .dark.platform-admin-shell .subscription-landlord-fact:last-child > strong { color: #84d4b1; }
+  .dark.platform-admin-shell .subscription-scheduled-note { border-color: #544629; background: #302919; color: #e4c27d; }
+  .dark.platform-admin-shell .subscription-landlord-history { background: rgba(12,23,20,.48); }
+  .dark.platform-admin-shell .subscription-landlord-history summary { color: #84d4b1; }
+  .dark.platform-admin-shell .subscription-history-count { background: rgba(39,126,95,.2); color: #9fe1c4; }
+  .dark.platform-admin-shell .platform-subscription-payment { border-color: #263e37; }
+  .dark.platform-admin-shell .platform-subscription-fact:nth-child(2) > strong { color: #84d4b1; }
+  .dark.platform-admin-shell .subscription-status-badge.active,
+  .dark.platform-admin-shell .subscription-status-badge.trial,
+  .dark.platform-admin-shell .subscription-status-badge.approved { background: rgba(39, 126, 95, .2); color: #9fe1c4; }
+  .dark.platform-admin-shell .subscription-status-badge.pending { background: rgba(195, 151, 67, .18); color: #e4c27d; }
+  .dark.platform-admin-shell .subscription-status-badge.expired,
+  .dark.platform-admin-shell .subscription-status-badge.rejected,
+  .dark.platform-admin-shell .subscription-status-badge.no-plan { background: rgba(186, 94, 69, .18); color: #efac98; }
   .platform-admin-shell .platform-landlord-row {
     border-color: #e3ebe7;
     border-radius: 12px;
@@ -6661,8 +6745,27 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
     .platform-admin-shell .platform-portfolio-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
     .platform-admin-shell .platform-portfolio-metrics .metric-card { min-height: 125px; padding: 13px; }
     .platform-admin-shell .platform-portfolio-metrics .metric-card strong { font-size: 22px; }
+    .platform-admin-shell .subscription-landlord-header { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 14px; }
+    .platform-admin-shell .subscription-landlord-header .subscription-plan-heading { grid-column: 1; grid-row: 2; }
+    .platform-admin-shell .subscription-landlord-header > .subscription-status-badge { grid-column: 2; grid-row: 1 / span 2; }
+    .platform-admin-shell .subscription-landlord-facts { gap: 7px; padding: 11px 14px; }
+    .platform-admin-shell .subscription-landlord-fact { padding: 9px; }
+    .platform-admin-shell .subscription-landlord-history summary { padding: 11px 14px; }
+    .platform-admin-shell .platform-subscription-payment { margin: 0 14px; }
+    .platform-admin-shell .platform-subscription-payment { grid-template-columns: minmax(0, 1fr) auto; }
+    .platform-admin-shell .platform-subscription-payment > span:nth-child(2) { grid-column: 1; }
+    .platform-admin-shell .platform-subscription-payment > span:nth-child(3) { grid-column: 2; grid-row: 1 / span 2; }
+    .platform-admin-shell .platform-subscription-pagination { align-items: stretch; flex-direction: column; }
+    .platform-admin-shell .platform-subscription-pagination .pagination { width: 100%; }
     .platform-admin-shell .settings-standalone-page { padding: 17px 14px; }
     .platform-admin-shell .settings-standalone-page .subscription-payment-row { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  @media (max-width: 480px) {
+    .platform-admin-shell .subscription-landlord-facts { grid-template-columns: 1fr; }
+    .platform-admin-shell .platform-subscription-payment { grid-template-columns: minmax(0, 1fr) auto; }
+    .platform-admin-shell .platform-subscription-payment > span:nth-child(2) { grid-column: 1 / -1; }
+    .platform-admin-shell .platform-subscription-payment > span:nth-child(3) { grid-column: 2; grid-row: 1; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -9349,4 +9452,256 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
   .tenants-view .tenant-record .water-bill-cell > button { justify-content: center; min-height: 38px; padding: 6px 7px; }
   .tenants-view .tenant-record .tenant-actions { grid-template-columns: 38px 38px minmax(0, 1fr); gap: 7px; }
   .tenants-view .tenant-record .tenant-actions .remove-tenant-button { padding-inline: 6px; font-size: 10px; }
+}
+
+/* Platform administrator subscription cards */
+.platform-subscriptions > .platform-landlord-list > .subscription-landlord-card {
+  display: block;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #cbded5;
+  border-left: 3px solid #168064;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(20, 70, 52, .07);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.platform-subscriptions > .platform-landlord-list > .subscription-landlord-card:hover {
+  border-color: #8ebda8;
+  border-left-color: #0f604a;
+  box-shadow: 0 7px 16px rgba(20, 70, 52, .11);
+  transform: translateY(-1px);
+}
+.platform-subscriptions .subscription-landlord-header {
+  min-height: 48px;
+  padding: 7px 11px;
+  background: linear-gradient(100deg, #f0f8f4, #fff 70%);
+}
+.platform-subscriptions .subscription-landlord-header .user-avatar {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  border-radius: 8px;
+  background: #176c56;
+  color: white;
+  font-size: 9px;
+}
+.platform-subscriptions .subscription-landlord-header .platform-landlord-identity strong {
+  color: #142f25;
+  font-size: 13px;
+  font-weight: 800;
+}
+.platform-subscriptions .subscription-landlord-header .platform-landlord-identity small {
+  color: #425a4f;
+  font-size: 10px;
+}
+.platform-subscriptions .subscription-plan-heading {
+  min-width: 110px;
+  padding-left: 10px;
+  border-left: 1px solid #dce9e2;
+}
+.platform-subscriptions .subscription-plan-label { color: #415b4f; font-size: 8px; }
+.platform-subscriptions .subscription-plan-heading strong { color: #07583f; font-size: 12px; font-weight: 800; }
+.platform-subscriptions .subscription-landlord-facts { gap: 6px; padding: 7px 11px; }
+.platform-subscriptions .subscription-landlord-fact {
+  min-height: 36px;
+  justify-content: center;
+  padding: 5px 8px;
+  border-color: #e2ebe6;
+  background: #f8fbf9;
+}
+.platform-subscriptions .subscription-landlord-fact > span {
+  color: #43584e;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: .15px;
+  text-transform: uppercase;
+}
+.platform-subscriptions .subscription-landlord-fact > strong { color: #17392b; font-size: 11px; font-weight: 800; }
+.platform-subscriptions .subscription-landlord-header .subscription-status-badge { font-size: 10px; font-weight: 800; }
+.platform-subscriptions .subscription-landlord-history {
+  border-top: 1px solid #e5eee9;
+  background: #f8fbf9;
+}
+.platform-subscriptions .subscription-landlord-history summary { min-height: 30px; padding: 6px 11px; font-size: 10px; }
+.platform-subscriptions .subscription-landlord-history summary { color: #07583f; font-weight: 800; }
+.platform-subscriptions .subscription-history-count { background: #dcefe5; color: #0c5c41; font-weight: 800; }
+.platform-subscriptions .platform-subscription-payment {
+  margin-inline: 11px;
+  padding-block: 6px;
+}
+.platform-subscriptions .platform-subscription-payment strong { color: #17392b; font-weight: 800; }
+.platform-subscriptions .platform-subscription-payment small { color: #455a50; }
+.platform-subscriptions .subscription-scheduled-note { color: #65460d; font-weight: 700; }
+.dark .platform-subscriptions > .platform-landlord-list > .subscription-landlord-card {
+  border-color: #315246;
+  border-left-color: #45bd91;
+  background: #12241e;
+}
+.dark .platform-subscriptions .subscription-landlord-header {
+  background: linear-gradient(100deg, #1b352b, #14251f 75%);
+}
+.dark .platform-subscriptions .subscription-plan-heading { border-color: #315246; }
+.dark .platform-subscriptions .subscription-landlord-header .platform-landlord-identity strong { color: #f0f7f3; }
+.dark .platform-subscriptions .subscription-landlord-header .platform-landlord-identity small { color: #c0d0c7; }
+.dark .platform-subscriptions .subscription-plan-label { color: #b9cbc2; }
+.dark .platform-subscriptions .subscription-plan-heading strong { color: #8ce0ba; }
+.dark .platform-subscriptions .subscription-landlord-fact {
+  border-color: #315246;
+  background: #1a3027;
+}
+.dark .platform-subscriptions .subscription-landlord-fact > span { color: #c0d0c7; }
+.dark .platform-subscriptions .subscription-landlord-fact > strong { color: #eff7f2; }
+.dark .platform-subscriptions .subscription-landlord-history { border-color: #315246; background: #14271f; }
+.dark .platform-subscriptions .subscription-landlord-history summary { color: #8ce0ba; }
+.dark .platform-subscriptions .subscription-history-count { background: #244637; color: #a5ebc8; }
+.dark .platform-subscriptions .platform-subscription-payment strong { color: #eff7f2; }
+.dark .platform-subscriptions .platform-subscription-payment small { color: #c0d0c7; }
+
+@media (max-width: 760px) {
+  .platform-subscriptions .subscription-landlord-header { padding: 7px 9px; }
+  .platform-subscriptions .subscription-plan-heading { min-width: 0; padding-left: 0; border-left: 0; }
+  .platform-subscriptions .subscription-landlord-facts { padding: 6px 9px; }
+  .platform-subscriptions .subscription-landlord-history summary { padding-inline: 9px; }
+  .platform-subscriptions .platform-subscription-payment { margin-inline: 9px; }
+}
+
+@media (max-width: 480px) {
+  .platform-subscriptions .subscription-landlord-facts { grid-template-columns: minmax(0, 1fr); }
+}
+
+.platform-admin-shell .platform-subscriptions .subscription-landlord-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, auto) auto;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.platform-admin-shell .platform-subscriptions .subscription-landlord-header .platform-landlord-identity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.platform-admin-shell .platform-subscriptions .subscription-landlord-header .platform-landlord-identity > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.platform-admin-shell .platform-subscriptions .subscription-landlord-header .platform-landlord-identity strong,
+.platform-admin-shell .platform-subscriptions .subscription-landlord-header .platform-landlord-identity small {
+  display: block;
+  min-width: 0;
+  line-height: 1.35;
+}
+.platform-admin-shell .platform-subscriptions .subscription-plan-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 130px;
+  line-height: 1.35;
+}
+.platform-admin-shell .platform-subscriptions .subscription-plan-label,
+.platform-admin-shell .platform-subscriptions .subscription-plan-heading strong {
+  display: block;
+  line-height: 1.35;
+}
+.platform-admin-shell .platform-subscriptions .subscription-landlord-header > .subscription-status-badge {
+  justify-self: end;
+  padding: 5px 9px;
+  line-height: 1.3;
+}
+.platform-admin-shell .platform-subscriptions .subscription-status-badge.scheduled {
+  background: #fff2cf;
+  color: #714d08;
+}
+.platform-admin-shell .platform-subscriptions .subscription-landlord-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+}
+.platform-admin-shell .platform-subscriptions .subscription-landlord-fact {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  line-height: 1.35;
+}
+.platform-admin-shell .platform-subscriptions .subscription-landlord-fact > span,
+.platform-admin-shell .platform-subscriptions .subscription-landlord-fact > strong {
+  display: block;
+  min-width: 0;
+  line-height: 1.35;
+}
+.platform-admin-shell .platform-subscriptions .subscription-landlord-history summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  line-height: 1.4;
+}
+.platform-admin-shell .platform-subscriptions .subscription-landlord-history summary > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.platform-admin-shell .platform-subscriptions .platform-subscription-payment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+.platform-admin-shell .platform-subscriptions .platform-subscription-payment > span {
+  display: block;
+  min-width: 0;
+  line-height: 1.4;
+}
+.platform-admin-shell .platform-subscriptions .platform-subscription-payment strong,
+.platform-admin-shell .platform-subscriptions .platform-subscription-payment small {
+  display: block;
+  line-height: 1.4;
+}
+.dark.platform-admin-shell .platform-subscriptions .subscription-status-badge.scheduled {
+  background: #49391b;
+  color: #f5d783;
+}
+.dark.platform-admin-shell .platform-subscriptions .subscription-scheduled-note {
+  margin-inline: 11px;
+  color: #f5d783;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .platform-admin-shell .platform-subscriptions .subscription-landlord-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+  }
+  .platform-admin-shell .platform-subscriptions .subscription-plan-heading {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  .platform-admin-shell .platform-subscriptions .subscription-landlord-header > .subscription-status-badge {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .platform-admin-shell .platform-subscriptions .platform-subscription-payment {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px 10px;
+  }
+  .platform-admin-shell .platform-subscriptions .platform-subscription-payment > span:nth-child(2) {
+    grid-column: 1;
+  }
+  .platform-admin-shell .platform-subscriptions .platform-subscription-payment > span:nth-child(3) {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
 }

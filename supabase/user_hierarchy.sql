@@ -216,8 +216,8 @@ begin
     where subscriptions.user_id = v_request.user_id;
     v_start_date := coalesce(v_start_date, current_date);
     v_expires_on := case
-      when v_request.plan = 'monthly' then (v_start_date + interval '1 month')::date
-      else (v_start_date + interval '1 year')::date
+      when v_request.plan in ('yearly', 'silver_yearly') then (v_start_date + interval '1 year')::date
+      else (v_start_date + interval '1 month')::date
     end;
     insert into public.subscriptions (
       user_id, plan, status, starts_on, expires_on, amount, source_payment_request_id, updated_at
@@ -239,6 +239,17 @@ begin
   return v_request;
 end;
 $$;
+
+-- Repair Silver Monthly periods previously stored with a one-year expiry.
+update public.subscriptions as subscription
+set expires_on = (subscription.starts_on + interval '1 month')::date,
+    updated_at = now()
+from public.subscription_payment_requests as request
+where request.id = subscription.source_payment_request_id
+  and request.plan = 'silver_monthly'
+  and request.amount in (500, 1350)
+  and subscription.plan = 'silver_monthly'
+  and subscription.expires_on = (subscription.starts_on + interval '1 year')::date;
 
 drop policy if exists "Admins can read all payment requests" on public.subscription_payment_requests;
 drop policy if exists "Admins can read managed payment requests" on public.subscription_payment_requests;

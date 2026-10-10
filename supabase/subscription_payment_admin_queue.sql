@@ -369,6 +369,6 @@ set expires_on = (subscription.starts_on + interval '1 month')::date,
 from public.subscription_payment_requests as request
 where request.id = subscription.source_payment_request_id
   and request.plan = 'silver_monthly'
-  and request.amount = 500
+  and request.amount in (500, 1350)
   and subscription.plan = 'silver_monthly'
   and subscription.expires_on = (subscription.starts_on + interval '1 year')::date;

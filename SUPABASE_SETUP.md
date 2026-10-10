@@ -36,6 +36,8 @@ For a Netlify deployment, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE
 
 Landlords can start the Test plan once per account for one month at no cost. Silver costs KSh 1,350 monthly or KSh 13,500 yearly (a KSh 2,700 saving compared with twelve monthly payments). Both include property, unit, and tenant management; rent, water, and payment tracking; invoices; the tenant portal; WhatsApp reminders; maintenance; expenses; applicant management; monthly CSV reports; and team access. Yearly Silver also includes priority support, advanced reports, and backup features. Silver payment references remain subject to manual platform-admin verification. Apply `supabase/subscription_price_update.sql` in the Supabase SQL Editor to enable the new amounts while preserving existing pending requests and subscriptions.
 
+If subscription dates appear inconsistent, rerun `supabase/user_hierarchy.sql` and `supabase/subscription_payment_admin_queue.sql` in the Supabase SQL Editor. The review functions must treat `silver_monthly` as a one-month plan; the migrations also repair current Silver Monthly records whose expiry was incorrectly set one year after their start. Confirm the corrected start and expiry dates in the admin Subscriptions view.
+
 For the configured platform administrator account `mohammedhussein3562@gmail.com`, run `supabase/promote_mohammed_admin.sql` after both SQL migrations. The platform administrator retains the `admin` workspace role but has a distinct `platform_admin` user type; Landlords also have the `admin` role within their own workspaces, without platform-wide invite rights.
 
 ## Existing browser data and accounts
@@ -92,29 +94,30 @@ When adding a property, enter its shared water price per unit in KSh; it can als
 
 ## Tenant reminders
 
-The landlord dashboard's rent reminder queue uses SMS by default: selecting **SMS** opens a prefilled draft in the landlord's messaging app, and the landlord reviews and taps **Send**. It uses the tenant's saved phone number and does not require an email service or SMS gateway. WhatsApp remains available as an alternative. This is a manual draft, not an automatically sent message.
+The landlord dashboard's rent reminder queue uses SMS by default: selecting **SMS** opens a prefilled draft in the landlord's messaging app, and the landlord reviews and taps **Send**. It uses the tenant's saved phone number and does not require an SMS gateway. WhatsApp remains available as an alternative. The Resend email worker also sends automated rent reminders three days before rent is due and again on the due date, unless a payment for that rent month is already recorded. Reminders use the existing **Rent reminders** setting; turn reminders off there to disable the automatic emails.
 
-The scheduled invoice-email workflow below is separate from rent reminders. It continues to send itemized invoices by email through Resend when configured; it is optional and is not needed for SMS reminders.
+The same scheduled worker sends itemized monthly invoices through Resend after the rent-cycle water bill has been updated. It also emails tenant receipts after recorded manual or confirmed Paybill payments, confirms submitted maintenance requests and notices to vacate, and notifies tenants when landlords approve, decline, or complete those requests. Landlords receive one payment-instructions email after a subscription expires, including after the free Test plan; it is not repeated for that expiry date and is suppressed if the subscription is renewed before delivery.
 
 ## Automatic rent invoice email
 
-The invoice worker holds each rent invoice until the current rent cycle has a water-bill update. A daily run emails the landlord once while the bill is missing; after the landlord or caretaker updates it, a later run emails the invoice to the tenant's registered address. Successful sends are recorded by owner, property, unit, and due date to prevent duplicate delivery.
+The worker polls every 15 minutes. It holds each rent invoice until the current rent cycle has a water-bill update. It emails the landlord once while the bill is missing; after the landlord or caretaker updates it, a later run emails the invoice to the tenant's registered address. Rent reminders run three days before and on the due date, skipping tenants with a payment recorded for the due month. Receipts and status updates are queued by database triggers. Successful sends use idempotency keys to prevent duplicate delivery.
 
-1. In Supabase SQL Editor, run `supabase/rent_invoice_email.sql`.
-2. Verify a sending domain with Resend. From the project root, set `RESEND_API_KEY`, `INVOICE_FROM`, and a long random `INVOICE_CRON_SECRET` as Edge Function secrets. Enter real secret values directly in your terminal; do not add them to frontend `.env`:
+1. In the Supabase SQL Editor, apply any missing migrations in dependency order: `supabase/schema.sql`, `supabase/subscription_payments.sql`, `supabase/user_hierarchy.sql`, `supabase/subscription_plans.sql`, `supabase/subscription_payment_methods.sql`, `supabase/rent_c2b.sql`, `supabase/tenant_maintenance.sql`, `supabase/tenant_notices.sql`, `supabase/rent_invoice_email.sql`, `supabase/tenant_email_notifications.sql`, then `supabase/landlord_subscription_expiry_emails.sql`. These migrations add private email job tables and triggers; browser clients do not receive access to email queues.
+2. Verify the `vyrosocial.com` sending domain with Resend. From the project root, set `RESEND_API_KEY`, `INVOICE_FROM`, and a long random `INVOICE_CRON_SECRET` as Edge Function secrets. Set `INVOICE_FROM` to `Moha Rental Management <admin@vyrosocial.com>` only after Resend verifies that domain and sender. Enter real secret values directly in your terminal; never add them to frontend `.env`:
 
    ```powershell
-   supabase secrets set RESEND_API_KEY=YOUR_RESEND_API_KEY INVOICE_FROM="Moha Rentals <invoices@YOUR_VERIFIED_DOMAIN>" INVOICE_CRON_SECRET=YOUR_LONG_RANDOM_SECRET
+   supabase secrets set RESEND_API_KEY=YOUR_RESEND_API_KEY INVOICE_FROM="Moha Rental Management <admin@vyrosocial.com>" INVOICE_CRON_SECRET=YOUR_LONG_RANDOM_SECRET
    ```
 
 3. Deploy the worker:
 
    ```powershell
    supabase functions deploy process-rent-invoices
+   supabase functions deploy send-rent-invoice
    ```
 
 4. In Supabase Dashboard → Database → Vault, add a secret named `invoice_cron_secret` with exactly the same value as `INVOICE_CRON_SECRET`.
-5. In Supabase SQL Editor, run `supabase/schedule_rent_invoice_email.sql`. It schedules the worker daily at 08:00 East Africa Time using `pg_cron` and `pg_net`.
-6. Test with a tenant whose rent anniversary has passed. The landlord dashboard shows a **Water bill needed** alert while the bill is stale. After an authorized landlord or caretaker updates it, the next scheduled run sends the itemized email. Confirm delivery in Resend and status in `public.rent_invoice_email_jobs`.
+5. In Supabase SQL Editor, run `supabase/schedule_rent_invoice_email.sql`. It polls the worker every 15 minutes using `pg_cron` and `pg_net`.
+6. Test by submitting a maintenance request and a notice from the tenant portal, reviewing one as the landlord, recording a payment, and checking a tenant with a due date three days away. Confirm messages in Resend and job outcomes in `public.tenant_email_jobs`. To test subscription-expiry notifications without waiting for a real plan expiry, use a dedicated test landlord account and set its `subscriptions.expires_on` to a past date; confirm the message and delivery status in `public.landlord_subscription_expiry_email_jobs`. Also test a due invoice: the landlord dashboard shows a **Water bill needed** alert while the bill is stale; after an authorized landlord or caretaker updates it, the worker emails the itemized invoice. Invoice outcomes remain in `public.rent_invoice_email_jobs`.
 
-The app records `waterBillUpdatedAt` when the bill is edited. Older tenant records without that timestamp intentionally remain blocked until their water bill is updated for a current rent cycle. The current mail action in the invoice modal still opens the user's email app; automatic scheduled delivery is handled only by the Edge Function.
+The app records `waterBillUpdatedAt` when the bill is edited. Older tenant records without that timestamp intentionally remain blocked until their water bill is updated for a current rent cycle. Clicking **Email tenant** in the invoice modal now sends the invoice PDF through the authenticated `send-rent-invoice` Edge Function using the configured `INVOICE_FROM` sender. If Resend reports an unverified sender, finish domain verification and update the secret before retrying.

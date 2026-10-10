@@ -1,16 +1,16 @@
 -- Run after adding a Supabase Vault secret named invoice_cron_secret.
--- Schedules the invoice worker daily at 05:00 UTC (08:00 East Africa Time).
+-- Polls invoice and tenant-notification email queues every 15 minutes.
 
 create extension if not exists pg_cron;
 create extension if not exists pg_net with schema extensions;
 
 select cron.unschedule(jobid)
 from cron.job
-where jobname = 'process-rent-invoices-daily';
+where jobname in ('process-rent-invoices-daily', 'process-tenant-emails');
 
 select cron.schedule(
-  'process-rent-invoices-daily',
-  '0 5 * * *',
+  'process-tenant-emails',
+  '*/15 * * * *',
   $$
   select net.http_post(
     url := 'https://hrhtocsaecuginzizjbf.supabase.co/functions/v1/process-rent-invoices',
