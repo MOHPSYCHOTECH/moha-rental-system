@@ -1,5 +1,5 @@
 /* ============================================================
-   MOHA RENTAL MANAGEMENT — PROFESSIONAL DESIGN SYSTEM
+   VYRO RENTAL MANAGEMENT — PROFESSIONAL DESIGN SYSTEM
    ============================================================ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -95,16 +95,17 @@ input, select { font-family: inherit; font-size: inherit; }
   box-shadow: 0 4px 12px rgba(245,158,11,.25);
 }
 
-.brand-mark svg,
-.workspace-dot svg,
-.login-brand-mark svg,
-.login-logo svg,
-.tenant-public-logo svg,
-.footer-logo svg,
-.invoice-brand-mark svg {
+.brand-mark img,
+.workspace-dot img,
+.login-brand-mark img,
+.login-logo img,
+.tenant-public-logo img,
+.footer-logo img,
+.invoice-brand-mark img {
   width: 100%;
   height: 100%;
   display: block;
+  object-fit: contain;
 }
 .workspace-history-refresh { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; }
 .workspace-history-refresh:disabled { opacity: .65; cursor: wait; }
@@ -2043,8 +2044,9 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
 }
 
 .portal-home-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.portal-home-wordmark { display: block; width: 138px; height: 80px; flex: 0 0 138px; object-fit: contain; }
 .portal-home-logo { display: block; width: 42px; height: 42px; flex: 0 0 42px; overflow: hidden; border-radius: 10px; }
-.portal-home-logo svg { display: block; width: 100%; height: 100%; }
+.portal-home-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .portal-home-brand > span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .portal-home-brand strong { color: var(--portal-green); font-size: 12px; font-weight: 900; letter-spacing: 1.8px; }
 .portal-home-brand small { max-width: 320px; overflow: hidden; color: #627168; font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -9713,3 +9715,498 @@ td small { display: block; font-size: 11px; color: var(--text-2); }
     grid-row: 1 / span 2;
   }
 }
+
+/* Vyro identity: midnight navy with electric blue, cyan, and violet accents. */
+:root {
+  --vyro-navy: #050b20;
+  --vyro-blue: #087cff;
+  --vyro-cyan: #05d7f2;
+  --vyro-violet: #8b20ff;
+  --vyro-magenta: #d000f5;
+  --vyro-gradient: linear-gradient(115deg, var(--vyro-blue), var(--vyro-violet) 72%, var(--vyro-magenta));
+  --surface-3: #f1f5ff;
+  --border: #dce5f7;
+}
+
+body,
+.app-shell { background: #f3f6ff; }
+
+.sidebar { background: var(--vyro-navy); }
+.brand-mark { box-shadow: 0 4px 14px rgba(5, 215, 242, .22); }
+.nav-item.active {
+  background: rgba(8, 124, 255, .2);
+  color: #73eaff;
+  border-left-color: var(--vyro-cyan);
+}
+.primary-button {
+  background: var(--vyro-gradient);
+  box-shadow: 0 4px 14px rgba(8, 124, 255, .24);
+}
+.primary-button:hover {
+  background: linear-gradient(115deg, #0069ed, #7415e8 72%, #bc00df);
+  box-shadow: 0 6px 18px rgba(104, 45, 255, .3);
+}
+
+.portal-home {
+  --portal-green: #075be5;
+  --portal-ink: #07132e;
+  --portal-muted: #52617b;
+  background: linear-gradient(135deg, #f5f8ff 0%, #f5f7ff 52%, #edf5ff 100%);
+  color: var(--portal-ink);
+}
+.portal-home-header-signup,
+.portal-home-signup-button {
+  border-color: transparent;
+  background: var(--vyro-gradient);
+  box-shadow: 0 5px 16px rgba(8, 124, 255, .2);
+}
+.portal-home-header-signup:hover,
+.portal-home-signup-button:hover {
+  background: linear-gradient(115deg, #0069ed, #7415e8 72%, #bc00df);
+  box-shadow: 0 7px 18px rgba(104, 45, 255, .25);
+}
+.portal-home-header-signup:focus-visible,
+.portal-home-signup-button:focus-visible,
+.portal-home-nav button:focus-visible,
+.portal-home-stats-message button:focus-visible {
+  outline-color: var(--vyro-cyan);
+}
+.portal-home-nav button { color: #52617b; }
+.portal-home-nav button:hover,
+.portal-home-nav button:focus-visible,
+.portal-home-nav button.active { color: #075be5; }
+.portal-home-nav button.active { background: #e5efff; }
+.portal-home-hero {
+  background: linear-gradient(120deg, #040a1e 0%, #091638 58%, #101c4a 100%);
+  box-shadow: 0 16px 42px rgba(5, 11, 32, .2);
+}
+.portal-home-eyebrow,
+.portal-home-copy .portal-home-eyebrow { color: #56e9ff; }
+.portal-home-copy h1 { color: #f7f9ff; }
+.portal-home-hero-actions button:last-of-type {
+  border-color: transparent;
+  background: var(--vyro-gradient);
+  color: #fff;
+}
+.portal-home-image { background: #101d43; }
+.portal-home-image::after {
+  background: linear-gradient(90deg, rgba(5, 11, 32, .35), transparent 42%), linear-gradient(0deg, rgba(5, 11, 32, .52), transparent 40%);
+}
+.portal-home-feature-heading::before,
+.portal-home-about-heading::before { background: linear-gradient(180deg, var(--vyro-cyan), var(--vyro-violet)); }
+.portal-home-about,
+.portal-home-benefits article,
+.portal-home-plan-card,
+.portal-home-project-card,
+.portal-home-faq-list details {
+  border-color: #dce5f7;
+}
+.portal-home-benefit-icon,
+.portal-home-project-icon { background: #e8f1ff; color: #075be5; }
+.portal-home-about-heading .portal-home-eyebrow,
+.portal-home-feature-heading .portal-home-eyebrow {
+  border-color: #c9eaff;
+  background: #eefaff;
+  color: #0866d9;
+}
+.portal-home-footer {
+  background: linear-gradient(115deg, #050b20, #0c1940);
+}
+.portal-home-footer a:hover,
+.portal-home-footer button:hover { color: #56e9ff; }
+
+.login-aside,
+.login-aside.landlord,
+.login-aside.administrator,
+.login-aside.caretaker { background: #f0f5ff; }
+.login-aside-mark,
+.login-logo {
+  background: transparent;
+  color: var(--vyro-blue);
+}
+.login-brand-copy small { color: #075be5; }
+.login-brand-copy span { color: var(--vyro-navy); }
+.login-photo-frame { background: var(--vyro-navy); }
+.login-photo-shade { background: linear-gradient(180deg, transparent 0%, rgba(5, 11, 32, .18) 28%, rgba(5, 11, 32, .82) 100%); }
+.login-photo-caption > span { color: #56e9ff; }
+.login-button { background: var(--vyro-gradient); }
+.login-button:hover { background: linear-gradient(115deg, #0069ed, #7415e8 72%, #bc00df); }
+
+.settings-field input:focus,
+.settings-field select:focus,
+.user-create-form input:focus,
+.user-create-form select:focus { border-color: var(--vyro-blue); }
+
+.portal-home-portfolio-intro {
+  border-color: rgba(5, 215, 242, .2);
+  background:
+    radial-gradient(ellipse at 88% 16%, rgba(208, 0, 245, .28), transparent 34%),
+    radial-gradient(ellipse at 12% 100%, rgba(8, 124, 255, .22), transparent 42%),
+    linear-gradient(120deg, #050b20 0%, #0a1740 58%, #101d4d 100%);
+  box-shadow: 0 24px 60px rgba(5, 11, 32, .2);
+}
+.portal-home-portfolio-intro::after {
+  border-color: rgba(5, 215, 242, .2);
+  box-shadow: 0 0 0 38px rgba(8, 124, 255, .06), 0 0 0 78px rgba(139, 32, 255, .045);
+}
+.portal-home-portfolio-intro .portal-home-eyebrow,
+.portal-home-portfolio-role { color: #65eaff; }
+.portal-home-portfolio-intro .portal-home-eyebrow::before { background: var(--vyro-cyan); }
+.portal-home-portfolio-intro > div:first-child > button {
+  border-color: transparent;
+  background: var(--vyro-gradient);
+  color: #fff;
+}
+.portal-home-portfolio-intro > div:first-child > button:hover {
+  background: linear-gradient(115deg, #0069ed, #7415e8 72%, #bc00df);
+}
+.portal-home-portfolio-mark {
+  border-color: rgba(5, 215, 242, .35);
+  background: linear-gradient(145deg, rgba(8, 124, 255, .2), rgba(139, 32, 255, .13));
+  color: #65eaff;
+}
+.portal-home-portfolio-heading { border-bottom-color: #dce5f7; }
+.portal-home-portfolio-heading::before { background: linear-gradient(180deg, var(--vyro-cyan), var(--vyro-violet)); }
+.portal-home-portfolio-heading .portal-home-eyebrow {
+  border-color: #c9eaff;
+  background: #eefaff;
+  color: #0866d9;
+}
+.portal-home-portfolio-subheading { color: #52617b; }
+.portal-home-portfolio-services article,
+.portal-home-technology-list li {
+  border-color: #dce5f7;
+  box-shadow: 0 8px 24px rgba(8, 47, 112, .05);
+}
+.portal-home-portfolio-services article:hover { border-color: #9bbdf8; }
+.portal-home-portfolio-service-icon,
+.portal-home-portfolio-service-icon.responsive,
+.portal-home-portfolio-service-icon.apps,
+.portal-home-portfolio-service-icon.design,
+.portal-home-portfolio-service-icon.accounting,
+.portal-home-portfolio-service-icon.social,
+.portal-home-portfolio-service-icon.printing {
+  border-color: #d4e5ff;
+  background: #edf5ff;
+  color: #087cff;
+}
+.portal-home-technology-list strong { color: #075be5; }
+.portal-home-project-card {
+  border-color: #dce5f7;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .98), rgba(239, 246, 255, .94));
+  box-shadow: 0 12px 34px rgba(8, 47, 112, .07);
+}
+.portal-home-project-heading { border-bottom-color: #dce5f7; }
+.portal-home-project-icon,
+.portal-home-project-icon.shopping,
+.portal-home-project-icon.social {
+  border-color: #d4e5ff;
+  background: #edf5ff;
+  color: #087cff;
+}
+.portal-home-project-heading p { color: #7226dc; }
+.portal-home-project-card > ul li::before { background: #e5f8ff; color: #087cff; }
+.portal-home-project-link,
+.portal-home-plan-card > button {
+  border-color: transparent;
+  background: var(--vyro-gradient);
+}
+.portal-home-project-link:hover,
+.portal-home-plan-card > button:hover {
+  background: linear-gradient(115deg, #0069ed, #7415e8 72%, #bc00df);
+}
+.portal-home-project-link:focus-visible,
+.portal-home-plan-card > button:focus-visible,
+.portal-home-faq-list summary:focus-visible { outline-color: var(--vyro-cyan); }
+.portal-home-faq-list details { border-color: #dce5f7; }
+.portal-home-faq-list details[open] {
+  border-color: #9bbdf8;
+  box-shadow: 0 7px 20px rgba(8, 47, 112, .08);
+}
+
+.portal-home-project-status { grid-column: 1 / -1; margin: 0; padding: 24px; border: 1px solid #dce5f7; border-radius: 14px; background: #f4f8ff; color: #354764; }
+.portal-home-project-status.error { border-color: #f2c5c5; background: #fff5f5; color: #8d2828; }
+.portal-home-project-status button { padding: 7px 12px; border: 0; border-radius: 7px; background: #075be5; color: #fff; font-weight: 750; cursor: pointer; }
+.portfolio-listings-manager { display: grid; gap: 22px; }
+.portfolio-listings-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.portfolio-listings-toolbar h2, .portfolio-listing-form h3, .portfolio-listing-admin-list h3 { margin: 0; color: #111c39; }
+.portfolio-listings-toolbar p { margin: 6px 0 0; color: #586783; }
+.portfolio-listings-message { margin: 0; padding: 12px 15px; border-radius: 9px; font-weight: 650; }
+.portfolio-listings-message.error { border: 1px solid #f0c2c2; background: #fff4f4; color: #9c2626; }
+.portfolio-listings-message.success { border: 1px solid #b7e8d5; background: #edfbf5; color: #146845; }
+.portfolio-listing-form, .portfolio-listing-admin-list { display: grid; gap: 16px; padding: 22px; border: 1px solid #dce5f7; border-radius: 14px; background: linear-gradient(135deg, #fff, #f4f8ff); box-shadow: 0 8px 24px rgba(8, 47, 112, .05); }
+.portfolio-listing-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.portfolio-listing-fields label { display: grid; align-content: start; gap: 7px; color: #283650; font-size: 13px; font-weight: 750; }
+.portfolio-listing-fields label.wide { grid-column: 1 / -1; }
+.portfolio-listing-fields label small { color: #6c7890; font-size: 11px; font-weight: 550; }
+.portfolio-listing-fields input:not([type="checkbox"]), .portfolio-listing-fields textarea { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #cfdaeb; border-radius: 8px; background: #fff; color: #17213b; font: inherit; font-size: 13px; }
+.portfolio-listing-fields textarea { resize: vertical; }
+.portfolio-listing-fields input:focus, .portfolio-listing-fields textarea:focus { border-color: #087cff; outline: 3px solid rgba(8, 124, 255, .14); }
+.portfolio-listing-published { display: flex !important; align-items: center; grid-template-columns: auto 1fr; }
+.portfolio-listing-published input { accent-color: #7020cf; }
+.portfolio-listing-form-actions, .portfolio-listing-admin-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.portfolio-listings-manager .secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid #cbd8ee; border-radius: 8px; background: #fff; color: #354764; font-size: 12px; font-weight: 750; cursor: pointer; }
+.portfolio-listings-manager .secondary-button:hover { border-color: #087cff; color: #075be5; }
+.portfolio-listings-manager .secondary-button.danger:hover { border-color: #e1aeb4; color: #a52d3b; }
+.portfolio-listings-manager .primary-button:disabled { cursor: wait; opacity: .65; }
+.portfolio-listing-admin-list > p { margin: 0; color: #586783; }
+.portfolio-listing-admin-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 0; border-bottom: 1px solid #e4eaf4; }
+.portfolio-listing-admin-item > div:first-child { display: grid; gap: 5px; min-width: 0; }
+.portfolio-listing-admin-item strong { color: #17213b; }
+.portfolio-listing-admin-item span { color: #64718a; font-size: 12px; }
+.portfolio-listing-admin-item button { display: inline-flex; align-items: center; gap: 6px; }
+.portfolio-listing-admin-item .danger { color: #a52d3b; }
+
+.portal-home-pricing .portal-home-plan-card {
+  border-color: #dce5f7;
+  background: linear-gradient(145deg, #fff 0%, #f2f7ff 100%);
+  box-shadow: 0 8px 22px rgba(8, 47, 112, .07);
+}
+.portal-home-pricing .portal-home-plan-card.featured {
+  border-color: #8b20ff;
+  box-shadow: 0 10px 28px rgba(139, 32, 255, .14);
+}
+.portal-home-pricing .portal-home-plan-badge {
+  background: #f2e9ff;
+  color: #7020cf;
+}
+.portal-home-pricing .portal-home-plan-label { color: #7020cf; }
+.portal-home-pricing .portal-home-plan-price { color: #075be5; }
+.portal-home-pricing .portal-home-plan-card li { color: #52617b; }
+.portal-home-pricing .portal-home-plan-card li::before { color: #087cff; }
+
+.portal-home-contact {
+  border: 1px solid rgba(5, 215, 242, .18);
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(139, 32, 255, .22), transparent 38%),
+    linear-gradient(120deg, #050b20, #0b1740);
+  box-shadow: 0 16px 38px rgba(5, 11, 32, .18);
+}
+.portal-home-contact .portal-home-eyebrow,
+.portal-home-team-heading .portal-home-eyebrow { color: #65eaff; }
+.portal-home-contact-links a { border-color: rgba(101, 234, 255, .23); }
+.portal-home-contact-links a:hover,
+.portal-home-contact-links a:focus-visible {
+  border-color: var(--vyro-cyan);
+  background: rgba(8, 124, 255, .14);
+}
+.portal-home-contact-links strong,
+.portal-home-team-contacts a { color: #65eaff; }
+.portal-home-team { border-top-color: rgba(101, 234, 255, .2); }
+.portal-home-team-card {
+  border-color: rgba(101, 234, 255, .16);
+  background: rgba(8, 124, 255, .09);
+}
+
+@media (max-width: 640px) {
+  .portfolio-listings-toolbar, .portfolio-listing-admin-item { align-items: stretch; flex-direction: column; }
+  .portfolio-listings-toolbar > .primary-button { justify-content: center; }
+  .portfolio-listing-fields { grid-template-columns: minmax(0, 1fr); }
+  .portfolio-listing-fields label.wide { grid-column: auto; }
+  .portfolio-listing-admin-actions > button { flex: 1; }
+}
+
+.portfolio-listings-manager .portfolio-listings-toolbar {
+  padding: clamp(20px, 3vw, 30px);
+  border: 1px solid rgba(5, 215, 242, .24);
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(139, 32, 255, .2), transparent 42%),
+    linear-gradient(120deg, #050b20, #0c1940);
+  box-shadow: 0 14px 32px rgba(5, 11, 32, .14);
+}
+.portfolio-listings-manager .portfolio-listings-toolbar h2 { color: #f7f9ff; }
+.portfolio-listings-manager .portfolio-listings-toolbar p { color: #bdcbea; }
+.portfolio-listings-manager .portfolio-listings-toolbar > .primary-button {
+  flex: 0 0 auto;
+  border: 1px solid rgba(101, 234, 255, .36);
+  background: rgba(8, 124, 255, .16);
+  box-shadow: none;
+}
+.portfolio-listings-manager .portfolio-listings-toolbar > .primary-button:hover { background: rgba(8, 124, 255, .3); }
+.portfolio-listings-manager .portfolio-listing-form,
+.portfolio-listings-manager .portfolio-listing-admin-list {
+  border-color: #d4e5ff;
+  background: #edf3ff;
+  box-shadow: 0 10px 28px rgba(8, 47, 112, .07);
+}
+.portfolio-listings-manager .portfolio-listing-form { border-top: 3px solid var(--vyro-blue); }
+.portfolio-listings-manager .portfolio-listing-form h3,
+.portfolio-listings-manager .portfolio-listing-admin-list h3 { color: #101a39; }
+.portfolio-listings-manager .portfolio-listing-fields label { color: #23345a; }
+.portfolio-listings-manager .portfolio-listing-fields input:not([type="checkbox"]),
+.portfolio-listings-manager .portfolio-listing-fields textarea {
+  border-color: #cfdaeb;
+  background: #f6f8ff;
+}
+.portfolio-listings-manager .portfolio-listing-fields input:focus,
+.portfolio-listings-manager .portfolio-listing-fields textarea:focus {
+  border-color: var(--vyro-blue);
+  box-shadow: 0 0 0 3px rgba(8, 124, 255, .13);
+}
+.portfolio-listings-manager .portfolio-listing-published input { accent-color: var(--vyro-violet); }
+.portfolio-listings-manager .portfolio-listing-admin-item {
+  padding: 14px;
+  border: 1px solid #e2eaf8;
+  border-radius: 10px;
+  background: #e5edfc;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.portfolio-listings-manager .portfolio-listing-admin-item:hover {
+  transform: translateY(-1px);
+  border-color: #9bbdf8;
+  background: #dce8fc;
+  box-shadow: 0 6px 18px rgba(8, 47, 112, .06);
+}
+.portfolio-listings-manager .portfolio-listing-admin-item strong { color: #101a39; }
+.portfolio-listings-manager .portfolio-listing-admin-item span { color: #52617b; }
+.portfolio-listings-manager .portfolio-listing-admin-actions .secondary-button:first-child {
+  border-color: #c9eaff;
+  background: #eefaff;
+  color: #075be5;
+}
+.portfolio-listings-manager .portfolio-listing-admin-actions .secondary-button:first-child:hover {
+  border-color: #8dcafc;
+  background: #e2f5ff;
+}
+
+.login-shell.landlord-signup-shell {
+  background:
+    radial-gradient(ellipse at 8% 4%, rgba(5, 215, 242, .12), transparent 34%),
+    radial-gradient(ellipse at 94% 96%, rgba(139, 32, 255, .1), transparent 34%),
+    linear-gradient(135deg, #f5f8ff 0%, #eff5ff 56%, #f6f2ff 100%);
+}
+.landlord-signup-card {
+  padding: clamp(26px, 3.2vw, 44px);
+  border: 1px solid #dce5f7;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 18px 48px rgba(8, 47, 112, .1);
+}
+.landlord-signup-card .login-mobile-brand { color: var(--vyro-navy); }
+.landlord-signup-card .login-logo {
+  border: 1px solid #d4e5ff;
+  border-radius: 12px;
+  background: #edf5ff;
+  color: var(--vyro-blue);
+}
+.landlord-signup-card .signup-back-button {
+  color: #075be5;
+  font-weight: 750;
+}
+.landlord-signup-card .signup-back-button:hover { color: #7020cf; }
+.landlord-signup-card .signup-back-button:focus-visible,
+.landlord-signup-card .login-field input:focus-visible,
+.landlord-signup-card .signup-plan-option:focus-visible {
+  outline: 3px solid rgba(5, 215, 242, .48);
+  outline-offset: 3px;
+}
+.landlord-signup-card .landlord-signup-kicker {
+  border-color: #c9eaff;
+  background: #eefaff;
+  color: #0866d9;
+}
+.landlord-signup-card h1 { color: #07132e; }
+.landlord-signup-card h1 span { color: #7020cf; }
+.landlord-signup-card .landlord-signup-copy {
+  border-left-color: var(--vyro-cyan);
+  color: #52617b;
+}
+.landlord-signup-card .login-field > span { color: #23345a; }
+.landlord-signup-card .login-field input,
+.landlord-signup-card .kenyan-phone-input {
+  border-color: #cfdaeb;
+  border-radius: 9px;
+  background: #f9fbff;
+  color: #101a39;
+}
+.landlord-signup-card .login-field input:focus,
+.landlord-signup-card .kenyan-phone-input:focus-within {
+  border-color: var(--vyro-blue);
+  box-shadow: 0 0 0 3px rgba(8, 124, 255, .13);
+  background: #fff;
+}
+.landlord-signup-card .kenyan-phone-input > span {
+  border-right-color: #dce5f7;
+  color: #075be5;
+}
+.landlord-signup-card .signup-plan-fieldset legend { color: #101a39; }
+.landlord-signup-card .signup-plan-option {
+  border-color: #dce5f7;
+  background: linear-gradient(145deg, #fff 0%, #f4f8ff 100%);
+}
+.landlord-signup-card .signup-plan-option:hover { border-color: #9bbdf8; }
+.landlord-signup-card .signup-plan-option.selected {
+  border-color: var(--vyro-violet);
+  box-shadow: inset 3px 0 var(--vyro-violet), 0 5px 16px rgba(139, 32, 255, .09);
+  background: linear-gradient(145deg, #fff 0%, #f5efff 100%);
+}
+.landlord-signup-card .signup-plan-option strong { color: #101a39; }
+.landlord-signup-card .signup-plan-option b {
+  background: #e5f8ff;
+  color: #075be5;
+}
+.landlord-signup-card .signup-plan-option small,
+.landlord-signup-card .signup-approval-note { color: #52617b; }
+.landlord-signup-card .login-button {
+  border: 0;
+  background: var(--vyro-gradient);
+  box-shadow: 0 6px 18px rgba(104, 45, 255, .2);
+}
+.landlord-signup-card .login-button:hover { background: linear-gradient(115deg, #0069ed, #7415e8 72%, #bc00df); }
+.landlord-signup-card .login-button:focus-visible { outline: 3px solid var(--vyro-cyan); outline-offset: 3px; }
+.landlord-signup-card .signup-success {
+  border-color: #9bbdf8;
+  background: #eff6ff;
+  color: #075be5;
+}
+.landlord-signup-card .signup-success p { color: #52617b; }
+.landlord-signup-features {
+  border-color: rgba(5, 215, 242, .22);
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(139, 32, 255, .2), transparent 42%),
+    linear-gradient(135deg, #050b20, #0c1940);
+  box-shadow: 0 18px 48px rgba(5, 11, 32, .18);
+}
+.landlord-signup-features .landlord-signup-kicker {
+  border-color: rgba(101, 234, 255, .28);
+  background: rgba(8, 124, 255, .13);
+  color: #65eaff;
+}
+.landlord-signup-features h2 { border-bottom-color: rgba(101, 234, 255, .2); color: #f7f9ff; }
+.landlord-signup-features-intro { color: #bdcbea; }
+.landlord-signup-features li {
+  border-color: rgba(101, 234, 255, .16);
+  background: rgba(8, 124, 255, .09);
+}
+.landlord-signup-features li:hover {
+  border-color: rgba(101, 234, 255, .38);
+  background: rgba(8, 124, 255, .16);
+}
+.landlord-signup-features li > svg,
+.landlord-signup-feature-note svg { color: #65eaff; }
+.landlord-signup-features li strong { color: #f7f9ff; }
+.landlord-signup-features li small,
+.landlord-signup-feature-note { color: #bdcbea; }
+.landlord-signup-feature-note { border-top-color: rgba(101, 234, 255, .2); }
+
+@media (max-width: 760px) {
+  .landlord-signup-card { padding: 24px 18px; }
+}
+.portal-home-team-avatar,
+.portal-home-team-avatar.administrator {
+  border-color: rgba(101, 234, 255, .5);
+  background: linear-gradient(145deg, #087cff, #8b20ff);
+  color: #fff;
+}
+.portal-home-team-contacts a:focus-visible { outline-color: var(--vyro-cyan); }
+.portal-home-footer-contact .portal-home-footer-signup {
+  border-color: transparent;
+  background: var(--vyro-gradient);
+  color: #fff;
+}
+.portal-home-footer-contact .portal-home-footer-signup:hover {
+  background: linear-gradient(115deg, #0069ed, #7415e8 72%, #bc00df);
+  color: #fff;
+}
+.portal-home-footer-contact .portal-home-footer-signup:focus-visible { outline-color: var(--vyro-cyan); }

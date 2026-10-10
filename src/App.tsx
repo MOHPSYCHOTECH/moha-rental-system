@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
 import type { FormEvent, InputHTMLAttributes } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { jsPDF } from 'jspdf'
-import { ArrowUpRight, Bell, Building2, CalendarDays, Calculator, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, Eye, EyeOff, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Palette, Pencil, Plus, Printer, ReceiptText, RefreshCw, Search, Settings, Share2, ShieldCheck, ShoppingBag, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
+import { ArrowUpRight, Bell, Building2, CalendarDays, Calculator, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, Eye, EyeOff, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Palette, Pencil, Plus, Printer, ReceiptText, RefreshCw, Search, Settings, Share2, ShieldCheck, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
 import './App.css'
 import { TenantGroupChat } from './TenantGroupChat'
 import { TenantMaintenance } from './TenantMaintenance'
@@ -42,6 +42,7 @@ type AdminSubscriptionPaymentQueueRow = { request_id: string; user_id: string; p
 type PlatformSubscriptionPayment = { id: string; user_id: string; plan: string; amount: number; mpesa_code: string; payment_method: LandlordPaymentMethod; status: 'pending' | 'approved' | 'rejected'; submitted_at: string; reviewed_at: string | null }
 type SubscriptionPaymentHistoryFilter = 'approved' | 'rejected' | 'all'
 type PublicPlatformStats = { landlord_count: number; tenant_count: number; total_collected: number }
+type PortfolioListing = { id: string; title: string; category: string; description: string; technologies: string[]; highlights: string[]; image_url: string; project_url: string; sort_order: number; published: boolean; created_at: string; updated_at: string }
 type PublicHomeSection = 'home' | 'portals' | 'about' | 'portfolio' | 'pricing' | 'contact'
 const publicHomePaths: Record<PublicHomeSection, string> = {
   home: '/home',
@@ -91,7 +92,7 @@ const sectionDetails: Record<string, { eyebrow: string; title: string; descripti
   Payments: { eyebrow: 'Finance', title: 'Payments', description: 'Monitor rent collection, upcoming charges, and payment history.', rows: [] },
   Documents: { eyebrow: 'Records', title: 'Documents', description: 'Access leases, inspection reports, and important property records.', rows: [] },
   Settings: { eyebrow: 'Workspace', title: 'Settings', description: 'Configure your workspace, notifications, and team access.', rows: [] },
-  'Help center': { eyebrow: 'Support', title: 'Help center', description: 'Find answers and get support for your property operations.', rows: ['Getting started with Moha Rental Management System', 'Managing a maintenance request', 'Inviting a team member'] },
+  'Help center': { eyebrow: 'Support', title: 'Help center', description: 'Find answers and get support for your property operations.', rows: ['Getting started with Vyro Rental Management System', 'Managing a maintenance request', 'Inviting a team member'] },
 }
 
 function readStorage<T>(key: string, fallback: T): T {
@@ -104,7 +105,7 @@ function readStorage<T>(key: string, fallback: T): T {
 }
 
 const rentPaybill = import.meta.env.VITE_MPESA_RENT_PAYBILL ?? ''
-const defaultWorkspaceSettings: RentalWorkspaceSettings = { workspaceName: 'Moha Rental Management System', propertyGroup: 'Atlas Properties', darkMode: false, notifEmail: true, notifWeekly: true, rentReminderEnabled: true, rentReminderDays: 3, rentReminderChannel: 'SMS', rentCollectionMode: 'own', landlordPaybill: '', landlordPaymentMethod: 'paybill', landlordTillNumber: '', landlordBankName: '', landlordBankAccountName: '', landlordBankAccountNumber: '' }
+const defaultWorkspaceSettings: RentalWorkspaceSettings = { workspaceName: 'Vyro Rental Management System', propertyGroup: 'Atlas Properties', darkMode: false, notifEmail: true, notifWeekly: true, rentReminderEnabled: true, rentReminderDays: 3, rentReminderChannel: 'SMS', rentCollectionMode: 'own', landlordPaybill: '', landlordPaymentMethod: 'paybill', landlordTillNumber: '', landlordBankName: '', landlordBankAccountName: '', landlordBankAccountNumber: '' }
 function resolveRentReminderChannel(channel: unknown): RentReminderChannel {
   return channel === 'WhatsApp' ? 'WhatsApp' : 'SMS'
 }
@@ -152,13 +153,8 @@ function removeLegacyWorkspace() {
   localStorage.removeItem('moha-session-user')
 }
 
-function MohaLogo({ size = 28, className = '' }: { size?: number; className?: string }) {
-  return <svg className={className} width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" role="img">
-    <rect x="5" y="5" width="54" height="54" rx="16" fill="#103b35" />
-    <path d="M16 38V22L26 31L32 25L38 31L48 22V38" fill="none" stroke="#f4d790" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M22 38V28H28V38M36 38V28H42V38" fill="none" stroke="#f4d790" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M14 44H50" stroke="#f4d790" strokeWidth="3" strokeLinecap="round" opacity="0.9" />
-  </svg>
+function VyroLogo({ size = 28, className = '' }: { size?: number; className?: string }) {
+  return <img className={className} src="/vyro-rentals-mark.png" width={size} height={size} alt="" aria-hidden="true" />
 }
 
 function mapDatabaseRole(value: string | undefined): AccessUser['role'] {
@@ -333,7 +329,7 @@ function createRentalDocumentFile(data: RentalDocumentData) {
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(8)
   pdf.setTextColor(148, 163, 184)
-  pdf.text('Generated by Moha Rental Management System', margin, pageHeight - 12)
+  pdf.text('Generated by Vyro Rental Management System', margin, pageHeight - 12)
   return new File([pdf.output('blob')], data.fileName, { type: 'application/pdf' })
 }
 
@@ -2075,13 +2071,14 @@ function App() {
     {/* Mobile overlay */}
     {sidebarOpen && <button className="sidebar-overlay" type="button" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
     <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
-      <div className="brand"><span className="brand-mark"><MohaLogo size={20} /></span><span>{workspaceName}</span></div>
-      <div className="workspace-switcher"><span className="workspace-dot"><MohaLogo size={18} /></span><span><strong>{workspaceName}</strong><small>{propertyGroup}</small></span><ChevronDown size={15} /></div>
+      <div className="brand"><span className="brand-mark"><VyroLogo size={20} /></span><span>{workspaceName}</span></div>
+      <div className="workspace-switcher"><span className="workspace-dot"><VyroLogo size={18} /></span><span><strong>{workspaceName}</strong><small>{propertyGroup}</small></span><ChevronDown size={15} /></div>
       <nav aria-label="Main navigation">
         <p className="nav-label">Workspace</p>
         {navItems.map(({ label, icon: Icon, count }) => <button key={label} className={`nav-item ${activeSection === label ? 'active' : ''}`} onClick={() => { navigate(label); setSidebarOpen(false) }}><Icon size={18} /><span>{label}</span>{count && <em>{count}</em>}</button>)}
         {isPlatformAdministrator && <>
           <p className="nav-label nav-label-spaced">Quick links</p>
+          <button className={`nav-item ${activeSection === 'Portfolio listings' ? 'active' : ''}`} onClick={() => { navigate('Portfolio listings'); setSidebarOpen(false) }}><ClipboardList size={18} /><span>Portfolio listings</span></button>
           <button className={`nav-item ${activeSection === 'User directory' ? 'active' : ''}`} onClick={() => { setSettingsSectionShortcut('users'); navigate('User directory'); setSidebarOpen(false) }}><Users size={18} /><span>User directory</span></button>
           <button className={`nav-item ${activeSection === 'Landlord workspaces' ? 'active' : ''}`} onClick={() => { navigate('Landlord workspaces'); setSidebarOpen(false) }}><Building2 size={18} /><span>Landlord workspaces</span></button>
           <button className={`nav-item ${activeSection === 'Caretakers' ? 'active' : ''}`} onClick={() => { navigate('Caretakers'); setSidebarOpen(false) }}><Wrench size={18} /><span>Caretakers</span></button>
@@ -2222,8 +2219,8 @@ function App() {
         <section className="welcome-row">
           <div>
             <p className="eyebrow">{isPlatformAdministrator ? activeSection === 'User directory' || activeSection === 'Caretakers' || activeSection === 'Subscriptions' ? 'PLATFORM ADMINISTRATION' : 'PLATFORM PORTFOLIO' : today}</p>
-            <h1>{isPlatformAdministrator ? activeSection === 'User directory' ? 'User directory' : activeSection === 'Caretakers' ? 'Caretakers' : activeSection === 'Subscriptions' ? 'Landlord subscriptions' : activeSection === 'Landlord workspaces' ? 'Landlord workspaces' : 'Portfolio overview' : <>Welcome back, {sessionUser.name} <span>✦</span></>}</h1>
-            <p className="subhead">{isPlatformAdministrator ? activeSection === 'User directory' ? 'Manage platform accounts, access, and account status.' : activeSection === 'Caretakers' ? 'View caretaker accounts and their landlord, property, and unit assignments.' : activeSection === 'Subscriptions' ? 'Review every landlord’s plan, expiry date, and subscription payment history.' : activeSection === 'Landlord workspaces' ? 'Browse landlord workspaces and open a portfolio for details.' : 'Review property performance across every landlord workspace.' : <>Signed in as <strong>{sessionUser.username}</strong> · {sessionUser.role} &nbsp;|&nbsp; {propertyGroup}</>}</p>
+            <h1>{isPlatformAdministrator ? activeSection === 'Portfolio listings' ? 'Portfolio listings' : activeSection === 'User directory' ? 'User directory' : activeSection === 'Caretakers' ? 'Caretakers' : activeSection === 'Subscriptions' ? 'Landlord subscriptions' : activeSection === 'Landlord workspaces' ? 'Landlord workspaces' : 'Portfolio overview' : <>Welcome back, {sessionUser.name} <span>✦</span></>}</h1>
+            <p className="subhead">{isPlatformAdministrator ? activeSection === 'Portfolio listings' ? 'Add, edit, and publish the projects shown on your public Portfolio page.' : activeSection === 'User directory' ? 'Manage platform accounts, access, and account status.' : activeSection === 'Caretakers' ? 'View caretaker accounts and their landlord, property, and unit assignments.' : activeSection === 'Subscriptions' ? 'Review every landlord’s plan, expiry date, and subscription payment history.' : activeSection === 'Landlord workspaces' ? 'Browse landlord workspaces and open a portfolio for details.' : 'Review property performance across every landlord workspace.' : <>Signed in as <strong>{sessionUser.username}</strong> · {sessionUser.role} &nbsp;|&nbsp; {propertyGroup}</>}</p>
           </div>
           <div className="welcome-row-actions">
             {!isPlatformAdministrator && can.addProperty && <button className="primary-button" onClick={() => setModalType('property')}><Plus size={17} /> Add property</button>}
@@ -2250,7 +2247,7 @@ function App() {
           <div className="app-footer-inner">
             {/* Brand column */}
             <div className="footer-brand">
-              <div className="footer-logo"><MohaLogo size={18} /></div>
+              <div className="footer-logo"><VyroLogo size={18} /></div>
               <div>
                 <strong>{workspaceName}</strong>
                 <p>A complete rental property management system for landlords, caretakers, and property managers in Kenya.</p>
@@ -2462,7 +2459,11 @@ function App() {
                 if (error) throw new Error(error.message)
                 setCloudStatus(`Password reset email sent to ${email}`)
               }}
-            /> : <AccessDeniedView section="Settings" />) : activeSection === 'Subscriptions'
+            /> : <AccessDeniedView section="Settings" />)             : activeSection === 'Portfolio listings'
+            ? isPlatformAdministrator
+              ? <PortfolioListingsManager />
+              : <AccessDeniedView section="Portfolio listings" />
+            : activeSection === 'Subscriptions'
               ? isPlatformAdministrator
                 ? <PlatformSubscriptionsDashboard landlords={users.filter(account => account.userType === 'Landlord')} payments={platformSubscriptionPayments} loading={platformPortfolioLoading} error={platformPortfolioError} onRefresh={() => void refreshPlatformPortfolio()} />
                 : <AccessDeniedView section="Subscriptions" />
@@ -2799,7 +2800,7 @@ function App() {
               <button type="button" className="modal-close" onClick={() => setShowSubscriptionModal(false)}>×</button>
               <div className="sm-header">
                 <span className="sm-icon">💳</span>
-                <div><h2>Subscribe to Moha Rental</h2><p>Choose your plan and pay using the platform’s configured method.</p></div>
+                <div><h2>Subscribe to Vyro Rental</h2><p>Choose your plan and pay using the platform’s configured method.</p></div>
               </div>
               {sessionUser.subscriptionRequest?.status === 'pending' && <p className="subscription-pending-notice">Your payment reference is waiting for admin verification. You can submit another request after this one is reviewed.</p>}
               
@@ -3848,7 +3849,7 @@ function PaymentSection({ rows, selectedProperty, onEdit, onDelete }: { rows: st
   const [receipt, setReceipt] = useState<ManualPaymentReceipt | null>(null)
   const [shareStatus, setShareStatus] = useState('')
   const shareReceipt = (payment: ManualPaymentReceipt) => {
-    void shareManualPaymentReceipt(payment, 'Moha Rental Management System').then(result => {
+    void shareManualPaymentReceipt(payment, 'Vyro Rental Management System').then(result => {
       setShareStatus(documentShareStatus(result, 'Receipt'))
     }).catch(error => {
       setShareStatus(`Could not share receipt PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -3874,7 +3875,7 @@ function PaymentSection({ rows, selectedProperty, onEdit, onDelete }: { rows: st
         {onDelete && <button type="button" className="record-delete-btn" onClick={(e) => { e.stopPropagation(); onDelete(index) }} title="Delete payment"><span className="record-action-icon">🗑️</span><span className="record-action-label">Delete</span></button>}
       </div>
     </div>
-  })}</div> : <p className="overview-empty">{selectedProperty ? `No payment records for ${selectedProperty}.` : 'No manual payment records yet.'}</p>}{shareStatus && <p className="share-message" role="status">{shareStatus}</p>}{receipt && <PaymentReceiptModal receipt={receipt} workspaceName="Moha Rental Management System" onClose={() => setReceipt(null)} onShare={() => shareManualPaymentReceipt(receipt, 'Moha Rental Management System')} />}</>
+  })}</div> : <p className="overview-empty">{selectedProperty ? `No payment records for ${selectedProperty}.` : 'No manual payment records yet.'}</p>}{shareStatus && <p className="share-message" role="status">{shareStatus}</p>}{receipt && <PaymentReceiptModal receipt={receipt} workspaceName="Vyro Rental Management System" onClose={() => setReceipt(null)} onShare={() => shareManualPaymentReceipt(receipt, 'Vyro Rental Management System')} />}</>
 }
 
 function ConfirmedRentPaymentSection({ payments, propertyNames }: { payments: RentPaymentRecord[]; propertyNames: string[] }) {
@@ -3926,7 +3927,7 @@ function ConfirmedRentPaymentSection({ payments, propertyNames }: { payments: Re
       <div className="record-actions receipt-payment-actions">
         <button type="button" className="receipt-record-action" onClick={() => setReceipt(receiptDetails)} title="View or print receipt"><ReceiptText size={14} /><span>Receipt</span></button>
         <button type="button" className="whatsapp-record-action" onClick={() => {
-          void shareManualPaymentReceipt(receiptDetails, 'Moha Rental Management System').then(result => setShareStatus(documentShareStatus(result, 'Receipt'))).catch(error => {
+          void shareManualPaymentReceipt(receiptDetails, 'Vyro Rental Management System').then(result => setShareStatus(documentShareStatus(result, 'Receipt'))).catch(error => {
             setShareStatus(`Could not share receipt PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
           })
         }} title="Share receipt PDF on WhatsApp"><MessageCircle size={14} /><span>WhatsApp</span></button>
@@ -3934,7 +3935,7 @@ function ConfirmedRentPaymentSection({ payments, propertyNames }: { payments: Re
     </article>})}</div> : <p className="overview-empty">No confirmed rent payments for {paymentProperty}.</p> : <p className="overview-empty">{refreshing ? 'Loading confirmed rent payments…' : 'No confirmed Paybill rent payments yet.'}</p>}
     {shareStatus && <p className="share-message" role="status">{shareStatus}</p>}
     {filteredPayments.length > pageSize && <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />}
-    {receipt && <PaymentReceiptModal receipt={receipt} workspaceName="Moha Rental Management System" onClose={() => setReceipt(null)} onShare={() => shareManualPaymentReceipt(receipt, 'Moha Rental Management System')} />}
+    {receipt && <PaymentReceiptModal receipt={receipt} workspaceName="Vyro Rental Management System" onClose={() => setReceipt(null)} onShare={() => shareManualPaymentReceipt(receipt, 'Vyro Rental Management System')} />}
   </section>
 }
 
@@ -4199,7 +4200,7 @@ function InvoiceModal({ tenant, invoice, workspaceName, paymentDetails, onEmailC
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close invoice">×</button>
 
         <header className="invoice-brand">
-          <span className="invoice-brand-mark"><MohaLogo size={18} /></span>
+          <span className="invoice-brand-mark"><VyroLogo size={18} /></span>
           <div><strong>{workspaceName}</strong><span>Property billing statement</span></div>
           <span className="invoice-status">Amount due</span>
         </header>
@@ -6249,7 +6250,7 @@ function TenantPublicLoginPage({ darkMode, workspaceName, tenantPortalForm, tena
     <section className="tenant-public-wrap" aria-labelledby="tenant-public-title">
       <aside className="tenant-public-brand">
         <div className="tenant-public-brand-header">
-          <span className="tenant-public-logo" aria-hidden="true"><MohaLogo size={32} /></span>
+          <span className="tenant-public-logo" aria-hidden="true"><VyroLogo size={32} /></span>
           <div>
             <p className="tenant-public-kicker">RESIDENT PORTAL</p>
             <h2>{workspaceName}</h2>
@@ -6409,7 +6410,7 @@ function PublicLandlordSignupPage({ workspaceName, onBack }: { workspaceName: st
 
   return <main className="login-shell landlord-signup-shell">
     <section className="login-card landlord-signup-card" aria-labelledby="landlord-signup-title">
-      <div className="login-mobile-brand"><span className="login-logo"><MohaLogo size={20} /></span><span>{workspaceName}</span></div>
+      <div className="login-mobile-brand"><span className="login-logo"><VyroLogo size={20} /></span><span>{workspaceName}</span></div>
       <button type="button" className="signup-back-button" onClick={onBack}><ArrowUpRight size={15} /> Back to portal</button>
       <p className="login-kicker landlord-signup-kicker">LANDLORD REGISTRATION</p>
       <h1 id="landlord-signup-title">Start managing your properties<span>.</span></h1>
@@ -6465,7 +6466,7 @@ function LandlordApprovalStatusPage({ workspaceName, registration, onRefresh, on
   }, [onRefresh, registration.status])
   return <main className="login-shell landlord-approval-shell">
     <section className="login-card landlord-approval-card" aria-labelledby="landlord-approval-title">
-      <div className="login-mobile-brand"><span className="login-logo"><MohaLogo size={20} /></span><span>{workspaceName}</span></div>
+      <div className="login-mobile-brand"><span className="login-logo"><VyroLogo size={20} /></span><span>{workspaceName}</span></div>
       <p className="login-kicker">LANDLORD REGISTRATION</p>
       <h1 id="landlord-approval-title">{registration.status === 'pending' ? 'Approval pending' : 'Registration not approved'}<span>.</span></h1>
       <p className="login-copy">{registration.status === 'pending'
@@ -6477,6 +6478,177 @@ function LandlordApprovalStatusPage({ workspaceName, registration, onRefresh, on
   </main>
 }
 
+type PortfolioListingForm = Omit<PortfolioListing, 'id' | 'created_at' | 'updated_at'>
+
+const emptyPortfolioListing: PortfolioListingForm = { title: '', category: '', description: '', technologies: [], highlights: [], image_url: '', project_url: '', sort_order: 0, published: false }
+
+const isPublicWebUrl = (value: string) => {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+const isSafePortfolioImageUrl = (value: string) => (value.startsWith('/') && !value.startsWith('//')) || isPublicWebUrl(value)
+
+function PortfolioListingsManager() {
+  const [listings, setListings] = useState<PortfolioListing[]>([])
+  const [listingForm, setListingForm] = useState<PortfolioListingForm>(emptyPortfolioListing)
+  const [editingListingId, setEditingListingId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [reloadToken, setReloadToken] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    const loadListings = async () => {
+      setLoading(true)
+      setError('')
+      if (!supabase) {
+        setError('Supabase is not configured. Add the Supabase environment variables and redeploy before managing portfolio listings.')
+        setLoading(false)
+        return
+      }
+      const { data, error: queryError } = await supabase.from('portfolio_listings').select('*').order('sort_order').order('created_at')
+      if (!active) return
+      if (queryError) {
+        setError(queryError.code === '42P01' || queryError.code === 'PGRST205'
+          ? 'The portfolio listings table is not installed. Run supabase/portfolio_listings.sql in the Supabase SQL Editor.'
+          : `Portfolio listings could not be loaded: ${queryError.message}`)
+      } else {
+        setListings((data ?? []) as PortfolioListing[])
+      }
+      setLoading(false)
+    }
+    void loadListings()
+    return () => { active = false }
+  }, [reloadToken])
+
+  const startNewListing = () => {
+    setEditingListingId(null)
+    setListingForm({ ...emptyPortfolioListing })
+    setNotice('')
+    setError('')
+  }
+
+  const editListing = (listing: PortfolioListing) => {
+    setEditingListingId(listing.id)
+    setListingForm({
+      title: listing.title,
+      category: listing.category,
+      description: listing.description,
+      technologies: listing.technologies,
+      highlights: listing.highlights,
+      image_url: listing.image_url,
+      project_url: listing.project_url,
+      sort_order: listing.sort_order,
+      published: listing.published,
+    })
+    setNotice('')
+    setError('')
+  }
+
+  const saveListing = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase) {
+      setError('Supabase is not configured. The listing was not saved.')
+      return
+    }
+    setError('')
+    setNotice('')
+    if (listingForm.image_url.trim() && !isSafePortfolioImageUrl(listingForm.image_url.trim())) {
+      setError('Use a secure HTTP(S) URL or a site-relative image path for the project image.')
+      return
+    }
+    if (listingForm.project_url.trim() && !isPublicWebUrl(listingForm.project_url.trim())) {
+      setError('Use an HTTP(S) URL for the project link.')
+      return
+    }
+    setSaving(true)
+    const payload = {
+      ...listingForm,
+      title: listingForm.title.trim(),
+      category: listingForm.category.trim(),
+      description: listingForm.description.trim(),
+      technologies: listingForm.technologies.map(item => item.trim()).filter(Boolean),
+      highlights: listingForm.highlights.map(item => item.trim()).filter(Boolean),
+      image_url: listingForm.image_url.trim(),
+      project_url: listingForm.project_url.trim(),
+    }
+    const result = editingListingId
+      ? await supabase.from('portfolio_listings').update(payload).eq('id', editingListingId).select('*').single()
+      : await supabase.from('portfolio_listings').insert(payload).select('*').single()
+    setSaving(false)
+    if (result.error) {
+      setError(`The listing could not be saved: ${result.error.message}`)
+      return
+    }
+    const savedListing = result.data as PortfolioListing
+    setListings(current => editingListingId
+      ? current.map(listing => listing.id === savedListing.id ? savedListing : listing).sort((a, b) => a.sort_order - b.sort_order)
+      : [...current, savedListing].sort((a, b) => a.sort_order - b.sort_order))
+    setNotice(editingListingId ? 'Portfolio listing updated.' : 'Portfolio listing added.')
+    setEditingListingId(null)
+    setListingForm({ ...emptyPortfolioListing })
+  }
+
+  const deleteListing = async (listing: PortfolioListing) => {
+    if (!supabase || !window.confirm(`Delete "${listing.title}" from the portfolio?`)) return
+    setError('')
+    setNotice('')
+    const { error: deleteError } = await supabase.from('portfolio_listings').delete().eq('id', listing.id)
+    if (deleteError) {
+      setError(`The listing could not be deleted: ${deleteError.message}`)
+      return
+    }
+    setListings(current => current.filter(item => item.id !== listing.id))
+    if (editingListingId === listing.id) startNewListing()
+    setNotice('Portfolio listing deleted.')
+  }
+
+  return <section className="portfolio-listings-manager" aria-label="Manage portfolio listings">
+    <div className="portfolio-listings-toolbar">
+      <div><h2>Manage projects</h2><p>These listings appear in the Projects section of the public Portfolio page when published.</p></div>
+      <button className="primary-button" type="button" onClick={startNewListing}><Plus size={17} /> Add listing</button>
+    </div>
+    {error && <p className="portfolio-listings-message error" role="alert">{error}</p>}
+    {notice && <p className="portfolio-listings-message success" role="status">{notice}</p>}
+    <form className="portfolio-listing-form" onSubmit={saveListing}>
+      <h3>{editingListingId ? 'Edit listing' : 'Add a listing'}</h3>
+      <div className="portfolio-listing-fields">
+        <label>Project title<input required maxLength={120} value={listingForm.title} onChange={event => setListingForm(current => ({ ...current, title: event.target.value }))} /></label>
+        <label>Category<input required maxLength={80} placeholder="Web application" value={listingForm.category} onChange={event => setListingForm(current => ({ ...current, category: event.target.value }))} /></label>
+        <label className="wide">Description<textarea required rows={3} maxLength={1200} value={listingForm.description} onChange={event => setListingForm(current => ({ ...current, description: event.target.value }))} /></label>
+        <label>Technologies <small>Comma-separated</small><input value={listingForm.technologies.join(', ')} onChange={event => setListingForm(current => ({ ...current, technologies: event.target.value.split(',') }))} /></label>
+        <label>Highlights <small>One per line</small><textarea rows={3} value={listingForm.highlights.join('\n')} onChange={event => setListingForm(current => ({ ...current, highlights: event.target.value.split('\n') }))} /></label>
+        <label>Image URL<input type="text" inputMode="url" placeholder="https://... or /image.png" value={listingForm.image_url} onChange={event => setListingForm(current => ({ ...current, image_url: event.target.value }))} /></label>
+        <label>Project URL<input type="url" placeholder="https://..." value={listingForm.project_url} onChange={event => setListingForm(current => ({ ...current, project_url: event.target.value }))} /></label>
+        <label>Display order<input type="number" min="0" step="1" value={listingForm.sort_order} onChange={event => setListingForm(current => ({ ...current, sort_order: Number(event.target.value) }))} /></label>
+        <label className="portfolio-listing-published"><input type="checkbox" checked={listingForm.published} onChange={event => setListingForm(current => ({ ...current, published: event.target.checked }))} /> Publish on public Portfolio page</label>
+      </div>
+      <div className="portfolio-listing-form-actions">
+        <button className="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : editingListingId ? 'Save changes' : 'Add listing'}</button>
+        {editingListingId && <button className="secondary-button" type="button" onClick={startNewListing}>Cancel edit</button>}
+      </div>
+    </form>
+    <div className="portfolio-listing-admin-list">
+      <h3>Existing listings</h3>
+      {loading ? <p>Loading portfolio listings…</p> : listings.length === 0 ? <p>No listings yet. Add a project above to get started.</p> : listings.map(listing => <article key={listing.id} className="portfolio-listing-admin-item">
+        <div><strong>{listing.title}</strong><span>{listing.category} · Order {listing.sort_order} · {listing.published ? 'Published' : 'Draft'}</span></div>
+        <div className="portfolio-listing-admin-actions">
+          <button type="button" className="secondary-button" onClick={() => editListing(listing)}><Pencil size={15} /> Edit</button>
+          <button type="button" className="secondary-button danger" onClick={() => void deleteListing(listing)}><Trash2 size={15} /> Delete</button>
+        </div>
+      </article>)}
+      {!loading && <button className="secondary-button" type="button" onClick={() => setReloadToken(token => token + 1)}>Refresh listings</button>}
+    </div>
+  </section>
+}
+
 function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onOpenLandlordSignup }: { workspaceName: string; onOpenRolePage: (role: 'Landlord' | 'Administrator' | 'Caretaker') => void; onOpenTenantPortal: () => void; onOpenLandlordSignup: () => void }) {
   const [activeContent, setActiveContent] = useState<PublicHomeSection>(() => getPublicHomeSection(window.location.pathname) ?? 'home')
   const [publicStats, setPublicStats] = useState<PublicPlatformStats | null>(null)
@@ -6484,11 +6656,21 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
   const [statsLoading, setStatsLoading] = useState(true)
   const [statsError, setStatsError] = useState('')
   const [statsRetry, setStatsRetry] = useState(0)
+  const [portfolioListings, setPortfolioListings] = useState<PortfolioListing[]>([])
+  const [portfolioListingsLoading, setPortfolioListingsLoading] = useState(() => getPublicHomeSection(window.location.pathname) === 'portfolio' && Boolean(supabase))
+  const [portfolioListingsError, setPortfolioListingsError] = useState(() => supabase ? '' : 'Portfolio projects are unavailable because this site is not connected to Supabase.')
+  const [portfolioListingsRetry, setPortfolioListingsRetry] = useState(0)
   const isHome = activeContent === 'home'
   useEffect(() => {
     const syncSectionFromPath = () => {
       const section = getPublicHomeSection(window.location.pathname)
-      if (section) setActiveContent(section)
+      if (section) {
+        if (section === 'portfolio') {
+          setPortfolioListingsLoading(Boolean(supabase))
+          setPortfolioListingsError(supabase ? '' : 'Portfolio projects are unavailable because this site is not connected to Supabase.')
+        }
+        setActiveContent(section)
+      }
     }
     window.addEventListener('popstate', syncSectionFromPath)
     return () => window.removeEventListener('popstate', syncSectionFromPath)
@@ -6536,6 +6718,28 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     return () => { active = false }
   }, [statsRetry])
   useEffect(() => {
+    if (activeContent !== 'portfolio') return
+    const client = supabase
+    if (!client) return
+    let active = true
+    const loadPortfolioListings = async () => {
+      const { data, error } = await client.from('portfolio_listings').select('id,title,category,description,technologies,highlights,image_url,project_url,sort_order,published,created_at,updated_at').eq('published', true).order('sort_order').order('created_at')
+      if (!active) return
+      if (error) {
+        setPortfolioListingsError(error.code === '42P01' || error.code === 'PGRST205'
+          ? 'Portfolio projects are not set up yet. An administrator needs to run supabase/portfolio_listings.sql in the Supabase SQL Editor.'
+          : error.code === '42501'
+            ? 'Supabase denied public access to the portfolio listings. Run the updated supabase/portfolio_listings.sql migration again to apply the separate public and administrator read policies.'
+          : 'Portfolio projects could not be loaded. Please try again later.')
+      } else {
+        setPortfolioListings((data ?? []) as PortfolioListing[])
+      }
+      setPortfolioListingsLoading(false)
+    }
+    void loadPortfolioListings()
+    return () => { active = false }
+  }, [activeContent, portfolioListingsRetry])
+  useEffect(() => {
     if (!publicStats) return
     const target = publicStats
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -6568,6 +6772,10 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
   ]
   const showContent = (content: typeof activeContent) => {
     window.history.pushState({}, '', publicHomePaths[content])
+    if (content === 'portfolio') {
+      setPortfolioListingsLoading(Boolean(supabase))
+      setPortfolioListingsError(supabase ? '' : 'Portfolio projects are unavailable because this site is not connected to Supabase.')
+    }
     setActiveContent(content)
     window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   }
@@ -6575,8 +6783,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
   return <main className="portal-home">
     <header className="portal-home-header">
       <div className="portal-home-brand">
-        <span className="portal-home-logo"><MohaLogo size={42} /></span>
-        <span><strong>MOHA</strong><small>{workspaceName}</small></span>
+        <img className="portal-home-wordmark" src="/vyro-rentals-home-logo.png" alt={`${workspaceName} logo`} />
       </div>
       <nav className="portal-home-nav" aria-label="Public information">
         <button type="button" className={isHome ? 'active' : ''} aria-pressed={isHome} onClick={() => showContent('home')}>Home</button>
@@ -6593,7 +6800,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       <div className="portal-home-copy">
         <p className="portal-home-eyebrow">YOUR RENTAL WORKSPACE</p>
         <h1 id="portal-home-title">A better way to care for every property.</h1>
-        <p>Explore how Moha helps bring everyday rental management into one practical workspace.</p>
+        <p>Explore how Vyro helps bring everyday rental management into one practical workspace.</p>
         <div className="portal-home-hero-actions">
           <button type="button" onClick={() => showContent('portals')}>Choose a portal <ArrowUpRight size={16} /></button>
           <button type="button" onClick={onOpenLandlordSignup}>Create landlord account</button>
@@ -6605,7 +6812,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       </div>
     </section>}
 
-    {isHome && <section className="portal-home-stats" aria-label="Moha platform totals">
+    {isHome && <section className="portal-home-stats" aria-label="Vyro platform totals">
       <div className="portal-home-stat">
         <span className="portal-home-stat-icon"><Building2 size={21} /></span>
         <div><strong aria-label={publicStats ? `${publicStats.landlord_count} landlords served` : 'Landlords served'}>
@@ -6631,7 +6838,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     {isHome && <section className="portal-home-overview" aria-labelledby="portal-home-overview-title">
       <div className="portal-home-section-heading portal-home-feature-heading">
         <div><p className="portal-home-eyebrow">A CLEARER WAY TO MANAGE</p><h2 id="portal-home-overview-title">Everything you need, in one place</h2><p className="portal-home-feature-subheading">Bring property, rent, tenant, and day-to-day management into one organized workspace.</p></div>
-        <button type="button" className="portal-home-text-link" onClick={() => showContent('about')}>Discover Moha <ArrowUpRight size={16} /></button>
+        <button type="button" className="portal-home-text-link" onClick={() => showContent('about')}>Discover Vyro <ArrowUpRight size={16} /></button>
       </div>
       <div className="portal-home-overview-grid">
         <article><span className="portal-home-overview-icon"><Building2 size={22} /></span><h3>Your properties, organized</h3><p>Keep units, occupancy, and resident details together in one clear workspace.</p></article>
@@ -6639,7 +6846,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         <article><span className="portal-home-overview-icon operations"><ClipboardList size={22} /></span><h3>Daily work, connected</h3><p>Bring maintenance, team coordination, and property operations together.</p></article>
       </div>
       <div className="portal-home-overview-cta">
-        <div><strong>Ready to see Moha in action?</strong><span>Choose the right portal or explore plans for your rental business.</span></div>
+        <div><strong>Ready to see Vyro in action?</strong><span>Choose the right portal or explore plans for your rental business.</span></div>
         <div><button type="button" className="portal-home-overview-secondary" onClick={() => showContent('pricing')}>View plans</button><button type="button" className="portal-home-overview-primary" onClick={() => showContent('portals')}>Explore portals <ArrowUpRight size={16} /></button></div>
       </div>
     </section>}
@@ -6664,7 +6871,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
 
     {activeContent === 'about' && <section className="portal-home-information" id="why-moha" aria-labelledby="why-moha-title">
       <div className="portal-home-section-heading portal-home-feature-heading">
-        <div><p className="portal-home-eyebrow">WHY MOHA RENTAL MANAGEMENT SYSTEM</p><h2 id="why-moha-title">Why choose Moha Rental Management System?</h2><p className="portal-home-feature-subheading">Practical tools help landlords, teams, and residents keep rental operations organized.</p></div>
+        <div><p className="portal-home-eyebrow">WHY VYRO RENTAL MANAGEMENT SYSTEM</p><h2 id="why-moha-title">Why choose Vyro Rental Management System?</h2><p className="portal-home-feature-subheading">Practical tools help landlords, teams, and residents keep rental operations organized.</p></div>
       </div>
       <div className="portal-home-benefits">
         <article><span className="portal-home-benefit-icon"><Building2 size={20} /></span><div><h3>Organize properties</h3><p>Keep property, unit, tenant, and occupancy details together in your workspace.</p></div></article>
@@ -6676,9 +6883,9 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
 
     {activeContent === 'about' && <section className="portal-home-about focused" id="about-moha" aria-labelledby="about-moha-title">
       <div className="portal-home-about-copy portal-home-about-heading">
-        <p className="portal-home-eyebrow">ABOUT MOHA RENTAL MANAGEMENT SYSTEM</p>
-        <h2 id="about-moha-title">About Moha Rental Management System</h2>
-        <p>Moha Rental Management System is a property-management workspace for landlords and their teams. It brings property records, tenant information, rent tracking, and everyday operations into one place, with a dedicated portal for residents.</p>
+        <p className="portal-home-eyebrow">ABOUT VYRO RENTAL MANAGEMENT SYSTEM</p>
+        <h2 id="about-moha-title">About Vyro Rental Management System</h2>
+        <p>Vyro Rental Management System is a property-management workspace for landlords and their teams. It brings property records, tenant information, rent tracking, and everyday operations into one place, with a dedicated portal for residents.</p>
       </div>
       <div className="portal-home-purpose" id="moha-mission-vision">
         <article><span>OUR MISSION</span><h3>Make rental operations clearer and easier to manage.</h3><p>Help landlords and their teams organize essential property and tenant work with practical, accessible tools.</p></article>
@@ -6731,45 +6938,22 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
           <div><p className="portal-home-eyebrow">SELECTED WORK</p><h3 id="portfolio-projects-title">Projects</h3><p className="portal-home-portfolio-subheading">A selection of platforms and digital projects built to solve real-world needs.</p></div>
         </div>
         <div className="portal-home-project-grid">
-          <article className="portal-home-project-card">
-            <img className="portal-home-project-screenshot" src="/moha-rental-management-screenshot.png" alt="Moha Rental Management System administrator dashboard showing property, payment, occupancy, and maintenance summaries" loading="lazy" />
-            <div className="portal-home-project-heading">
-              <span className="portal-home-project-icon"><Building2 size={23} /></span>
-              <div><p>WEB APPLICATION</p><h4>Moha Rental Management System</h4><small>React.js · Supabase</small></div>
-            </div>
-            <p>A rental-management application for landlords, administrators, caretakers, and tenants. It brings property and tenant records, rent tracking, water-meter billing, invoices, and tenant statements into one workspace.</p>
-            <ul>
-              <li>Property, unit, tenant, and caretaker management</li>
-              <li>Manual and confirmed rent payment tracking</li>
-              <li>Metered water-bill calculations and itemized invoices</li>
-              <li>Tenant portal, payment records, and CSV exports</li>
-            </ul>
-            <button type="button" className="portal-home-text-link" onClick={() => showContent('portals')}>Explore the Moha platform <ArrowUpRight size={16} /></button>
-          </article>
-          <article className="portal-home-project-card">
-            <img className="portal-home-project-screenshot" src="/vyrosocial-screenshot.png" alt="VyroSocial social networking platform with house hunting, marketplace, and Airbnb or hotel booking sections" loading="lazy" />
-            <div className="portal-home-project-heading">
-              <span className="portal-home-project-icon social"><Users size={23} /></span>
-              <div><p>SOCIAL NETWORKING PLATFORM</p><h4>VyroSocial</h4><small>React.js · JavaScript · CSS</small></div>
-            </div>
-            <p>A social networking platform that brings community connections together with house hunting, Airbnb and hotel bookings, and a marketplace.</p>
-            <ul>
-              <li>Social networking and community connections</li>
-              <li>House hunting</li>
-              <li>Airbnb and hotel bookings</li>
-              <li>Marketplace</li>
-            </ul>
-            <a className="portal-home-project-link" href="https://vyrosocial.com" target="_blank" rel="noreferrer">Visit VyroSocial <ArrowUpRight size={16} /></a>
-          </article>
-          <article className="portal-home-project-card">
-            <img className="portal-home-project-screenshot" src="/shopping254-screenshot.png" alt="Shopping254 online store showing its shop page and product categories" loading="lazy" />
-            <div className="portal-home-project-heading">
-              <span className="portal-home-project-icon shopping"><ShoppingBag size={23} /></span>
-              <div><p>E-COMMERCE PLATFORM</p><h4>Shopping254</h4><small>CSS · JavaScript · React.js</small></div>
-            </div>
-            <p>Shopping254 is an online store for browsing products across categories like phones, electronics, clothing, shoes, and home essentials. Shoppers can search for products, explore categories, and add items to their cart.</p>
-            <a className="portal-home-project-link" href="https://shopping254.com" target="_blank" rel="noreferrer">Visit Shopping254 <ArrowUpRight size={16} /></a>
-          </article>
+          {portfolioListingsLoading
+            ? <p className="portal-home-project-status" role="status">Loading projects…</p>
+            : portfolioListingsError
+              ? <div className="portal-home-project-status error" role="alert"><p>{portfolioListingsError}</p>{supabase && <button type="button" onClick={() => { setPortfolioListingsLoading(true); setPortfolioListingsError(''); setPortfolioListingsRetry(retry => retry + 1) }}>Try again</button>}</div>
+              : portfolioListings.length === 0
+                ? <p className="portal-home-project-status">No projects are currently published.</p>
+                : portfolioListings.map(listing => <article key={listing.id} className="portal-home-project-card">
+                    {isSafePortfolioImageUrl(listing.image_url) && <img className="portal-home-project-screenshot" src={listing.image_url} alt={`${listing.title} project`} loading="lazy" />}
+                    <div className="portal-home-project-heading">
+                      <span className="portal-home-project-icon"><Code2 size={23} /></span>
+                      <div><p>{listing.category}</p><h4>{listing.title}</h4>{listing.technologies.length > 0 && <small>{listing.technologies.join(' · ')}</small>}</div>
+                    </div>
+                    <p>{listing.description}</p>
+                    {listing.highlights.length > 0 && <ul>{listing.highlights.map(highlight => <li key={highlight}>{highlight}</li>)}</ul>}
+                    {isPublicWebUrl(listing.project_url) && <a className="portal-home-project-link" href={listing.project_url} target="_blank" rel="noreferrer">View project <ArrowUpRight size={16} /></a>}
+                  </article>)}
         </div>
       </section>
 
@@ -6780,7 +6964,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         <div className="portal-home-faq-list">
           <details><summary>What kind of projects do you build?</summary><p>I build websites and web applications, including responsive business sites, custom interfaces, and tools for managing information and workflows.</p></details>
           <details><summary>Which programming languages and technologies do you use?</summary><p>My toolkit includes JavaScript, HTML, CSS, PHP, and React.js.</p></details>
-          <details><summary>What is the Moha Rental Management System?</summary><p>It is a web application that helps rental teams organize properties, tenants, rent payments, water bills, invoices, and tenant access.</p></details>
+          <details><summary>What is the Vyro Rental Management System?</summary><p>It is a web application that helps rental teams organize properties, tenants, rent payments, water bills, invoices, and tenant access.</p></details>
           <details><summary>What is Shopping254?</summary><p>Shopping254 is an online store where customers can browse products across categories including phones, electronics, clothing, shoes, and home essentials. Visit <a href="https://shopping254.com" target="_blank" rel="noreferrer">shopping254.com</a>.</p></details>
           <details><summary>What is VyroSocial?</summary><p>VyroSocial is a social networking platform combining community connections with house hunting, Airbnb and hotel bookings, and a marketplace. Visit <a href="https://vyrosocial.com" target="_blank" rel="noreferrer">vyrosocial.com</a>.</p></details>
           <details><summary>How can I discuss a project with you?</summary><p>Use the Contact link above to find the available email and phone details.</p></details>
@@ -6794,7 +6978,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       </div>
       <div className="portal-home-pricing-grid">
         <article className="portal-home-plan-card">
-          <p className="portal-home-plan-label">TRY MOHA</p>
+          <p className="portal-home-plan-label">TRY VYRO</p>
           <h3>Test Plan</h3>
           <div className="portal-home-plan-price">KSh 0 <span>/ 1 month</span></div>
           <p className="portal-home-plan-description">Try the full system free for one month.</p>
@@ -6838,14 +7022,14 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     </section>}
 
     {activeContent === 'contact' && <section className="portal-home-contact" id="contact-moha" aria-labelledby="contact-moha-title">
-      <div><p className="portal-home-eyebrow">CONTACT</p><h2 id="contact-moha-title">Questions about Moha?</h2><p>Get in touch for information about the platform or help choosing the right portal.</p></div>
+      <div><p className="portal-home-eyebrow">CONTACT</p><h2 id="contact-moha-title">Questions about Vyro?</h2><p>Get in touch for information about the platform or help choosing the right portal.</p></div>
       <div className="portal-home-contact-links">
         <a href="mailto:mohammedhussein3562@gmail.com"><strong>Email</strong><span>mohammedhussein3562@gmail.com</span></a>
         <a href="tel:0112800325"><strong>Phone</strong><span>0112 800 325</span></a>
       </div>
       <div className="portal-home-team" aria-labelledby="portal-home-team-title">
         <div className="portal-home-team-heading">
-          <div><p className="portal-home-eyebrow">THE PEOPLE BEHIND MOHA</p><h3 id="portal-home-team-title">Our team</h3></div>
+          <div><p className="portal-home-eyebrow">THE PEOPLE BEHIND VYRO</p><h3 id="portal-home-team-title">Our team</h3></div>
           <span>Here to make rental management work better for you.</span>
         </div>
         <div className="portal-home-team-grid">
@@ -6878,8 +7062,8 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     <footer className="portal-home-footer">
       <div className="portal-home-footer-main">
         <div className="portal-home-footer-brand">
-          <span className="portal-home-logo"><MohaLogo size={38} /></span>
-          <div><strong>MOHA</strong><span>Rental Management System</span></div>
+          <span className="portal-home-logo"><VyroLogo size={38} /></span>
+          <div><strong>VYRO</strong><span>Rental Management System</span></div>
           <p>Practical tools to help landlords, teams, and residents stay organized.</p>
         </div>
         <nav className="portal-home-footer-nav" aria-label="Footer navigation">
@@ -6899,7 +7083,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         </div>
       </div>
       <div className="portal-home-footer-bottom">
-        <span>© {new Date().getFullYear()} Moha Rental Management System</span>
+        <span>© {new Date().getFullYear()} Vyro Rental Management System</span>
         <span>Simple, secure property operations</span>
       </div>
     </footer>
@@ -6969,9 +7153,9 @@ function LoginView({ darkMode, workspaceName, authMessage, onBackToHome, onOpenT
   return <main className={`login-shell ${darkMode ? 'dark' : ''}`}>
     <aside className={`login-aside ${selectedVariant.accent}`} aria-label={`${selectedVariant.title} sign-in`}>
       <div className="login-brand-lockup">
-        <span className="login-brand-mark" aria-hidden="true"><MohaLogo size={26} /></span>
+        <span className="login-brand-mark" aria-hidden="true"><VyroLogo size={26} /></span>
         <div className="login-brand-copy">
-          <small>MOHA</small>
+          <small>VYRO</small>
           <span>{workspaceName}</span>
         </div>
       </div>
@@ -6982,11 +7166,11 @@ function LoginView({ darkMode, workspaceName, authMessage, onBackToHome, onOpenT
           <span>{selectedVariant.kicker}</span>
           <strong>{selectedVariant.title}</strong>
         </div>
-        <span className="login-photo-index">MOHA RENTAL MANAGEMENT</span>
+        <span className="login-photo-index">VYRO RENTAL MANAGEMENT</span>
       </div>
     </aside>
     <section className="login-card" aria-labelledby="login-title">
-      <div className="login-mobile-brand"><span className="login-logo"><MohaLogo size={20} /></span><span>{workspaceName}</span></div>
+      <div className="login-mobile-brand"><span className="login-logo"><VyroLogo size={20} /></span><span>{workspaceName}</span></div>
       <button type="button" className="login-return-home" onClick={onBackToHome}><Home size={16} aria-hidden="true" /> Back to home</button>
       <p className="login-kicker">SECURE WORKSPACE</p>
       <h1 id="login-title">Welcome back<span>.</span></h1>

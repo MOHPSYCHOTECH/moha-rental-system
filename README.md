@@ -1,4 +1,4 @@
-# Moha Rental Management System
+# Vyro Rental Management System
 
 Rental management frontend built with React, TypeScript, and Vite. Supabase provides authentication and cloud workspace storage.
 

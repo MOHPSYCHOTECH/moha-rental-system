@@ -1,6 +1,6 @@
 # Hosting the web app
 
-The app is a static Vite single-page application. Deploy it to any static host that supports SPA rewrites; `public/_redirects` covers Netlify-compatible hosts and `vercel.json` covers Vercel.
+The app is a static Vite single-page application. Deploy it to any static host that supports SPA rewrites; `public/_redirects` covers Netlify-compatible hosts, `vercel.json` covers Vercel, and `public/.htaccess` provides Apache/LiteSpeed fallback routing.
 
 ## Build settings
 
@@ -10,6 +10,10 @@ The app is a static Vite single-page application. Deploy it to any static host t
 - Node.js: 20.19+ or 22.12+
 
 For another static host, configure unknown application routes to return `/index.html` with HTTP 200. This is needed for direct visits to `/tenant` and `/portal`.
+
+### MyHosting shared hosting (Apache/LiteSpeed)
+
+Create `app.vyrosocial.com` in the hosting control panel and give it its own document root. Remove any redirect that sends the subdomain to another site. Upload the **contents** of the generated `dist/` folder to that document root, including `.htaccess` (enable viewing hidden files in the file manager). The `.htaccess` file routes application paths such as `/tenant` and `/landlord` to `index.html` while allowing real files to load normally. Enable a free SSL certificate for the subdomain in the hosting panel before using it in production.
 
 ## Hosting environment variables
 

@@ -32,6 +32,10 @@ Run `supabase/public_platform_stats.sql` in the Supabase SQL Editor for the proj
 
 For a Netlify deployment, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in the site's environment variables to the same Supabase project where this SQL was run, then trigger a new deploy because Vite embeds these values at build time. The homepage displays a setup-specific message if Supabase is not configured or the public stats function is missing or inaccessible.
 
+## Public portfolio projects
+
+Run `supabase/portfolio_listings.sql` in the Supabase SQL Editor after `supabase/user_hierarchy.sql`. It creates the portfolio-project table and seeds the current project cards. The public Portfolio page can read published projects only; only authenticated platform administrators can add, edit, publish, or delete listings from the dashboard's **Portfolio listings** area. The anonymous read policy intentionally does not call `is_platform_admin()` because that function is restricted to authenticated users. Re-running the SQL does not overwrite changes to the seeded project cards and reapplies the listing policies.
+
 ## Subscription plans
 
 Landlords can start the Test plan once per account for one month at no cost. Silver costs KSh 1,350 monthly or KSh 13,500 yearly (a KSh 2,700 saving compared with twelve monthly payments). Both include property, unit, and tenant management; rent, water, and payment tracking; invoices; the tenant portal; WhatsApp reminders; maintenance; expenses; applicant management; monthly CSV reports; and team access. Yearly Silver also includes priority support, advanced reports, and backup features. Silver payment references remain subject to manual platform-admin verification. Apply `supabase/subscription_price_update.sql` in the Supabase SQL Editor to enable the new amounts while preserving existing pending requests and subscriptions.
