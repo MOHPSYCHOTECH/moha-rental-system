@@ -10210,3 +10210,169 @@ body,
   color: #fff;
 }
 .portal-home-footer-contact .portal-home-footer-signup:focus-visible { outline-color: var(--vyro-cyan); }
+
+.login-shell:not(.dark) {
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(5, 215, 242, .1), transparent 35%),
+    linear-gradient(135deg, #f5f8ff, #edf3ff 58%, #f5f1ff);
+}
+.login-aside,
+.login-aside.landlord,
+.login-aside.administrator,
+.login-aside.caretaker {
+  background:
+    radial-gradient(ellipse at 90% 0%, rgba(208, 0, 245, .22), transparent 38%),
+    linear-gradient(145deg, #050b20, #0b1740 70%, #102554);
+}
+.login-brand-lockup { color: #f7f9ff; }
+.login-brand-mark {
+  border: 1px solid rgba(101, 234, 255, .26);
+  background: rgba(8, 124, 255, .14);
+  color: #65eaff;
+}
+.login-brand-copy small { color: #65eaff; }
+.login-brand-copy span { color: #f7f9ff; }
+.login-photo-frame {
+  background: #101d43;
+  box-shadow: 0 18px 42px rgba(2, 8, 28, .3);
+}
+.login-photo-shade {
+  background:
+    linear-gradient(180deg, rgba(5, 11, 32, .08), rgba(5, 11, 32, .25) 34%, rgba(5, 11, 32, .86)),
+    linear-gradient(120deg, rgba(8, 124, 255, .08), transparent 58%);
+}
+.login-photo-caption {
+  border-color: rgba(101, 234, 255, .22);
+  background: rgba(5, 11, 32, .4);
+}
+.login-photo-caption > span { color: #65eaff; }
+.login-return-home {
+  border-color: #d4e5ff;
+  background: #edf5ff;
+  color: #075be5;
+}
+.login-return-home:hover { border-color: #9bbdf8; background: #e2f5ff; }
+.login-return-home:focus-visible,
+.login-role-tab:focus-visible,
+.login-forgot-link:focus-visible,
+.login-signup-link:focus-visible { outline: 3px solid var(--vyro-cyan); outline-offset: 3px; }
+.login-kicker { color: #7020cf; }
+.login-card h1 { color: #07132e; }
+.login-card h1 span { color: #087cff; }
+.login-copy,
+.login-tenant-hint { color: #52617b; }
+.login-role-tab {
+  border-color: #dce5f7;
+  background: linear-gradient(145deg, #fff, #f3f7ff);
+}
+.login-role-tab > span { color: #10214a; }
+.login-role-tab:hover { border-color: #9bbdf8; }
+.login-role-tab.active {
+  border-color: var(--vyro-violet);
+  background: linear-gradient(135deg, #eaf8ff, #f3eaff);
+  box-shadow: 0 8px 18px rgba(104, 45, 255, .12);
+}
+.login-field > span { color: #23345a; }
+.login-field input {
+  border-color: #cfdaeb;
+  border-radius: 9px;
+  background: #fff;
+  color: #101a39;
+}
+.login-field input:focus {
+  border-color: var(--vyro-blue);
+  box-shadow: 0 0 0 3px rgba(8, 124, 255, .14);
+}
+.password-visibility-toggle { color: #52617b; }
+.password-visibility-toggle:hover { background: #eaf2ff; color: #075be5; }
+.password-visibility-toggle:focus-visible { outline-color: var(--vyro-cyan); }
+.login-forgot-link,
+.login-signup-link { color: #075be5; }
+.login-forgot-link:hover,
+.login-signup-link:hover { color: #7020cf; }
+.login-reset-message {
+  border-color: #b7dcff;
+  background: #eef7ff;
+  color: #075be5;
+}
+.login-button {
+  border-radius: 8px;
+  background: var(--vyro-gradient);
+  box-shadow: 0 6px 18px rgba(104, 45, 255, .2);
+}
+.login-button:hover { background: linear-gradient(115deg, #0069ed, #7415e8 72%, #bc00df); }
+.login-button:focus-visible { outline: 3px solid var(--vyro-cyan); }
+.login-note { color: #64718a; }
+.login-note-dot { background: var(--vyro-cyan); }
+.login-shell.dark {
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(5, 215, 242, .08), transparent 36%),
+    linear-gradient(135deg, #050b20, #0b1740 62%, #120b31);
+}
+.login-shell.dark .login-card h1 { color: #f7f9ff; }
+.login-shell.dark .login-card h1 span { color: #65eaff; }
+.login-shell.dark .login-copy,
+.login-shell.dark .login-note,
+.login-shell.dark .login-tenant-hint { color: #bdcbea; }
+.login-shell.dark .login-kicker { color: #65eaff; }
+.login-shell.dark .login-field > span { color: #e0eaff; }
+.login-shell.dark .login-field input {
+  border-color: #34456f;
+  background: #111d3e;
+  color: #f7f9ff;
+}
+.login-shell.dark .login-field input:focus { border-color: var(--vyro-cyan); }
+.login-shell.dark .login-role-tab {
+  border-color: #34456f;
+  background: #111d3e;
+}
+.login-shell.dark .login-role-tab > span { color: #e0eaff; }
+.login-shell.dark .login-role-tab.active {
+  border-color: var(--vyro-cyan);
+  background: linear-gradient(135deg, rgba(8, 124, 255, .24), rgba(139, 32, 255, .2));
+}
+.login-shell.dark .login-return-home { border-color: #34456f; background: #111d3e; color: #65eaff; }
+.login-shell.dark .login-return-home:hover { background: #17264e; }
+.login-shell.dark .password-visibility-toggle { color: #bdcbea; }
+.login-shell.dark .password-visibility-toggle:hover { background: rgba(8, 124, 255, .18); color: #65eaff; }
+
+.tenant-public-shell:not(.dark) {
+  background:
+    radial-gradient(ellipse at 8% 8%, rgba(5, 215, 242, .14), transparent 34%),
+    radial-gradient(ellipse at 92% 92%, rgba(139, 32, 255, .11), transparent 36%),
+    linear-gradient(135deg, #f5f8ff, #edf3ff 58%, #f5f1ff);
+}
+.tenant-public-wrap {
+  border-color: #dce5f7;
+  box-shadow: 0 32px 80px rgba(8, 47, 112, .14);
+}
+.tenant-public-brand {
+  background:
+    radial-gradient(ellipse at 92% 0%, rgba(208, 0, 245, .25), transparent 38%),
+    linear-gradient(135deg, #050b20, #0b1740 66%, #102554);
+}
+.tenant-public-logo {
+  border-color: rgba(101, 234, 255, .3);
+  background: rgba(8, 124, 255, .16);
+  color: #65eaff;
+}
+.tenant-public-kicker,
+.tenant-public-photo-caption span,
+.tenant-public-features li::before { color: #65eaff; }
+.tenant-public-photo-frame { background: #101d43; }
+.tenant-public-photo-shade {
+  background: linear-gradient(180deg, rgba(5, 11, 32, .08), rgba(5, 11, 32, .28) 34%, rgba(5, 11, 32, .86));
+}
+.tenant-public-card { background: linear-gradient(180deg, #fff, #f3f7ff); }
+.tenant-public-card .login-kicker { color: #7020cf; }
+.tenant-public-back {
+  border-color: #d4e5ff;
+  background: #edf5ff;
+  color: #075be5;
+}
+.tenant-public-back:hover { border-color: #9bbdf8; background: #e2f5ff; }
+.tenant-public-back:focus-visible { outline-color: var(--vyro-cyan); }
+
+@media (max-width: 720px) {
+  .login-shell:not(.dark) { background: linear-gradient(145deg, #f5f8ff, #edf3ff 60%, #f5f1ff); }
+}

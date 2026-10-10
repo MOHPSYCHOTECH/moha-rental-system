@@ -6291,8 +6291,8 @@ function TenantPublicLoginPage({ darkMode, workspaceName, tenantPortalForm, tena
 
 function RoleIllustration({ role, compact = false }: { role: 'Landlord' | 'Administrator' | 'Caretaker' | 'Tenant'; compact?: boolean }) {
   const uid = useId().replace(/:/g, '')
-  const color = role === 'Landlord' ? '#f4c76e' : role === 'Administrator' ? '#8aa6ff' : role === 'Caretaker' ? '#d7a967' : '#82c5cf'
-  const accent = role === 'Landlord' ? '#17483d' : role === 'Administrator' ? '#1f2d4e' : role === 'Caretaker' ? '#4a5f3a' : '#31586b'
+  const color = role === 'Landlord' ? '#05d7f2' : role === 'Administrator' ? '#8b20ff' : role === 'Caretaker' ? '#087cff' : '#65eaff'
+  const accent = role === 'Landlord' ? '#075be5' : role === 'Administrator' ? '#34206f' : role === 'Caretaker' ? '#102555' : '#0b5270'
   const className = compact ? 'role-art compact' : 'role-art'
   const landlordBgId = `landlord-bg-${uid}`
   const adminBgId = `admin-bg-${uid}`
@@ -6302,15 +6302,15 @@ function RoleIllustration({ role, compact = false }: { role: 'Landlord' | 'Admin
     return <svg className={className} viewBox="0 0 160 120" aria-hidden="true" role="img">
       <defs>
         <linearGradient id={landlordBgId} x1="0" x2="1">
-          <stop offset="0%" stopColor="#e7f4ea" />
-          <stop offset="100%" stopColor="#f8e7b9" />
+          <stop offset="0%" stopColor="#e5f8ff" />
+          <stop offset="100%" stopColor="#f0eaff" />
         </linearGradient>
       </defs>
       <rect x="14" y="18" width="132" height="84" rx="18" fill={`url(#${landlordBgId})`} />
       <path d="M36 62L80 30L124 62" fill="none" stroke={accent} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
       <rect x="42" y="62" width="76" height="32" rx="8" fill={accent} />
-      <rect x="58" y="68" width="18" height="26" rx="4" fill="#edf7ee" />
-      <rect x="84" y="68" width="18" height="26" rx="4" fill="#edf7ee" />
+      <rect x="58" y="68" width="18" height="26" rx="4" fill="#edf5ff" />
+      <rect x="84" y="68" width="18" height="26" rx="4" fill="#edf5ff" />
       <circle cx="80" cy="42" r="12" fill={color} />
       <path d="M64 50c0-9 7-16 16-16s16 7 16 16v10H64V50Z" fill={color} opacity="0.92" />
       <rect x="22" y="92" width="116" height="8" rx="4" fill={accent} opacity="0.18" />
@@ -6356,8 +6356,8 @@ function RoleIllustration({ role, compact = false }: { role: 'Landlord' | 'Admin
   return <svg className={className} viewBox="0 0 160 120" aria-hidden="true" role="img">
     <defs>
       <linearGradient id={caretakerBgId} x1="0" x2="1">
-        <stop offset="0%" stopColor="#edf6e6" />
-        <stop offset="100%" stopColor="#fce7c9" />
+        <stop offset="0%" stopColor="#e5f8ff" />
+        <stop offset="100%" stopColor="#eee7ff" />
       </linearGradient>
     </defs>
     <rect x="14" y="18" width="132" height="84" rx="18" fill={`url(#${caretakerBgId})`} />
