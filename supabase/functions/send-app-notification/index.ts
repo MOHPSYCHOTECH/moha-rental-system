@@ -211,7 +211,7 @@ Deno.serve(async request => {
             message: {
               token: device.token,
               notification: { title, body: message },
-              android: { priority: 'HIGH', notification: { channel_id: 'vyro_updates' } },
+              android: { priority: 'HIGH', notification: { channel_id: 'vyro_updates_high' } },
             },
           }),
         })

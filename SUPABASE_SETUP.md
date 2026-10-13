@@ -83,7 +83,7 @@ Remove-Variable serviceAccountJson
 supabase functions deploy send-app-notification
 ```
 
-Replace the example path with the service-account file's actual private location, outside the repository. Do not paste the private key into chat or commit the file. The Platform Administrator can then use **App notifications** to send a message to one or more roles. Devices are registered after the user signs in and grants notification permission. Tenant devices are verified against their portal email/code and current workspace records. The Android notification channel is named **Vyro Updates**. Delivery history records device-level sent/failed totals; a successful FCM response means accepted by Firebase, not confirmed displayed or read.
+Replace the example path with the service-account file's actual private location, outside the repository. Do not paste the private key into chat or commit the file. The Platform Administrator can then use **App notifications** to send a message to one or more roles. Devices are registered after the user signs in and grants notification permission. Tenant devices are verified against their portal email/code and current workspace records. While the app is open, notifications appear in the app; when it is in the background or closed, Android displays the notification in its notification shade and may show a heads-up popup according to device settings. The **Vyro Updates** channel uses high importance; users must allow notifications for the app and channel. Delivery history records device-level sent/failed totals; a successful FCM response means accepted by Firebase, not confirmed displayed or read.
 
 ## Direct Paybill rent collection (C2B)
 

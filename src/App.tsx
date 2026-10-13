@@ -782,10 +782,10 @@ function App() {
         return
       }
       await FirebaseMessaging.createChannel({
-        id: 'vyro_updates',
+        id: 'vyro_updates_high',
         name: 'Vyro Updates',
         description: 'Rental announcements and app updates',
-        importance: Importance.Default,
+        importance: Importance.High,
       })
       const { token } = await FirebaseMessaging.getToken()
       if (!token) throw new Error('Firebase did not return a push notification token.')
