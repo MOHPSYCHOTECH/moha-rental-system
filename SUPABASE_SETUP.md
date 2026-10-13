@@ -32,6 +32,10 @@ Run `supabase/public_platform_stats.sql` in the Supabase SQL Editor for the proj
 
 For a Netlify deployment, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in the site's environment variables to the same Supabase project where this SQL was run, then trigger a new deploy because Vite embeds these values at build time. The homepage displays a setup-specific message if Supabase is not configured or the public stats function is missing or inaccessible.
 
+## Public app and website analytics
+
+Run `supabase/app_analytics.sql` after `supabase/user_hierarchy.sql`. The public `/app` page records each Landlord, Caretaker, or Tenant APK download request, and the app records one website visit per page load. Build the three APKs using the Android build instructions in `README.md` and deploy them with the site. The analytics dashboard on the Platform Administrator overview shows total website visits and role-specific download requests; these are download clicks, not confirmed installs. The event table is not directly readable or writable by client roles; public event recording uses a validated function, and aggregate analytics are restricted to active platform administrators.
+
 ## Public portfolio projects
 
 Run `supabase/portfolio_listings.sql` in the Supabase SQL Editor after `supabase/user_hierarchy.sql`. It creates the portfolio-project table and seeds the current project cards. The public Portfolio page can read published projects only; only authenticated platform administrators can add, edit, publish, or delete listings from the dashboard's **Portfolio listings** area. The anonymous read policy intentionally does not call `is_platform_admin()` because that function is restricted to authenticated users. Re-running the SQL does not overwrite changes to the seeded project cards and reapplies the listing policies.

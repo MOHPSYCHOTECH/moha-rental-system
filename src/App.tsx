@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
 import type { FormEvent, InputHTMLAttributes } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { jsPDF } from 'jspdf'
-import { ArrowUpRight, Bell, Building2, CalendarDays, Calculator, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, Eye, EyeOff, FileText, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Palette, Pencil, Plus, Printer, ReceiptText, RefreshCw, Search, Settings, Share2, ShieldCheck, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
+import { ArrowUpRight, Bell, Building2, CalendarDays, Calculator, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, Eye, EyeOff, FileText, Globe, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Palette, Pencil, Plus, Printer, ReceiptText, RefreshCw, Search, Settings, Share2, ShieldCheck, Smartphone, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
 import './App.css'
 import { TenantGroupChat } from './TenantGroupChat'
 import { TenantMaintenance } from './TenantMaintenance'
@@ -42,11 +42,13 @@ type AdminSubscriptionPaymentQueueRow = { request_id: string; user_id: string; p
 type PlatformSubscriptionPayment = { id: string; user_id: string; plan: string; amount: number; mpesa_code: string; payment_method: LandlordPaymentMethod; status: 'pending' | 'approved' | 'rejected'; submitted_at: string; reviewed_at: string | null }
 type SubscriptionPaymentHistoryFilter = 'approved' | 'rejected' | 'all'
 type PublicPlatformStats = { landlord_count: number; tenant_count: number; total_collected: number }
+type PlatformAppAnalytics = { web_visits: number; landlord_downloads: number; caretaker_downloads: number; tenant_downloads: number }
 type PortfolioListing = { id: string; title: string; category: string; description: string; technologies: string[]; highlights: string[]; image_url: string; project_url: string; sort_order: number; published: boolean; created_at: string; updated_at: string }
-type PublicHomeSection = 'home' | 'portals' | 'about' | 'portfolio' | 'pricing' | 'contact'
+type PublicHomeSection = 'home' | 'portals' | 'apps' | 'about' | 'portfolio' | 'pricing' | 'contact'
 const publicHomePaths: Record<PublicHomeSection, string> = {
   home: '/home',
   portals: '/portals',
+  apps: '/app',
   about: '/about',
   portfolio: '/portfolio',
   pricing: '/pricing',
@@ -725,6 +727,7 @@ function App() {
   const [cloudStatus, setCloudStatus] = useState(isSupabaseConfigured ? 'Connecting to Supabase' : 'Supabase is not configured')
   const [cloudOwnerId, setCloudOwnerId] = useState<string | null>(null)
   const cloudHydrated = useRef(false)
+  const publicVisitRecorded = useRef(false)
   const openSubscriptionModal = async () => {
     setShowProfile(false)
     setSubscriptionFeedback('')
@@ -2027,6 +2030,15 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (publicVisitRecorded.current || !supabase) return
+    publicVisitRecorded.current = true
+    void supabase.rpc('record_public_app_event', { p_event_type: 'visit', p_app_role: null })
+      .then(({ error }) => {
+        if (error) console.error('Website visit analytics could not be recorded:', error.message)
+      }, error => console.error('Website visit analytics could not be recorded:', error))
+  }, [])
+
+  useEffect(() => {
     if (!authUser && !tenantPortalForm.email && !tenantPortalForm.portalCode && tenantList.length === 0 && propertyList.length === 0) {
       const demo = createDemoTenantSample()
       setPropertyList(demo.propertyList)
@@ -2810,6 +2822,7 @@ function App() {
                   <div className="sm-plan-price">KSh 0<small>/1 month</small></div>
                   <ul className="sm-plan-features">
                     <li>Full system access for one month</li>
+                    <li>Landlord, caretaker, and tenant Android apps</li>
                     <li>Properties, units, and tenant management</li>
                     <li>Rent, water bills, and payment tracking</li>
                     <li>Invoices, tenant portal, and WhatsApp reminders</li>
@@ -2830,6 +2843,7 @@ function App() {
                   </div>
                   <div className="sm-plan-price">KSh 1,350<small>/month</small></div>
                   <ul className="sm-plan-features">
+                    <li>Landlord, caretaker, and tenant Android apps</li>
                     <li>Unlimited properties, units, and tenants</li>
                     <li>Rent, water bills, and payment tracking</li>
                     <li>Invoices, tenant portal, and WhatsApp reminders</li>
@@ -2852,6 +2866,7 @@ function App() {
                   <div className="sm-plan-save">Save KSh 2,700 vs monthly</div>
                   <ul className="sm-plan-features">
                     <li>All Silver Monthly features</li>
+                    <li>Landlord, caretaker, and tenant Android apps</li>
                     <li>12 months of system access</li>
                     <li>Priority support</li>
                     <li>Advanced reports and backup</li>
@@ -2967,6 +2982,52 @@ function App() {
     </main>
   </div>
   </RentPayoutsContext.Provider></ConfirmedRentPaymentsContext.Provider></ConfirmedRentPaymentRefreshContext.Provider></TenantDirectoryContext.Provider></LandlordPaybillContext.Provider>
+}
+
+function PlatformAppAnalytics() {
+  const client = supabase
+  const [analytics, setAnalytics] = useState<PlatformAppAnalytics | null>(null)
+  const [loading, setLoading] = useState(Boolean(client))
+  const [errorMessage, setErrorMessage] = useState(client ? '' : 'Analytics are unavailable because this site is not connected to Supabase.')
+  const [refreshCount, setRefreshCount] = useState(0)
+  useEffect(() => {
+    if (!client) return
+    let active = true
+    const loadAnalytics = async () => {
+      try {
+        const { data, error } = await client.rpc('get_platform_app_analytics')
+        if (error) throw new Error(error.message)
+        const payload: unknown = Array.isArray(data) ? data[0] : data
+        if (typeof payload !== 'object' || payload === null || !('web_visits' in payload) || !('landlord_downloads' in payload) || !('caretaker_downloads' in payload) || !('tenant_downloads' in payload)) {
+          throw new Error('The analytics response was empty or incomplete. Run supabase/app_analytics.sql in the Supabase SQL Editor.')
+        }
+        const values = {
+          web_visits: Number(payload.web_visits),
+          landlord_downloads: Number(payload.landlord_downloads),
+          caretaker_downloads: Number(payload.caretaker_downloads),
+          tenant_downloads: Number(payload.tenant_downloads),
+        }
+        if (Object.values(values).some(value => !Number.isFinite(value) || value < 0)) throw new Error('The analytics response contained invalid counts.')
+        if (active) setAnalytics(values)
+      } catch (error) {
+        if (active) setErrorMessage(error instanceof Error ? error.message : 'Platform analytics could not be loaded.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void loadAnalytics()
+    return () => { active = false }
+  }, [client, refreshCount])
+  return <section className="platform-app-analytics" aria-label="Website and app usage analytics">
+    <div className="platform-app-analytics-heading"><div><p className="eyebrow">PLATFORM REACH</p><h2>Website visits &amp; app downloads</h2><p>Counts website visits and APK download requests for each role.</p></div><button type="button" className="filter-button" onClick={() => { setLoading(true); setErrorMessage(''); setRefreshCount(count => count + 1) }} disabled={loading || !client}><RefreshCw size={15} className={loading ? 'platform-refresh-spinning' : ''} /> {loading ? 'Updating…' : 'Refresh analytics'}</button></div>
+    {errorMessage && <p className="settings-error" role="alert">{errorMessage}{errorMessage.includes('app_analytics.sql') ? '' : ' Confirm supabase/app_analytics.sql has been applied.'}</p>}
+    <div className="metric-grid platform-app-analytics-metrics">
+      <article className="metric-card"><div className="metric-top"><span className="metric-icon lavender"><Globe size={18} /></span><span className="trend positive">All time</span></div><p>Website visits</p><strong>{analytics?.web_visits.toLocaleString() ?? (loading ? '…' : '—')}</strong><small>Recorded site visits</small></article>
+      <article className="metric-card"><div className="metric-top"><span className="metric-icon mint"><Smartphone size={18} /></span><span className="trend positive">Landlord</span></div><p>Landlord app downloads</p><strong>{analytics?.landlord_downloads.toLocaleString() ?? (loading ? '…' : '—')}</strong><small>Landlord APK download requests</small></article>
+      <article className="metric-card"><div className="metric-top"><span className="metric-icon peach"><Smartphone size={18} /></span><span className="trend positive">Caretaker</span></div><p>Caretaker app downloads</p><strong>{analytics?.caretaker_downloads.toLocaleString() ?? (loading ? '…' : '—')}</strong><small>Caretaker APK download requests</small></article>
+      <article className="metric-card"><div className="metric-top"><span className="metric-icon"><Smartphone size={18} /></span><span className="trend positive">Tenant</span></div><p>Tenant app downloads</p><strong>{analytics?.tenant_downloads.toLocaleString() ?? (loading ? '…' : '—')}</strong><small>Tenant APK download requests</small></article>
+    </div>
+  </section>
 }
 
 function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loading, error, onRefresh, onRecordManualPayout, workspacesOnly = false }: { workspaces: PlatformLandlordWorkspace[]; landlordAccountCount: number; loading: boolean; error: string; onRefresh: () => void; onRecordManualPayout: (details: ManualRentPayoutDetails) => Promise<void>; workspacesOnly?: boolean }) {
@@ -3106,6 +3167,7 @@ function PlatformAdminPortfolioDashboard({ workspaces, landlordAccountCount, loa
       <article className="metric-card"><div className="metric-top"><span className="metric-icon lavender"><CircleDollarSign size={18} /></span><span className="trend positive">Recorded</span></div><p>Payments received</p><strong>KSh {allCollected.toLocaleString()}</strong><small>Across all loaded workspaces</small></article>
       <article className="metric-card"><div className="metric-top"><span className="metric-icon mint"><Wrench size={18} /></span><span className="trend positive">Team</span></div><p>Caretakers</p><strong>{totalCaretakers}</strong><small>{allCaretakerAssignments.length} active property/unit assignments</small></article>
     </section>}
+    {!workspacesOnly && <PlatformAppAnalytics />}
     {!workspacesOnly && <PlatformRentPayoutQueue workspaces={workspaces} loading={loading} error={error} onRefresh={onRefresh} onRecordPayout={onRecordManualPayout} />}
     {workspacesOnly && <div className="platform-landlord-list-heading"><div><p className="eyebrow">DIRECTORY</p><h2>All landlords</h2></div><span>{workspaces.length} workspaces</span></div>}
     {workspacesOnly && loading && <p className="overview-empty">Loading landlord workspaces…</p>}
@@ -6250,7 +6312,7 @@ function TenantPublicLoginPage({ darkMode, workspaceName, tenantPortalForm, tena
     <section className="tenant-public-wrap" aria-labelledby="tenant-public-title">
       <aside className="tenant-public-brand">
         <div className="tenant-public-brand-header">
-          <span className="tenant-public-logo" aria-hidden="true"><VyroLogo size={32} /></span>
+          <span className="tenant-public-logo" aria-hidden="true"><VyroLogo size={36} /></span>
           <div>
             <p className="tenant-public-kicker">RESIDENT PORTAL</p>
             <h2>{workspaceName}</h2>
@@ -6410,7 +6472,7 @@ function PublicLandlordSignupPage({ workspaceName, onBack }: { workspaceName: st
 
   return <main className="login-shell landlord-signup-shell">
     <section className="login-card landlord-signup-card" aria-labelledby="landlord-signup-title">
-      <div className="login-mobile-brand"><span className="login-logo"><VyroLogo size={20} /></span><span>{workspaceName}</span></div>
+      <div className="login-mobile-brand"><span className="login-logo"><VyroLogo size={30} /></span><span>{workspaceName}</span></div>
       <button type="button" className="signup-back-button" onClick={onBack}><ArrowUpRight size={15} /> Back to portal</button>
       <p className="login-kicker landlord-signup-kicker">LANDLORD REGISTRATION</p>
       <h1 id="landlord-signup-title">Start managing your properties<span>.</span></h1>
@@ -6466,7 +6528,7 @@ function LandlordApprovalStatusPage({ workspaceName, registration, onRefresh, on
   }, [onRefresh, registration.status])
   return <main className="login-shell landlord-approval-shell">
     <section className="login-card landlord-approval-card" aria-labelledby="landlord-approval-title">
-      <div className="login-mobile-brand"><span className="login-logo"><VyroLogo size={20} /></span><span>{workspaceName}</span></div>
+      <div className="login-mobile-brand"><span className="login-logo"><VyroLogo size={30} /></span><span>{workspaceName}</span></div>
       <p className="login-kicker">LANDLORD REGISTRATION</p>
       <h1 id="landlord-approval-title">{registration.status === 'pending' ? 'Approval pending' : 'Registration not approved'}<span>.</span></h1>
       <p className="login-copy">{registration.status === 'pending'
@@ -6651,6 +6713,8 @@ function PortfolioListingsManager() {
 
 function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onOpenLandlordSignup }: { workspaceName: string; onOpenRolePage: (role: 'Landlord' | 'Administrator' | 'Caretaker') => void; onOpenTenantPortal: () => void; onOpenLandlordSignup: () => void }) {
   const [activeContent, setActiveContent] = useState<PublicHomeSection>(() => getPublicHomeSection(window.location.pathname) ?? 'home')
+  const [appLinkError, setAppLinkError] = useState('')
+  const [downloadingAppRole, setDownloadingAppRole] = useState<'Landlord' | 'Caretaker' | 'Tenant' | null>(null)
   const [publicStats, setPublicStats] = useState<PublicPlatformStats | null>(null)
   const [displayedStats, setDisplayedStats] = useState<PublicPlatformStats>({ landlord_count: 0, tenant_count: 0, total_collected: 0 })
   const [statsLoading, setStatsLoading] = useState(true)
@@ -6665,6 +6729,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     const syncSectionFromPath = () => {
       const section = getPublicHomeSection(window.location.pathname)
       if (section) {
+        if (section === 'apps') setAppLinkError('')
         if (section === 'portfolio') {
           setPortfolioListingsLoading(Boolean(supabase))
           setPortfolioListingsError(supabase ? '' : 'Portfolio projects are unavailable because this site is not connected to Supabase.')
@@ -6770,8 +6835,35 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     { title: 'Caretaker', description: 'Handle maintenance and day-to-day property care.', icon: Wrench, onSelect: () => onOpenRolePage('Caretaker'), accent: 'caretaker' },
     { title: 'Tenant', description: 'Existing tenants: view rent statements and payment history.', icon: Users, onSelect: onOpenTenantPortal, accent: 'tenant' },
   ]
+  const downloadAppForRole = (role: 'Landlord' | 'Caretaker' | 'Tenant') => {
+    if (downloadingAppRole) return
+    setAppLinkError('')
+    setDownloadingAppRole(role)
+    const filename = `vyro-${role.toLowerCase()}-app.apk`
+    const download = document.createElement('a')
+    download.href = `/downloads/${filename}`
+    download.download = filename
+    document.body.append(download)
+    download.click()
+    download.remove()
+
+    if (!supabase) {
+      setAppLinkError('The APK download has started, but its download count could not be recorded because this site is not connected to Supabase.')
+      setDownloadingAppRole(null)
+      return
+    }
+    void supabase.rpc('record_public_app_event', { p_event_type: 'download', p_app_role: role.toLowerCase() })
+      .then(({ error }) => {
+        if (error) setAppLinkError(`The APK download has started, but its count could not be recorded: ${error.message}`)
+        setDownloadingAppRole(null)
+      }, error => {
+        setAppLinkError(`The APK download has started, but its count could not be recorded: ${String(error)}`)
+        setDownloadingAppRole(null)
+      })
+  }
   const showContent = (content: typeof activeContent) => {
     window.history.pushState({}, '', publicHomePaths[content])
+    if (content === 'apps') setAppLinkError('')
     if (content === 'portfolio') {
       setPortfolioListingsLoading(Boolean(supabase))
       setPortfolioListingsError(supabase ? '' : 'Portfolio projects are unavailable because this site is not connected to Supabase.')
@@ -6783,10 +6875,12 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
   return <main className="portal-home">
     <header className="portal-home-header">
       <div className="portal-home-brand">
-        <img className="portal-home-wordmark" src="/vyro-rentals-home-logo.png" alt={`${workspaceName} logo`} />
+        <span className="portal-home-logo"><VyroLogo size={30} /></span>
+        <span><strong>{workspaceName}</strong></span>
       </div>
       <nav className="portal-home-nav" aria-label="Public information">
         <button type="button" className={isHome ? 'active' : ''} aria-pressed={isHome} onClick={() => showContent('home')}>Home</button>
+        <button type="button" className={activeContent === 'apps' ? 'active' : ''} aria-pressed={activeContent === 'apps'} onClick={() => showContent('apps')}>Apps</button>
         <button type="button" className={activeContent === 'portals' ? 'active' : ''} aria-pressed={activeContent === 'portals'} onClick={() => showContent('portals')}>Portals</button>
         <button type="button" className={activeContent === 'about' ? 'active' : ''} aria-pressed={activeContent === 'about'} onClick={() => showContent('about')}>About Us</button>
         <button type="button" className={activeContent === 'portfolio' ? 'active' : ''} aria-pressed={activeContent === 'portfolio'} onClick={() => showContent('portfolio')}>Portfolio</button>
@@ -6802,7 +6896,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         <h1 id="portal-home-title">A better way to care for every property.</h1>
         <p>Explore how Vyro helps bring everyday rental management into one practical workspace.</p>
         <div className="portal-home-hero-actions">
-          <button type="button" onClick={() => showContent('portals')}>Choose a portal <ArrowUpRight size={16} /></button>
+          <button type="button" onClick={() => showContent('apps')}>Get the app <ArrowUpRight size={16} /></button>
           <button type="button" onClick={onOpenLandlordSignup}>Create landlord account</button>
         </div>
       </div>
@@ -6810,6 +6904,36 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         <img src="https://images.unsplash.com/photo-1460317442991-0ec209397118?auto=format&fit=crop&w=1600&q=85" alt="Modern multi-storey residential apartments" />
         <span>Homes, managed with care.</span>
       </div>
+    </section>}
+
+    {activeContent === 'apps' && <section className="portal-home-portals portal-home-apps" aria-labelledby="portal-home-apps-title">
+      <div className="portal-home-section-heading portal-home-feature-heading">
+        <div><p className="portal-home-eyebrow">VYRO APPS</p><h2 id="portal-home-apps-title">Choose your app</h2><p className="portal-home-feature-subheading">Download and install the Android app made for your role. Each app opens at its dedicated sign-in page.</p></div>
+      </div>
+      <div className="portal-home-grid">
+        {([
+          { role: 'Landlord', description: 'Manage properties, tenants, rent, and your team.', icon: Building2, accent: 'landlord' },
+          { role: 'Caretaker', description: 'Handle assigned properties and day-to-day care.', icon: Wrench, accent: 'caretaker' },
+          { role: 'Tenant', description: 'View your rent statements and payment history.', icon: Users, accent: 'tenant' },
+        ] as const).map(({ role, description, icon: Icon, accent }) => <button className={`portal-home-card ${accent}`} key={role} type="button" disabled={downloadingAppRole !== null} onClick={() => downloadAppForRole(role)}>
+          <span className="portal-home-card-icon"><Icon size={24} strokeWidth={1.8} /></span>
+          <span className="portal-home-card-copy"><strong>{downloadingAppRole === role ? 'Preparing download…' : `Download ${role} app`}</strong><small>{description}</small></span>
+          <Download className="portal-home-card-arrow" size={19} aria-hidden="true" />
+        </button>)}
+      </div>
+      {appLinkError && <div className="portal-home-stats-message" role="status">{appLinkError}
+        <div className="portal-home-apps-continue">
+          {(['Landlord', 'Caretaker', 'Tenant'] as const).map(role => <button type="button" key={role} onClick={() => {
+            const filename = `vyro-${role.toLowerCase()}-app.apk`
+            const link = document.createElement('a')
+            link.href = `/downloads/${filename}`
+            link.download = filename
+            document.body.append(link)
+            link.click()
+            link.remove()
+          }}>Download {role} APK</button>)}
+        </div>
+      </div>}
     </section>}
 
     {isHome && <section className="portal-home-stats" aria-label="Vyro platform totals">
@@ -6983,6 +7107,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
           <div className="portal-home-plan-price">KSh 0 <span>/ 1 month</span></div>
           <p className="portal-home-plan-description">Try the full system free for one month.</p>
           <ul>
+            <li>Landlord, caretaker, and tenant Android apps</li>
             <li>Properties, units, and tenant management</li>
             <li>Rent, water bills, and payment tracking</li>
             <li>Invoices, tenant portal, and WhatsApp reminders</li>
@@ -6996,6 +7121,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
           <div className="portal-home-plan-price">KSh 1,350 <span>/ month</span></div>
           <p className="portal-home-plan-description">Full property management, billed monthly.</p>
           <ul>
+            <li>Landlord, caretaker, and tenant Android apps</li>
             <li>Unlimited properties, units, and tenants</li>
             <li>Rent, water bills, and payment tracking</li>
             <li>Invoices, tenant portal, and WhatsApp reminders</li>
@@ -7011,6 +7137,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
           <p className="portal-home-plan-description">Everything in Silver Monthly, with annual extras.</p>
           <ul>
             <li>All Silver Monthly features</li>
+            <li>Landlord, caretaker, and tenant Android apps</li>
             <li>12 months of system access</li>
             <li>Priority support</li>
             <li>Advanced reports and backup</li>
@@ -7024,7 +7151,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     {activeContent === 'contact' && <section className="portal-home-contact" id="contact-moha" aria-labelledby="contact-moha-title">
       <div><p className="portal-home-eyebrow">CONTACT</p><h2 id="contact-moha-title">Questions about Vyro?</h2><p>Get in touch for information about the platform or help choosing the right portal.</p></div>
       <div className="portal-home-contact-links">
-        <a href="mailto:mohammedhussein3562@gmail.com"><strong>Email</strong><span>mohammedhussein3562@gmail.com</span></a>
+        <a href="mailto:admin@vyrosocial.com"><strong>Email</strong><span>admin@vyrosocial.com</span></a>
         <a href="tel:0112800325"><strong>Phone</strong><span>0112 800 325</span></a>
       </div>
       <div className="portal-home-team" aria-labelledby="portal-home-team-title">
@@ -7077,7 +7204,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
         </nav>
         <div className="portal-home-footer-contact">
           <strong>Get in touch</strong>
-          <a href="mailto:mohammedhussein3562@gmail.com">mohammedhussein3562@gmail.com</a>
+          <a href="mailto:admin@vyrosocial.com">admin@vyrosocial.com</a>
           <a href="tel:0112800325">0112 800 325</a>
           <button type="button" className="portal-home-footer-signup" onClick={onOpenLandlordSignup}>Create landlord account <ArrowUpRight size={15} /></button>
         </div>
@@ -7170,7 +7297,7 @@ function LoginView({ darkMode, workspaceName, authMessage, onBackToHome, onOpenT
       </div>
     </aside>
     <section className="login-card" aria-labelledby="login-title">
-      <div className="login-mobile-brand"><span className="login-logo"><VyroLogo size={20} /></span><span>{workspaceName}</span></div>
+      <div className="login-mobile-brand"><span className="login-logo"><VyroLogo size={30} /></span><span>{workspaceName}</span></div>
       <button type="button" className="login-return-home" onClick={onBackToHome}><Home size={16} aria-hidden="true" /> Back to home</button>
       <p className="login-kicker">SECURE WORKSPACE</p>
       <h1 id="login-title">Welcome back<span>.</span></h1>
@@ -7423,7 +7550,7 @@ function HelpCenterView() {
           <strong>Still need help?</strong>
           <span>Our support team is ready to assist with your workspace.</span>
         </div>
-        <button className="primary-button" onClick={() => window.open('mailto:support@moharental.com', '_blank')}>
+        <button className="primary-button" onClick={() => window.open('mailto:admin@vyrosocial.com', '_blank')}>
           Contact support <ArrowUpRight size={15} />
         </button>
       </div>

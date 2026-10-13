@@ -11,10 +11,15 @@ node_modules
 dist
 dist-ssr
 *.local
+.android-public/
 .env
 .env.*
 !.env.example
 supabase/.temp/
+android/.gradle/
+android/local.properties
+android/**/build/
+android/app/src/*/assets/public/
 
 # Editor directories and files
 .vscode/*

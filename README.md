@@ -4,7 +4,7 @@ Rental management frontend built with React, TypeScript, and Vite. Supabase prov
 
 ## Production hosting on Netlify
 
-Connect the `rental-management` project directory to Netlify. The included `netlify.toml` sets the build command to `npm run build`, publishes `dist/`, and rewrites app routes to `index.html` so direct links such as `/tenant` and `/landlord-signup` load correctly. If Netlify asks for build settings, use that command and publish directory, and leave the base directory blank when this directory is the repository root.
+Connect the `rental-management` project directory to Netlify. The included `netlify.toml` sets the build command to `npm run build`, publishes `dist/`, and rewrites app routes to `index.html` so direct links such as `/app`, `/tenant`, and `/landlord-signup` load correctly. If Netlify asks for build settings, use that command and publish directory, and leave the base directory blank when this directory is the repository root.
 
 Add these environment variables in Site configuration → Environment variables for the production deploy context:
 - `VITE_SUPABASE_URL`: your Supabase project URL.
@@ -40,6 +40,17 @@ npm run dev
 ```
 
 In PowerShell, use `Copy-Item .env.example .env` to copy the environment template.
+
+## Android apps
+
+Android packages use Capacitor to bundle the existing app into three role-specific APKs. Install the Android SDK (API 37) and JDK 21, then run:
+
+```sh
+npm run android:setup
+npm run android:build
+```
+
+The build creates `public/downloads/vyro-landlord-app.apk`, `public/downloads/vyro-caretaker-app.apk`, and `public/downloads/vyro-tenant-app.apk`. Each app uses the Vyro logo as its Android launcher icon. Deploy the site after building to publish the download buttons on `/app`. These are debug-signed APKs for direct installation and testing; use a private release keystore and a release build before publishing to an app store. Android may prompt users to allow installation from their browser.
 
 ## Production build check
 
