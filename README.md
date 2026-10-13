@@ -43,14 +43,18 @@ In PowerShell, use `Copy-Item .env.example .env` to copy the environment templat
 
 ## Android apps
 
-Android packages use Capacitor to bundle the existing app into three role-specific APKs. Install the Android SDK (API 37) and JDK 21, then run:
+Android packages use Capacitor to bundle the existing app into four role-specific APKs, including the Platform Administrator portal. Install the Android SDK (API 37) and JDK 21, then run:
 
 ```sh
 npm run android:setup
 npm run android:build
 ```
 
-The build creates `public/downloads/vyro-landlord-app.apk`, `public/downloads/vyro-caretaker-app.apk`, and `public/downloads/vyro-tenant-app.apk`. Each app uses the Vyro logo as its Android launcher icon. Deploy the site after building to publish the download buttons on `/app`. These are debug-signed APKs for direct installation and testing; use a private release keystore and a release build before publishing to an app store. Android may prompt users to allow installation from their browser.
+Before building, register `com.vyro.rental.admin` as an Android app in the Firebase project and update the local `android/app/google-services.json`. This file is ignored by Git and must remain local.
+
+The build creates `public/downloads/vyro-landlord-app.apk`, `public/downloads/vyro-admin-app.apk`, `public/downloads/vyro-caretaker-app.apk`, and `public/downloads/vyro-tenant-app.apk`. The Admin app opens the existing `/admin` portal. Each app uses the Vyro logo as its Android launcher icon. Deploy the site after building to publish the download buttons on `/app`. These are debug-signed APKs for direct installation and testing; use a private release keystore and a release build before publishing to an app store. Android may prompt users to allow installation from their browser.
+
+To enable Android push notifications, follow the Firebase and Supabase setup steps in [SUPABASE_SETUP.md](SUPABASE_SETUP.md), then rebuild all APKs. The Firebase Android configuration is local-only and must not be committed.
 
 ## Production build check
 

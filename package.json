@@ -12,9 +12,11 @@
     "android:build": "node scripts/build-android-apps.mjs"
   },
   "dependencies": {
+    "@capacitor-firebase/messaging": "^8.5.2",
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@supabase/supabase-js": "^2.116.0",
+    "firebase": "^12.19.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.45.0",
     "react": "^19.2.8",

@@ -34,7 +34,7 @@ For a Netlify deployment, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE
 
 ## Public app and website analytics
 
-Run `supabase/app_analytics.sql` after `supabase/user_hierarchy.sql`. The public `/app` page records each Landlord, Caretaker, or Tenant APK download request, and the app records one website visit per page load. Build the three APKs using the Android build instructions in `README.md` and deploy them with the site. The analytics dashboard on the Platform Administrator overview shows total website visits and role-specific download requests; these are download clicks, not confirmed installs. The event table is not directly readable or writable by client roles; public event recording uses a validated function, and aggregate analytics are restricted to active platform administrators.
+Run `supabase/app_analytics.sql` after `supabase/user_hierarchy.sql`. Rerun it on existing projects to add Admin APK download tracking. The public `/app` page records each Landlord, Admin, Caretaker, or Tenant APK download request, and the app records one website visit per page load. Build all four APKs using the Android build instructions in `README.md` and deploy them with the site. The analytics dashboard on the Platform Administrator overview shows total website visits and role-specific download requests; these are download clicks, not confirmed installs. The event table is not directly readable or writable by client roles; public event recording uses a validated function, and aggregate analytics are restricted to active platform administrators.
 
 ## Public portfolio projects
 
@@ -59,6 +59,31 @@ Platform Administrators see a consolidated, read-only portfolio dashboard with a
 ## M-Pesa payment review
 
 The app inserts payment requests into `subscription_payment_requests`. Admins load pending requests and payer details through `get_admin_subscription_payment_queue()`, a protected database function scoped to the administrator's owner group or platform-created Landlords. The Settings → Team access → Subscription payments section also has Approved, Rejected, and All processed views. These views fetch a bounded page from `get_admin_subscription_payment_history()` and show the total number of matching records with pagination. Rerun `supabase/subscription_payment_admin_queue.sql` to install the history function. Approvals and rejections use the protected review function. Verify the transaction in the Paybill statement before approving; this is a manual review and does not automatically confirm receipt from M-Pesa.
+
+## Android app push notifications
+
+Push delivery requires Firebase Cloud Messaging and the latest APKs. In Firebase Console, create/register Android apps with these exact package IDs: `com.vyro.rental.landlord`, `com.vyro.rental.caretaker`, and `com.vyro.rental.tenant`. Firebase may provide a separate `google-services.json` per Android app. If each file contains only one app registration, put each file in its matching flavor folder, creating the folders if they do not exist:
+
+| Firebase app package ID | File location |
+| --- | --- |
+| `com.vyro.rental.landlord` | `android/app/src/landlord/google-services.json` |
+| `com.vyro.rental.caretaker` | `android/app/src/caretaker/google-services.json` |
+| `com.vyro.rental.tenant` | `android/app/src/tenant/google-services.json` |
+
+Do not rename or combine the files. They are ignored by Git and remain local. Rebuild using `npm run android:build`, then install the rebuilt APK and sign in on a device with notifications allowed.
+
+If the downloaded files are identical and each contains all three Vyro package IDs, one copy is enough: place it at `android/app/google-services.json`. The Android build selects the matching Firebase app configuration for each APK.
+
+Run `supabase/app_push_notifications.sql` after `supabase/user_hierarchy.sql` and `supabase/tenant_group_chat.sql`. In Firebase project settings, create/download a service-account JSON with permission to send Firebase Cloud Messaging messages. Keep the private key private: configure the complete JSON directly as a Supabase Edge Function secret, never in frontend environment variables or source control:
+
+```powershell
+$serviceAccountJson = Get-Content -Raw 'C:\private\firebase-service-account.json'
+supabase secrets set "FCM_SERVICE_ACCOUNT_JSON=$serviceAccountJson"
+Remove-Variable serviceAccountJson
+supabase functions deploy send-app-notification
+```
+
+Replace the example path with the service-account file's actual private location, outside the repository. Do not paste the private key into chat or commit the file. The Platform Administrator can then use **App notifications** to send a message to one or more roles. Devices are registered after the user signs in and grants notification permission. Tenant devices are verified against their portal email/code and current workspace records. The Android notification channel is named **Vyro Updates**. Delivery history records device-level sent/failed totals; a successful FCM response means accepted by Firebase, not confirmed displayed or read.
 
 ## Direct Paybill rent collection (C2B)
 

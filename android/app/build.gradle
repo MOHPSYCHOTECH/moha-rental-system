@@ -24,6 +24,12 @@ android {
             resValue "string", "app_name", "Vyro Landlord"
             resValue "string", "title_activity_main", "Vyro Landlord"
         }
+        admin {
+            dimension "role"
+            applicationId "com.vyro.rental.admin"
+            resValue "string", "app_name", "Vyro Admin"
+            resValue "string", "title_activity_main", "Vyro Admin"
+        }
         caretaker {
             dimension "role"
             applicationId "com.vyro.rental.caretaker"
@@ -41,6 +47,7 @@ android {
     sourceSets {
         main.assets.srcDirs = ["${nativeAssetsRoot}/main"]
         landlord.assets.srcDirs = ["${nativeAssetsRoot}/landlord"]
+        admin.assets.srcDirs = ["${nativeAssetsRoot}/admin"]
         caretaker.assets.srcDirs = ["${nativeAssetsRoot}/caretaker"]
         tenant.assets.srcDirs = ["${nativeAssetsRoot}/tenant"]
     }
@@ -72,11 +79,14 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+def googleServicesFiles = [
+    file('google-services.json'),
+    file('src/landlord/google-services.json'),
+    file('src/caretaker/google-services.json'),
+    file('src/tenant/google-services.json'),
+]
+if (googleServicesFiles.any { it.isFile() }) {
+    apply plugin: 'com.google.gms.google-services'
+} else {
+    logger.info("google-services.json files not found, google-services plugin not applied. Push Notifications won't work")
 }

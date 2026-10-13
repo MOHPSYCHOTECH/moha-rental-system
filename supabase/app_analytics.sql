@@ -3,7 +3,7 @@
 create table if not exists public.public_app_analytics_events (
   id bigint generated always as identity primary key,
   event_type text not null,
-  app_role text check (app_role in ('landlord', 'caretaker', 'tenant')),
+  app_role text,
   created_at timestamptz not null default now()
 );
 
@@ -11,6 +11,8 @@ alter table public.public_app_analytics_events
   drop constraint if exists public_app_analytics_events_event_type_check;
 alter table public.public_app_analytics_events
   drop constraint if exists public_app_analytics_event_role_check;
+alter table public.public_app_analytics_events
+  drop constraint if exists public_app_analytics_events_app_role_check;
 update public.public_app_analytics_events
   set event_type = 'download'
   where event_type = 'app_open';
@@ -21,7 +23,7 @@ alter table public.public_app_analytics_events
   add constraint public_app_analytics_event_role_check
   check (
     (event_type = 'visit' and app_role is null)
-    or (event_type = 'download' and app_role is not null)
+    or (event_type = 'download' and app_role in ('landlord', 'admin', 'caretaker', 'tenant'))
   );
 
 create index if not exists public_app_analytics_events_type_role_idx
@@ -43,7 +45,7 @@ begin
     return;
   end if;
 
-  if p_event_type = 'download' and p_app_role in ('landlord', 'caretaker', 'tenant') then
+  if p_event_type = 'download' and p_app_role in ('landlord', 'admin', 'caretaker', 'tenant') then
     insert into public.public_app_analytics_events (event_type, app_role)
     values ('download', p_app_role);
     return;
@@ -56,10 +58,12 @@ $$;
 revoke all on function public.record_public_app_event(text, text) from public, anon, authenticated;
 grant execute on function public.record_public_app_event(text, text) to anon, authenticated;
 
-create or replace function public.get_platform_app_analytics()
+drop function if exists public.get_platform_app_analytics();
+create function public.get_platform_app_analytics()
 returns table (
   web_visits bigint,
   landlord_downloads bigint,
+  admin_downloads bigint,
   caretaker_downloads bigint,
   tenant_downloads bigint
 )
@@ -77,6 +81,7 @@ begin
   select
     count(*) filter (where event.event_type = 'visit'),
     count(*) filter (where event.event_type = 'download' and event.app_role = 'landlord'),
+    count(*) filter (where event.event_type = 'download' and event.app_role = 'admin'),
     count(*) filter (where event.event_type = 'download' and event.app_role = 'caretaker'),
     count(*) filter (where event.event_type = 'download' and event.app_role = 'tenant')
   from public.public_app_analytics_events as event;

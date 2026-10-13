@@ -10,7 +10,7 @@ const androidRoot = path.join(projectRoot, 'android')
 const nativeBuildRoot = path.join(tmpdir(), 'vyro-rental-android-build')
 const nativeAndroidRoot = path.join(nativeBuildRoot, 'android')
 const sdkRoot = process.env.ANDROID_SDK_ROOT || process.env.ANDROID_HOME || path.join(process.env.LOCALAPPDATA || '', 'Android', 'Sdk')
-const roles = ['landlord', 'caretaker', 'tenant']
+const roles = ['landlord', 'admin', 'caretaker', 'tenant']
 const npmCli = process.env.npm_execpath
 
 if (!existsSync(path.join(androidRoot, 'gradlew.bat')) && !existsSync(path.join(androidRoot, 'gradlew'))) {
@@ -102,8 +102,14 @@ try {
     recursive: true,
     filter: source => !path.relative(capacitorAndroidSource, source).split(path.sep).includes('build'),
   })
+  const firebaseMessagingSource = path.join(projectRoot, 'node_modules', '@capacitor-firebase', 'messaging')
+  const firebaseMessagingTarget = path.join(nativeBuildRoot, 'node_modules', '@capacitor-firebase', 'messaging')
+  cpSync(firebaseMessagingSource, firebaseMessagingTarget, {
+    recursive: true,
+    filter: source => !path.relative(firebaseMessagingSource, source).split(path.sep).includes('build'),
+  })
 
-  console.log('\nAssembling the three installable Android APKs...')
+  console.log('\nAssembling the four installable Android APKs...')
   runGradle(roles.map(role => `assemble${role[0].toUpperCase()}${role.slice(1)}Debug`), androidEnv)
 
   for (const role of roles) {

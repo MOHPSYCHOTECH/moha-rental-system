@@ -18,6 +18,7 @@ dist-ssr
 supabase/.temp/
 android/.gradle/
 android/local.properties
+android/app/**/google-services.json
 android/**/build/
 android/app/src/*/assets/public/
 

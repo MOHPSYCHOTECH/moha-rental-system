@@ -2,8 +2,11 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
 import type { FormEvent, InputHTMLAttributes } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { jsPDF } from 'jspdf'
+import { Capacitor } from '@capacitor/core'
+import { FirebaseMessaging, Importance } from '@capacitor-firebase/messaging'
 import { ArrowUpRight, Bell, Building2, CalendarDays, Calculator, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardList, Code2, Copy, Download, Droplets, Eye, EyeOff, FileText, Globe, Home, LayoutDashboard, LifeBuoy, LogIn, LogOut, Menu, MessageCircle, Moon, Palette, Pencil, Plus, Printer, ReceiptText, RefreshCw, Search, Settings, Share2, ShieldCheck, Smartphone, Sun, Trash2, TrendingUp, UserPlus, Users, UserX, WalletCards, Wrench } from 'lucide-react'
 import './App.css'
+import { PlatformPushNotifications } from './PlatformPushNotifications'
 import { TenantGroupChat } from './TenantGroupChat'
 import { TenantMaintenance } from './TenantMaintenance'
 import { TenantNotices } from './TenantNotices'
@@ -42,7 +45,7 @@ type AdminSubscriptionPaymentQueueRow = { request_id: string; user_id: string; p
 type PlatformSubscriptionPayment = { id: string; user_id: string; plan: string; amount: number; mpesa_code: string; payment_method: LandlordPaymentMethod; status: 'pending' | 'approved' | 'rejected'; submitted_at: string; reviewed_at: string | null }
 type SubscriptionPaymentHistoryFilter = 'approved' | 'rejected' | 'all'
 type PublicPlatformStats = { landlord_count: number; tenant_count: number; total_collected: number }
-type PlatformAppAnalytics = { web_visits: number; landlord_downloads: number; caretaker_downloads: number; tenant_downloads: number }
+type PlatformAppAnalytics = { web_visits: number; landlord_downloads: number; admin_downloads: number; caretaker_downloads: number; tenant_downloads: number }
 type PortfolioListing = { id: string; title: string; category: string; description: string; technologies: string[]; highlights: string[]; image_url: string; project_url: string; sort_order: number; published: boolean; created_at: string; updated_at: string }
 type PublicHomeSection = 'home' | 'portals' | 'apps' | 'about' | 'portfolio' | 'pricing' | 'contact'
 const publicHomePaths: Record<PublicHomeSection, string> = {
@@ -626,6 +629,7 @@ function App() {
   const [overviewReminderPage, setOverviewReminderPage] = useState(1)
   const [overviewPropertyPage, setOverviewPropertyPage] = useState(1)
   const [showNotice, setShowNotice] = useState(false)
+  const [receivedPushNotification, setReceivedPushNotification] = useState<{ title: string; body: string } | null>(null)
   const [showProfile, setShowProfile] = useState(false)
   const [showResetSelf, setShowResetSelf] = useState(false)
   const [selfNewPassword, setSelfNewPassword] = useState('')
@@ -725,9 +729,77 @@ function App() {
   const [rentReminderDays, setRentReminderDays] = useState(defaultWorkspaceSettings.rentReminderDays)
   const [rentReminderChannel, setRentReminderChannel] = useState<RentReminderChannel>(defaultWorkspaceSettings.rentReminderChannel)
   const [cloudStatus, setCloudStatus] = useState(isSupabaseConfigured ? 'Connecting to Supabase' : 'Supabase is not configured')
+  const [pushRegistrationError, setPushRegistrationError] = useState('')
   const [cloudOwnerId, setCloudOwnerId] = useState<string | null>(null)
   const cloudHydrated = useRef(false)
   const publicVisitRecorded = useRef(false)
+  const pushRecipient = useMemo(() => tenantPortalSession
+    ? { appRole: 'tenant' as const, email: tenantPortalSession.email, portalCode: tenantPortalSession.portalCode, key: `${tenantPortalSession.email}:${tenantPortalSession.portalCode}` }
+    : sessionUser?.userType === 'Landlord' || sessionUser?.userType === 'Property Manager'
+      ? { appRole: 'landlord' as const, userId: sessionUser.id, key: sessionUser.id }
+      : sessionUser?.userType === 'Caretaker'
+        ? { appRole: 'caretaker' as const, userId: sessionUser.id, key: sessionUser.id }
+        : null, [tenantPortalSession, sessionUser])
+  useEffect(() => {
+    const supabaseClient = supabase
+    if (!supabaseClient || !Capacitor.isNativePlatform() || !pushRecipient) return
+    let active = true
+    const listeners: Array<{ remove: () => Promise<void> }> = []
+    const registerDevice = async (token: string) => {
+      const result = pushRecipient.appRole === 'tenant'
+        ? await supabaseClient.rpc('register_tenant_app_push_device', {
+          p_email: pushRecipient.email,
+          p_portal_code: pushRecipient.portalCode,
+          p_token: token,
+        })
+        : await supabaseClient.rpc('register_my_app_push_device', { p_token: token })
+      if (result.error) throw new Error(result.error.message)
+      if (active) setPushRegistrationError('')
+    }
+    const setupPushRegistration = async () => {
+      const tokenListener = await FirebaseMessaging.addListener('tokenReceived', event => {
+        void registerDevice(event.token).catch(error => {
+          console.error('This device could not register for app notifications:', error)
+          if (active) setPushRegistrationError(error instanceof Error ? error.message : 'This device could not register for app notifications.')
+        })
+      })
+      listeners.push(tokenListener)
+      const actionListener = await FirebaseMessaging.addListener('notificationActionPerformed', () => {
+        if (active && pushRecipient.appRole !== 'tenant') setActiveSection('Overview')
+      })
+      listeners.push(actionListener)
+      const receivedListener = await FirebaseMessaging.addListener('notificationReceived', event => {
+        if (!active) return
+        setReceivedPushNotification({
+          title: event.notification.title || 'Vyro notification',
+          body: event.notification.body || '',
+        })
+      })
+      listeners.push(receivedListener)
+      const permission = await FirebaseMessaging.requestPermissions()
+      if (permission.receive !== 'granted') {
+        if (active) setPushRegistrationError('App notification permission is off. Enable notifications for Vyro in Android Settings.')
+        return
+      }
+      await FirebaseMessaging.createChannel({
+        id: 'vyro_updates',
+        name: 'Vyro Updates',
+        description: 'Rental announcements and app updates',
+        importance: Importance.Default,
+      })
+      const { token } = await FirebaseMessaging.getToken()
+      if (!token) throw new Error('Firebase did not return a push notification token.')
+      await registerDevice(token)
+    }
+    void setupPushRegistration().catch(error => {
+      console.error('This device could not register for app notifications:', error)
+      if (active) setPushRegistrationError(error instanceof Error ? error.message : 'This device could not register for app notifications.')
+    })
+    return () => {
+      active = false
+      for (const listener of listeners) void listener.remove()
+    }
+  }, [pushRecipient])
   const openSubscriptionModal = async () => {
     setShowProfile(false)
     setSubscriptionFeedback('')
@@ -2051,7 +2123,7 @@ function App() {
 
   if (showPasswordRecovery) return <PasswordRecoveryView darkMode={darkMode} onSave={saveRecoveredPassword} />
   if (pendingLandlordApproval) return <LandlordApprovalStatusPage workspaceName={workspaceName} registration={pendingLandlordApproval} onRefresh={() => window.location.reload()} onBack={signOut} />
-  if (tenantPortalSession && tenantPortalStatement) return <TenantStatementPage tenant={tenantPortalStatement.tenant} workspaceName={tenantPortalSession.workspaceName} propertyGroup={tenantPortalSession.propertyGroup} statement={tenantPortalStatement} chatIdentity={{ email: tenantPortalSession.email, portalCode: tenantPortalSession.portalCode }} onBack={() => { setTenantPortalSession(null); setTenantPublicView(false) }} onSendReminder={(message) => {
+  if (tenantPortalSession && tenantPortalStatement) return <TenantStatementPage tenant={tenantPortalStatement.tenant} workspaceName={tenantPortalSession.workspaceName} propertyGroup={tenantPortalSession.propertyGroup} statement={tenantPortalStatement} chatIdentity={{ email: tenantPortalSession.email, portalCode: tenantPortalSession.portalCode }} receivedNotification={receivedPushNotification} onDismissNotification={() => setReceivedPushNotification(null)} onBack={() => { setTenantPortalSession(null); setTenantPublicView(false) }} onSendReminder={(message) => {
     const tenant = tenantPortalStatement.tenant
     const reminderText = message || `Hello ${tenant.name}, your rent balance with ${workspaceName} is KSh ${tenantPortalStatement.balance.toLocaleString()} for ${tenant.property}, Unit ${getTenantUnitLabel(tenant)}.`
     openRentReminderSms(tenant.phone, reminderText)
@@ -2090,6 +2162,7 @@ function App() {
         {navItems.map(({ label, icon: Icon, count }) => <button key={label} className={`nav-item ${activeSection === label ? 'active' : ''}`} onClick={() => { navigate(label); setSidebarOpen(false) }}><Icon size={18} /><span>{label}</span>{count && <em>{count}</em>}</button>)}
         {isPlatformAdministrator && <>
           <p className="nav-label nav-label-spaced">Quick links</p>
+          <button className={`nav-item ${activeSection === 'App notifications' ? 'active' : ''}`} onClick={() => { navigate('App notifications'); setSidebarOpen(false) }}><Bell size={18} /><span>App notifications</span></button>
           <button className={`nav-item ${activeSection === 'Portfolio listings' ? 'active' : ''}`} onClick={() => { navigate('Portfolio listings'); setSidebarOpen(false) }}><ClipboardList size={18} /><span>Portfolio listings</span></button>
           <button className={`nav-item ${activeSection === 'User directory' ? 'active' : ''}`} onClick={() => { setSettingsSectionShortcut('users'); navigate('User directory'); setSidebarOpen(false) }}><Users size={18} /><span>User directory</span></button>
           <button className={`nav-item ${activeSection === 'Landlord workspaces' ? 'active' : ''}`} onClick={() => { navigate('Landlord workspaces'); setSidebarOpen(false) }}><Building2 size={18} /><span>Landlord workspaces</span></button>
@@ -2231,14 +2304,19 @@ function App() {
         <section className="welcome-row">
           <div>
             <p className="eyebrow">{isPlatformAdministrator ? activeSection === 'User directory' || activeSection === 'Caretakers' || activeSection === 'Subscriptions' ? 'PLATFORM ADMINISTRATION' : 'PLATFORM PORTFOLIO' : today}</p>
-            <h1>{isPlatformAdministrator ? activeSection === 'Portfolio listings' ? 'Portfolio listings' : activeSection === 'User directory' ? 'User directory' : activeSection === 'Caretakers' ? 'Caretakers' : activeSection === 'Subscriptions' ? 'Landlord subscriptions' : activeSection === 'Landlord workspaces' ? 'Landlord workspaces' : 'Portfolio overview' : <>Welcome back, {sessionUser.name} <span>✦</span></>}</h1>
-            <p className="subhead">{isPlatformAdministrator ? activeSection === 'Portfolio listings' ? 'Add, edit, and publish the projects shown on your public Portfolio page.' : activeSection === 'User directory' ? 'Manage platform accounts, access, and account status.' : activeSection === 'Caretakers' ? 'View caretaker accounts and their landlord, property, and unit assignments.' : activeSection === 'Subscriptions' ? 'Review every landlord’s plan, expiry date, and subscription payment history.' : activeSection === 'Landlord workspaces' ? 'Browse landlord workspaces and open a portfolio for details.' : 'Review property performance across every landlord workspace.' : <>Signed in as <strong>{sessionUser.username}</strong> · {sessionUser.role} &nbsp;|&nbsp; {propertyGroup}</>}</p>
+            <h1>{isPlatformAdministrator ? activeSection === 'Portfolio listings' ? 'Portfolio listings' : activeSection === 'App notifications' ? 'App notifications' : activeSection === 'User directory' ? 'User directory' : activeSection === 'Caretakers' ? 'Caretakers' : activeSection === 'Subscriptions' ? 'Landlord subscriptions' : activeSection === 'Landlord workspaces' ? 'Landlord workspaces' : 'Portfolio overview' : <>Welcome back, {sessionUser.name} <span>✦</span></>}</h1>
+            <p className="subhead">{isPlatformAdministrator ? activeSection === 'Portfolio listings' ? 'Add, edit, and publish the projects shown on your public Portfolio page.' : activeSection === 'App notifications' ? 'Send announcements to landlord, caretaker, and tenant Android apps.' : activeSection === 'User directory' ? 'Manage platform accounts, access, and account status.' : activeSection === 'Caretakers' ? 'View caretaker accounts and their landlord, property, and unit assignments.' : activeSection === 'Subscriptions' ? 'Review every landlord’s plan, expiry date, and subscription payment history.' : activeSection === 'Landlord workspaces' ? 'Browse landlord workspaces and open a portfolio for details.' : 'Review property performance across every landlord workspace.' : <>Signed in as <strong>{sessionUser.username}</strong> · {sessionUser.role} &nbsp;|&nbsp; {propertyGroup}</>}</p>
           </div>
           <div className="welcome-row-actions">
             {!isPlatformAdministrator && can.addProperty && <button className="primary-button" onClick={() => setModalType('property')}><Plus size={17} /> Add property</button>}
             {!isPlatformAdministrator && can.addTenant && <button className="filter-button" onClick={() => setModalType('tenant')}><Users size={16} /> Add tenant</button>}
           </div>
         </section>
+        {pushRecipient && Capacitor.isNativePlatform() && pushRegistrationError && <p className="push-registration-alert" role="status">Push notifications are not active on this device: {pushRegistrationError}</p>}
+        {receivedPushNotification && <aside className="push-received-banner" role="status">
+          <div><strong>{receivedPushNotification.title}</strong>{receivedPushNotification.body && <p>{receivedPushNotification.body}</p>}</div>
+          <button type="button" aria-label="Dismiss notification" onClick={() => setReceivedPushNotification(null)}>Dismiss</button>
+        </aside>}
         {activeSection === 'Overview' ? isPlatformAdministrator ? <PlatformAdminPortfolioDashboard workspaces={platformLandlordWorkspaces} landlordAccountCount={users.filter(account => account.userType === 'Landlord').length} loading={platformPortfolioLoading} error={platformPortfolioError} onRefresh={() => void refreshPlatformPortfolio()} onRecordManualPayout={recordManualRentPayout} /> : <>
         <section className="metric-grid" aria-label="Portfolio summary">
           <article className="metric-card featured"><div className="metric-top"><span className="metric-icon"><Building2 size={18} /></span><span className="trend positive">Live</span></div><p>Monthly rent roll</p><strong>KSh {monthlyRentRoll.toLocaleString()}</strong><small>Across {totalUnits} listed units</small></article>
@@ -2471,7 +2549,11 @@ function App() {
                 if (error) throw new Error(error.message)
                 setCloudStatus(`Password reset email sent to ${email}`)
               }}
-            /> : <AccessDeniedView section="Settings" />)             : activeSection === 'Portfolio listings'
+            /> : <AccessDeniedView section="Settings" />)             : activeSection === 'App notifications'
+            ? isPlatformAdministrator
+              ? <PlatformPushNotifications />
+              : <AccessDeniedView section="App notifications" />
+            : activeSection === 'Portfolio listings'
             ? isPlatformAdministrator
               ? <PortfolioListingsManager />
               : <AccessDeniedView section="Portfolio listings" />
@@ -2998,12 +3080,13 @@ function PlatformAppAnalytics() {
         const { data, error } = await client.rpc('get_platform_app_analytics')
         if (error) throw new Error(error.message)
         const payload: unknown = Array.isArray(data) ? data[0] : data
-        if (typeof payload !== 'object' || payload === null || !('web_visits' in payload) || !('landlord_downloads' in payload) || !('caretaker_downloads' in payload) || !('tenant_downloads' in payload)) {
+        if (typeof payload !== 'object' || payload === null || !('web_visits' in payload) || !('landlord_downloads' in payload) || !('admin_downloads' in payload) || !('caretaker_downloads' in payload) || !('tenant_downloads' in payload)) {
           throw new Error('The analytics response was empty or incomplete. Run supabase/app_analytics.sql in the Supabase SQL Editor.')
         }
         const values = {
           web_visits: Number(payload.web_visits),
           landlord_downloads: Number(payload.landlord_downloads),
+          admin_downloads: Number(payload.admin_downloads),
           caretaker_downloads: Number(payload.caretaker_downloads),
           tenant_downloads: Number(payload.tenant_downloads),
         }
@@ -3024,6 +3107,7 @@ function PlatformAppAnalytics() {
     <div className="metric-grid platform-app-analytics-metrics">
       <article className="metric-card"><div className="metric-top"><span className="metric-icon lavender"><Globe size={18} /></span><span className="trend positive">All time</span></div><p>Website visits</p><strong>{analytics?.web_visits.toLocaleString() ?? (loading ? '…' : '—')}</strong><small>Recorded site visits</small></article>
       <article className="metric-card"><div className="metric-top"><span className="metric-icon mint"><Smartphone size={18} /></span><span className="trend positive">Landlord</span></div><p>Landlord app downloads</p><strong>{analytics?.landlord_downloads.toLocaleString() ?? (loading ? '…' : '—')}</strong><small>Landlord APK download requests</small></article>
+      <article className="metric-card"><div className="metric-top"><span className="metric-icon lavender"><Smartphone size={18} /></span><span className="trend positive">Admin</span></div><p>Admin app downloads</p><strong>{analytics?.admin_downloads.toLocaleString() ?? (loading ? '…' : '—')}</strong><small>Admin APK download requests</small></article>
       <article className="metric-card"><div className="metric-top"><span className="metric-icon peach"><Smartphone size={18} /></span><span className="trend positive">Caretaker</span></div><p>Caretaker app downloads</p><strong>{analytics?.caretaker_downloads.toLocaleString() ?? (loading ? '…' : '—')}</strong><small>Caretaker APK download requests</small></article>
       <article className="metric-card"><div className="metric-top"><span className="metric-icon"><Smartphone size={18} /></span><span className="trend positive">Tenant</span></div><p>Tenant app downloads</p><strong>{analytics?.tenant_downloads.toLocaleString() ?? (loading ? '…' : '—')}</strong><small>Tenant APK download requests</small></article>
     </div>
@@ -6200,7 +6284,7 @@ function OperationsCenter({ tenants, properties, payments, expenses, applicants,
   )
 }
 
-function TenantStatementPage({ tenant, workspaceName, propertyGroup, statement, chatIdentity, onBack, onSendReminder }: { tenant: TenantRecord; workspaceName: string; propertyGroup: string; statement: { amountDue: number; totalPaid: number; balance: number; history: Array<{ label: string; amount: number; date: string; method: string }> }; chatIdentity: { email: string; portalCode: string }; onBack: () => void; onSendReminder: (message?: string) => void }) {
+function TenantStatementPage({ tenant, workspaceName, propertyGroup, statement, chatIdentity, receivedNotification, onDismissNotification, onBack, onSendReminder }: { tenant: TenantRecord; workspaceName: string; propertyGroup: string; statement: { amountDue: number; totalPaid: number; balance: number; history: Array<{ label: string; amount: number; date: string; method: string }> }; chatIdentity: { email: string; portalCode: string }; receivedNotification: { title: string; body: string } | null; onDismissNotification: () => void; onBack: () => void; onSendReminder: (message?: string) => void }) {
   const [openQuickLink, setOpenQuickLink] = useState<'chat' | 'maintenance' | 'notices' | null>(null)
 
   useEffect(() => {
@@ -6250,6 +6334,11 @@ function TenantStatementPage({ tenant, workspaceName, propertyGroup, statement, 
           <button className="tenant-logout-button" type="button" aria-label="Back to tenant sign in" onClick={onBack}><ArrowUpRight size={15} className="tenant-back-icon" /><span>Back to sign in</span></button>
         </div>
       </header>
+
+      {receivedNotification && <aside className="push-received-banner" role="status">
+        <div><strong>{receivedNotification.title}</strong>{receivedNotification.body && <p>{receivedNotification.body}</p>}</div>
+        <button type="button" aria-label="Dismiss notification" onClick={onDismissNotification}>Dismiss</button>
+      </aside>}
 
       {openQuickLink === 'chat' && <div id="tenant-group-chat">
         <TenantGroupChat variant="tenant" property={tenant.property} tenantIdentity={chatIdentity} />
@@ -6714,7 +6803,7 @@ function PortfolioListingsManager() {
 function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onOpenLandlordSignup }: { workspaceName: string; onOpenRolePage: (role: 'Landlord' | 'Administrator' | 'Caretaker') => void; onOpenTenantPortal: () => void; onOpenLandlordSignup: () => void }) {
   const [activeContent, setActiveContent] = useState<PublicHomeSection>(() => getPublicHomeSection(window.location.pathname) ?? 'home')
   const [appLinkError, setAppLinkError] = useState('')
-  const [downloadingAppRole, setDownloadingAppRole] = useState<'Landlord' | 'Caretaker' | 'Tenant' | null>(null)
+  const [downloadingAppRole, setDownloadingAppRole] = useState<'Landlord' | 'Admin' | 'Caretaker' | 'Tenant' | null>(null)
   const [publicStats, setPublicStats] = useState<PublicPlatformStats | null>(null)
   const [displayedStats, setDisplayedStats] = useState<PublicPlatformStats>({ landlord_count: 0, tenant_count: 0, total_collected: 0 })
   const [statsLoading, setStatsLoading] = useState(true)
@@ -6835,7 +6924,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
     { title: 'Caretaker', description: 'Handle maintenance and day-to-day property care.', icon: Wrench, onSelect: () => onOpenRolePage('Caretaker'), accent: 'caretaker' },
     { title: 'Tenant', description: 'Existing tenants: view rent statements and payment history.', icon: Users, onSelect: onOpenTenantPortal, accent: 'tenant' },
   ]
-  const downloadAppForRole = (role: 'Landlord' | 'Caretaker' | 'Tenant') => {
+  const downloadAppForRole = (role: 'Landlord' | 'Admin' | 'Caretaker' | 'Tenant') => {
     if (downloadingAppRole) return
     setAppLinkError('')
     setDownloadingAppRole(role)
@@ -6913,6 +7002,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       <div className="portal-home-grid">
         {([
           { role: 'Landlord', description: 'Manage properties, tenants, rent, and your team.', icon: Building2, accent: 'landlord' },
+          { role: 'Admin', description: 'Manage platform users, subscriptions, and settings.', icon: ShieldCheck, accent: 'administrator' },
           { role: 'Caretaker', description: 'Handle assigned properties and day-to-day care.', icon: Wrench, accent: 'caretaker' },
           { role: 'Tenant', description: 'View your rent statements and payment history.', icon: Users, accent: 'tenant' },
         ] as const).map(({ role, description, icon: Icon, accent }) => <button className={`portal-home-card ${accent}`} key={role} type="button" disabled={downloadingAppRole !== null} onClick={() => downloadAppForRole(role)}>
@@ -6923,7 +7013,7 @@ function PortalHomePage({ workspaceName, onOpenRolePage, onOpenTenantPortal, onO
       </div>
       {appLinkError && <div className="portal-home-stats-message" role="status">{appLinkError}
         <div className="portal-home-apps-continue">
-          {(['Landlord', 'Caretaker', 'Tenant'] as const).map(role => <button type="button" key={role} onClick={() => {
+          {(['Landlord', 'Admin', 'Caretaker', 'Tenant'] as const).map(role => <button type="button" key={role} onClick={() => {
             const filename = `vyro-${role.toLowerCase()}-app.apk`
             const link = document.createElement('a')
             link.href = `/downloads/${filename}`

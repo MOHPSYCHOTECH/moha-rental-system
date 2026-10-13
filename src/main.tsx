@@ -5,6 +5,7 @@ import App from './App.tsx'
 
 const nativeRoleRoute: Record<string, string> = {
   landlord: '/landlord',
+  admin: '/admin',
   caretaker: '/caretaker',
   tenant: '/tenant',
 }
