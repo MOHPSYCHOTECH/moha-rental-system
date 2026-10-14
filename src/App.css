@@ -681,6 +681,11 @@ nav[aria-label="Main navigation"] { padding: 12px 12px 0; flex: 1; }
 .platform-push-status small { color: inherit; font-size: 9px; font-weight: 500; }
 .platform-push-status.partial { border-color: #f0dfb5; background: #fffaf0; color: #8a651a; }
 .platform-push-status.failed { border-color: #f0cccc; background: #fff5f5; color: #a23d3d; }
+.platform-push-campaign-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+.platform-push-campaign-actions button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; gap: 5px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text-2); font: inherit; font-size: 10px; font-weight: 600; cursor: pointer; }
+.platform-push-campaign-actions button:hover:not(:disabled) { border-color: #8cb4e7; background: #f4f8ff; color: #2868c2; }
+.platform-push-campaign-actions button.delete:hover:not(:disabled) { border-color: #e4aaaa; background: #fff5f5; color: #a23d3d; }
+.platform-push-campaign-actions button:disabled { cursor: wait; opacity: .5; }
 .platform-push-empty { margin: 0; padding: 19px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-3); font-size: 11.5px; text-align: center; }
 .dark .platform-push-heading { border-color: #293d58; background: radial-gradient(ellipse at 95% 0%, rgba(80, 165, 255, .12), transparent 38%), linear-gradient(115deg, #172338, #152033); }
 .dark .platform-push-heading h2 { color: #e8f0fa; }
@@ -698,6 +703,9 @@ nav[aria-label="Main navigation"] { padding: 12px 12px 0; flex: 1; }
 .dark .platform-push-status { border-color: #28583d; background: #142b20; color: #a3e2b7; }
 .dark .platform-push-status.partial { border-color: #594927; background: #2b2417; color: #edce84; }
 .dark .platform-push-status.failed { border-color: #653333; background: #301b1b; color: #f0aaaa; }
+.dark .platform-push-campaign-actions button { border-color: #34465e; background: #18263a; color: #b4c4d8; }
+.dark .platform-push-campaign-actions button:hover:not(:disabled) { border-color: #426fa8; background: #192a41; color: #9cc5ff; }
+.dark .platform-push-campaign-actions button.delete:hover:not(:disabled) { border-color: #754343; background: #301b1b; color: #f0aaaa; }
 @media (max-width: 900px) {
   .platform-push-workspace { grid-template-columns: minmax(0, 1fr); }
   .platform-push-guidance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; column-gap: 14px; }
@@ -733,6 +741,8 @@ nav[aria-label="Main navigation"] { padding: 12px 12px 0; flex: 1; }
   .platform-push-campaign-icon { width: 30px; height: 30px; }
   .platform-push-status { max-width: 88px; padding: 6px; text-align: right; }
   .platform-push-status small { line-height: 1.35; }
+  .platform-push-campaign-actions { width: 100%; margin-left: 39px; }
+  .platform-push-campaign-actions button { flex: 1; }
 }
 
 /* ============================================================

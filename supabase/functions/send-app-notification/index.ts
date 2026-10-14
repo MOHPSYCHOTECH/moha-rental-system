@@ -157,14 +157,40 @@ Deno.serve(async request => {
   if (callerError || !callerResult.user) return json({ error: 'Your sign-in session could not be verified.' }, 401)
   const { data: platformAdmin, error: permissionError } = await callerClient.rpc('is_platform_admin')
   if (permissionError) return json({ error: `Administrator access could not be checked: ${permissionError.message}` }, 500)
-  if (platformAdmin !== true) return json({ error: 'Only an active Platform Administrator can send app notifications.' }, 403)
+  if (platformAdmin !== true) return json({ error: 'Only an active Platform Administrator can manage app notifications.' }, 403)
 
-  let body: { title?: unknown; message?: unknown; roles?: unknown }
+  let body: { action?: unknown; campaignId?: unknown; title?: unknown; message?: unknown; roles?: unknown }
   try {
-    body = await request.json()
+    const parsedBody: unknown = await request.json()
+    if (typeof parsedBody !== 'object' || parsedBody === null || Array.isArray(parsedBody)) {
+      return json({ error: 'Request body must be a JSON object.' }, 400)
+    }
+    body = parsedBody as typeof body
   } catch {
     return json({ error: 'Request body must be valid JSON.' }, 400)
   }
+  const action = body.action ?? 'send'
+  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+
+  if (action === 'delete') {
+    const campaignId = typeof body.campaignId === 'string' ? body.campaignId : ''
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(campaignId)) {
+      return json({ error: 'A valid notification ID is required.' }, 400)
+    }
+    const { data, error } = await adminClient.from('app_push_campaigns')
+      .delete()
+      .eq('id', campaignId)
+      .select('id')
+      .maybeSingle()
+    if (error) return json({ error: `The notification could not be deleted: ${error.message}` }, 500)
+    if (!data) return json({ error: 'This notification was already deleted or no longer exists.' }, 404)
+    return json({ deleted: true })
+  }
+
+  if (action !== 'send') return json({ error: 'Choose a valid notification action.' }, 400)
+
   const title = typeof body.title === 'string' ? body.title.trim() : ''
   const message = typeof body.message === 'string' ? body.message.trim() : ''
   const roles = Array.isArray(body.roles) ? [...new Set(body.roles)] : []
@@ -186,9 +212,6 @@ Deno.serve(async request => {
     return json({ error: 'The Firebase service account secret is missing project_id, client_email, or private_key.' }, 503)
   }
 
-  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
   try {
     const registeredDevices = await loadAllDevices(adminClient, roles as AppRole[])
     const devices = await findEligibleDevices(adminClient, registeredDevices)

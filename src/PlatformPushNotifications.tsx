@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { BellRing, Building2, CheckCircle2, Send, Smartphone, Users, Wrench } from 'lucide-react'
+import { BellRing, Building2, CheckCircle2, RotateCw, Send, Smartphone, Trash2, Users, Wrench } from 'lucide-react'
 import { supabase } from './lib/supabase'
 
 type AppRole = 'landlord' | 'caretaker' | 'tenant'
 type PushFailureDetail = { status: string; message: string; count: number }
+type PushResult = { sent: number; failed: number; failureDetails: PushFailureDetail[]; removedInvalidDevices: number }
 type Campaign = {
   id: string
   title: string
@@ -23,6 +24,50 @@ function isPushFailureDetail(value: unknown): value is PushFailureDetail {
     && 'status' in value && typeof value.status === 'string'
     && 'message' in value && typeof value.message === 'string'
     && 'count' in value && typeof value.count === 'number'
+}
+
+async function sendPushNotification(payload: { title: string; message: string; roles: AppRole[] }): Promise<PushResult> {
+  if (!supabase) throw new Error('Supabase is not configured for this site.')
+  const { data, error } = await supabase.functions.invoke('send-app-notification', { body: payload })
+  if (error) {
+    const context = 'context' in error ? error.context : undefined
+    if (context instanceof Response) {
+      let detail = error.message
+      try {
+        const response = await context.clone().json() as { error?: unknown }
+        if (typeof response.error === 'string') detail = response.error
+      } catch {
+        detail = error.message
+      }
+      throw new Error(detail)
+    }
+    throw new Error(error.message)
+  }
+  if (typeof data !== 'object' || data === null
+    || !('sent' in data) || typeof data.sent !== 'number'
+    || !('failed' in data) || typeof data.failed !== 'number') {
+    throw new Error('The push service returned an incomplete delivery result.')
+  }
+  return {
+    sent: data.sent,
+    failed: data.failed,
+    failureDetails: 'failureDetails' in data && Array.isArray(data.failureDetails)
+      ? data.failureDetails.filter(isPushFailureDetail)
+      : [],
+    removedInvalidDevices: 'removedInvalidDevices' in data && typeof data.removedInvalidDevices === 'number'
+      ? data.removedInvalidDevices
+      : 0,
+  }
+}
+
+function describePushResult(result: PushResult) {
+  const failureSummary = result.failureDetails.length
+    ? ` Details: ${result.failureDetails.map(failure => `${failure.count} ${failure.status}: ${failure.message}`).join('; ')}`
+    : ''
+  const cleanupSummary = result.removedInvalidDevices
+    ? ` Removed ${result.removedInvalidDevices} expired device registration${result.removedInvalidDevices === 1 ? '' : 's'}.`
+    : ''
+  return `Sent to ${result.sent} device${result.sent === 1 ? '' : 's'}${result.failed ? `; ${result.failed} delivery${result.failed === 1 ? '' : 'ies'} failed.` : '.'}${failureSummary}${cleanupSummary}`
 }
 
 const recipientLabels: Record<AppRole, string> = {
@@ -55,6 +100,8 @@ export function PlatformPushNotifications() {
   const [historyPage, setHistoryPage] = useState(1)
   const [historyCount, setHistoryCount] = useState(0)
   const [historyRefresh, setHistoryRefresh] = useState(0)
+  const [campaignActionId, setCampaignActionId] = useState<string | null>(null)
+  const [historyActionNotice, setHistoryActionNotice] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
 
   useEffect(() => {
     if (!supabase) {
@@ -102,44 +149,10 @@ export function PlatformPushNotifications() {
     setSending(true)
     setNotice(null)
     try {
-      const { data, error } = await supabase.functions.invoke('send-app-notification', {
-        body: { title: title.trim(), message: message.trim(), roles },
-      })
-      if (error) {
-        const context = 'context' in error ? error.context : undefined
-        if (context instanceof Response) {
-          let detail = error.message
-          try {
-            const payload = await context.clone().json() as { error?: unknown }
-            if (typeof payload.error === 'string') detail = payload.error
-          } catch {
-            detail = error.message
-          }
-          throw new Error(detail)
-        }
-        throw new Error(error.message)
-      }
-      const result: unknown = data
-      if (typeof result !== 'object' || result === null
-        || !('sent' in result) || typeof result.sent !== 'number'
-        || !('failed' in result) || typeof result.failed !== 'number') {
-        throw new Error('The push service returned an incomplete delivery result.')
-      }
-      const failureDetails = 'failureDetails' in result && Array.isArray(result.failureDetails)
-        ? result.failureDetails.filter(isPushFailureDetail)
-        : []
-      const removedInvalidDevices = 'removedInvalidDevices' in result && typeof result.removedInvalidDevices === 'number'
-        ? result.removedInvalidDevices
-        : 0
-      const failureSummary = failureDetails.length
-        ? ` Details: ${failureDetails.map(failure => `${failure.count} ${failure.status}: ${failure.message}`).join('; ')}`
-        : ''
-      const cleanupSummary = removedInvalidDevices
-        ? ` Removed ${removedInvalidDevices} expired device registration${removedInvalidDevices === 1 ? '' : 's'}.`
-        : ''
+      const result = await sendPushNotification({ title: title.trim(), message: message.trim(), roles })
       setNotice({
         kind: result.failed > 0 ? 'error' : 'success',
-        message: `Sent to ${result.sent} device${result.sent === 1 ? '' : 's'}${result.failed ? `; ${result.failed} delivery${result.failed === 1 ? '' : 'ies'} failed.` : '.'}${failureSummary}${cleanupSummary}`,
+        message: describePushResult(result),
       })
       setTitle('')
       setMessage('')
@@ -150,6 +163,67 @@ export function PlatformPushNotifications() {
       setNotice({ kind: 'error', message: error instanceof Error ? error.message : 'The notification could not be sent.' })
     } finally {
       setSending(false)
+    }
+  }
+
+  const resendCampaign = async (campaign: Campaign) => {
+    const recipientText = campaign.recipient_roles.map(role => recipientLabels[role]).join(', ')
+    if (!window.confirm(`Resend "${campaign.title}" to ${recipientText}? This will create a new delivery-history entry.`)) return
+    setCampaignActionId(campaign.id)
+    setHistoryActionNotice(null)
+    try {
+      const result = await sendPushNotification({
+        title: campaign.title,
+        message: campaign.body,
+        roles: campaign.recipient_roles,
+      })
+      setHistoryActionNotice({
+        kind: result.failed ? 'error' : 'success',
+        message: `Resend complete. ${describePushResult(result)}`,
+      })
+      setHistoryLoading(true)
+      setHistoryPage(1)
+      setHistoryRefresh(current => current + 1)
+    } catch (error) {
+      setHistoryActionNotice({ kind: 'error', message: error instanceof Error ? error.message : 'The notification could not be resent.' })
+    } finally {
+      setCampaignActionId(null)
+    }
+  }
+
+  const deleteCampaign = async (campaign: Campaign) => {
+    if (!supabase || !window.confirm(`Delete "${campaign.title}" from notification history? This cannot be undone.`)) return
+    setCampaignActionId(campaign.id)
+    setHistoryActionNotice(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('send-app-notification', {
+        body: { action: 'delete', campaignId: campaign.id },
+      })
+      if (error) {
+        const context = 'context' in error ? error.context : undefined
+        if (context instanceof Response) {
+          let detail = error.message
+          try {
+            const response = await context.clone().json() as { error?: unknown }
+            if (typeof response.error === 'string') detail = response.error
+          } catch {
+            detail = error.message
+          }
+          throw new Error(detail)
+        }
+        throw new Error(error.message)
+      }
+      if (!data || typeof data !== 'object' || !('deleted' in data) || data.deleted !== true) {
+        throw new Error('The notification service did not confirm deletion.')
+      }
+      setHistoryActionNotice({ kind: 'success', message: 'Notification removed from history.' })
+      if (campaigns.length === 1 && historyPage > 1) setHistoryPage(page => page - 1)
+      setHistoryLoading(true)
+      setHistoryRefresh(current => current + 1)
+    } catch (error) {
+      setHistoryActionNotice({ kind: 'error', message: error instanceof Error ? error.message : 'The notification could not be deleted.' })
+    } finally {
+      setCampaignActionId(null)
     }
   }
 
@@ -221,6 +295,7 @@ export function PlatformPushNotifications() {
         <div><p className="eyebrow">DELIVERY LOG</p><h3 id="platform-push-history-title">Recent notifications</h3></div>
         <span>{historyCount} {historyCount === 1 ? 'campaign' : 'campaigns'}</span>
       </div>
+      {historyActionNotice && <p className={`platform-push-feedback ${historyActionNotice.kind}`} role={historyActionNotice.kind === 'error' ? 'alert' : 'status'}>{historyActionNotice.message}</p>}
       {!supabase ? <p className="settings-error" role="alert">Connect this app to Supabase to view sent notifications.</p>
         : historyLoading ? <p className="platform-push-empty">Loading notification history…</p>
         : historyError ? <p className="settings-error" role="alert">{historyError}</p>
@@ -230,6 +305,10 @@ export function PlatformPushNotifications() {
                 <span className="platform-push-campaign-icon"><BellRing size={17} /></span>
                 <div className="platform-push-campaign-copy"><strong>{campaign.title}</strong><p>{campaign.body}</p><small>{campaign.recipient_roles.map(role => recipientLabels[role]).join(', ')} <span>·</span> {new Date(campaign.created_at).toLocaleString()}</small></div>
                 <span className={`platform-push-status ${campaign.status}`}>{campaign.status === 'sent' ? 'Delivered' : campaign.status === 'partial' ? 'Partial' : 'Failed'} <small>{campaign.sent_count} sent{campaign.failed_count ? ` · ${campaign.failed_count} failed` : ''}</small></span>
+                <div className="platform-push-campaign-actions">
+                  <button type="button" aria-label={`Resend ${campaign.title}`} title="Resend notification" disabled={campaignActionId !== null} onClick={() => void resendCampaign(campaign)}><RotateCw size={15} /> <span>Resend</span></button>
+                  <button type="button" className="delete" aria-label={`Delete ${campaign.title}`} title="Delete notification history" disabled={campaignActionId !== null} onClick={() => void deleteCampaign(campaign)}><Trash2 size={15} /> <span>Delete</span></button>
+                </div>
               </article>)}
             </div>}
       {historyCount > historyPageSize && <nav className="platform-push-pagination" aria-label="Notification history pagination">
