@@ -735,14 +735,47 @@ nav[aria-label="Main navigation"] { padding: 12px 12px 0; flex: 1; }
   .platform-push-form-footer > p { max-width: none; }
   .platform-push-submit { width: 100%; justify-content: center; }
   .platform-push-history { padding: 15px; }
+  .platform-push-history-heading { align-items: flex-start; }
+  .platform-push-history-heading h3 { font-size: 15px; }
+  .platform-push-history-heading > span { flex: 0 0 auto; }
+  .platform-push-history > .platform-push-feedback { overflow-wrap: anywhere; }
   .platform-push-pagination { align-items: flex-start; flex-direction: column; }
   .platform-push-pagination > div { width: 100%; justify-content: space-between; }
-  .platform-push-campaign { align-items: flex-start; gap: 9px; padding: 10px; }
-  .platform-push-campaign-icon { width: 30px; height: 30px; }
-  .platform-push-status { max-width: 88px; padding: 6px; text-align: right; }
-  .platform-push-status small { line-height: 1.35; }
-  .platform-push-campaign-actions { width: 100%; margin-left: 39px; }
-  .platform-push-campaign-actions button { flex: 1; }
+  .platform-push-campaigns { gap: 10px; }
+  .platform-push-campaign {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+  .platform-push-campaign-icon { width: 32px; height: 32px; }
+  .platform-push-campaign-copy { grid-column: 2; }
+  .platform-push-campaign-copy > strong {
+    overflow: visible;
+    font-size: 12px;
+    line-height: 1.4;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .platform-push-campaign-copy p { margin: 5px 0 7px; font-size: 11px; line-height: 1.5; }
+  .platform-push-campaign-copy small { display: block; font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+  .platform-push-status {
+    grid-column: 1 / -1;
+    display: flex;
+    max-width: none;
+    align-items: center;
+    justify-items: initial;
+    gap: 7px;
+    justify-self: start;
+    padding: 5px 8px;
+    text-align: left;
+  }
+  .platform-push-status small { line-height: 1.4; }
+  .platform-push-campaign-actions { grid-column: 1 / -1; width: 100%; gap: 8px; }
+  .platform-push-campaign-actions button { min-height: 38px; flex: 1; font-size: 11px; }
 }
 
 /* ============================================================
