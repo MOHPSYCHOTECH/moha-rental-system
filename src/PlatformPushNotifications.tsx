@@ -4,6 +4,7 @@ import { BellRing, Building2, CheckCircle2, Send, Smartphone, Users, Wrench } fr
 import { supabase } from './lib/supabase'
 
 type AppRole = 'landlord' | 'caretaker' | 'tenant'
+type PushFailureDetail = { status: string; message: string; count: number }
 type Campaign = {
   id: string
   title: string
@@ -16,6 +17,13 @@ type Campaign = {
 }
 
 const historyPageSize = 5
+
+function isPushFailureDetail(value: unknown): value is PushFailureDetail {
+  return typeof value === 'object' && value !== null
+    && 'status' in value && typeof value.status === 'string'
+    && 'message' in value && typeof value.message === 'string'
+    && 'count' in value && typeof value.count === 'number'
+}
 
 const recipientLabels: Record<AppRole, string> = {
   landlord: 'Landlords',
@@ -111,12 +119,27 @@ export function PlatformPushNotifications() {
         }
         throw new Error(error.message)
       }
-      if (!data || typeof data.sent !== 'number' || typeof data.failed !== 'number') {
+      const result: unknown = data
+      if (typeof result !== 'object' || result === null
+        || !('sent' in result) || typeof result.sent !== 'number'
+        || !('failed' in result) || typeof result.failed !== 'number') {
         throw new Error('The push service returned an incomplete delivery result.')
       }
+      const failureDetails = 'failureDetails' in result && Array.isArray(result.failureDetails)
+        ? result.failureDetails.filter(isPushFailureDetail)
+        : []
+      const removedInvalidDevices = 'removedInvalidDevices' in result && typeof result.removedInvalidDevices === 'number'
+        ? result.removedInvalidDevices
+        : 0
+      const failureSummary = failureDetails.length
+        ? ` Details: ${failureDetails.map(failure => `${failure.count} ${failure.status}: ${failure.message}`).join('; ')}`
+        : ''
+      const cleanupSummary = removedInvalidDevices
+        ? ` Removed ${removedInvalidDevices} expired device registration${removedInvalidDevices === 1 ? '' : 's'}.`
+        : ''
       setNotice({
-        kind: data.failed > 0 ? 'error' : 'success',
-        message: `Sent to ${data.sent} device${data.sent === 1 ? '' : 's'}${data.failed ? `; ${data.failed} delivery${data.failed === 1 ? '' : 'ies'} failed` : ''}.`,
+        kind: result.failed > 0 ? 'error' : 'success',
+        message: `Sent to ${result.sent} device${result.sent === 1 ? '' : 's'}${result.failed ? `; ${result.failed} delivery${result.failed === 1 ? '' : 'ies'} failed.` : '.'}${failureSummary}${cleanupSummary}`,
       })
       setTitle('')
       setMessage('')

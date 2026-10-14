@@ -10,6 +10,7 @@ type AppRole = 'landlord' | 'caretaker' | 'tenant'
 type DeviceRow = { token: string; app_role: AppRole; user_id: string | null; owner_id: string | null; tenant_email: string | null }
 type FirebaseServiceAccount = { project_id?: string; client_email?: string; private_key?: string }
 type WorkspaceRow = { owner_id: string; data: { tenants?: unknown } | null }
+type DeliveryFailure = { status: string; message: string; count: number }
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -198,6 +199,7 @@ Deno.serve(async request => {
     let sentCount = 0
     let failedCount = 0
     const invalidTokens: string[] = []
+    const failures = new Map<string, DeliveryFailure>()
     for (let offset = 0; offset < devices.length; offset += 500) {
       const batch = devices.slice(offset, offset + 500)
       const results = await Promise.all(batch.map(async device => {
@@ -219,6 +221,8 @@ Deno.serve(async request => {
         if (response.ok && result.name) return { sent: true, invalid: false }
         return {
           sent: false,
+          status: result.error?.status || `HTTP_${response.status}`,
+          message: result.error?.message?.slice(0, 240) || response.statusText || 'Firebase rejected this device.',
           invalid: result.error?.status === 'UNREGISTERED',
         }
       }))
@@ -226,7 +230,12 @@ Deno.serve(async request => {
         if (results[index].sent) sentCount += 1
         else {
           failedCount += 1
-          if (results[index].invalid) invalidTokens.push(batch[index].token)
+          const result = results[index]
+          if (result.invalid) invalidTokens.push(batch[index].token)
+          const key = `${result.status}:${result.message}`
+          const failure = failures.get(key)
+          if (failure) failure.count += 1
+          else failures.set(key, { status: result.status, message: result.message, count: 1 })
         }
       }
     }
@@ -248,7 +257,13 @@ Deno.serve(async request => {
     if (logError) {
       return json({ error: `Push delivery finished (${sentCount} sent, ${failedCount} failed), but the campaign could not be saved: ${logError.message}` }, 500)
     }
-    return json({ sent: sentCount, failed: failedCount, status: campaignStatus })
+    return json({
+      sent: sentCount,
+      failed: failedCount,
+      status: campaignStatus,
+      failureDetails: [...failures.values()],
+      removedInvalidDevices: invalidTokens.length,
+    })
   } catch (error) {
     console.error('App push notification failed:', error)
     return json({ error: error instanceof Error ? error.message : 'App push notification could not be sent.' }, 500)
