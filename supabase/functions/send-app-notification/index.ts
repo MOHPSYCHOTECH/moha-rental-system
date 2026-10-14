@@ -11,6 +11,20 @@ type DeviceRow = { token: string; app_role: AppRole; user_id: string | null; own
 type FirebaseServiceAccount = { project_id?: string; client_email?: string; private_key?: string }
 type WorkspaceRow = { owner_id: string; data: { tenants?: unknown } | null }
 type DeliveryFailure = { status: string; message: string; count: number }
+type FirebaseSendResult = {
+  name?: string
+  error?: {
+    status?: string
+    message?: string
+    details?: Array<{ errorCode?: string }>
+  }
+}
+
+function isInvalidRegistrationToken(error: FirebaseSendResult['error']) {
+  return error?.status === 'UNREGISTERED'
+    || error?.details?.some(detail => detail.errorCode === 'UNREGISTERED') === true
+    || /^NotRegistered\.?$/i.test(error?.message?.trim() ?? '')
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -240,13 +254,13 @@ Deno.serve(async request => {
             },
           }),
         })
-        const result = await response.json() as { name?: string; error?: { status?: string; message?: string } }
+        const result = await response.json() as FirebaseSendResult
         if (response.ok && result.name) return { sent: true, invalid: false }
         return {
           sent: false,
           status: result.error?.status || `HTTP_${response.status}`,
           message: result.error?.message?.slice(0, 240) || response.statusText || 'Firebase rejected this device.',
-          invalid: result.error?.status === 'UNREGISTERED',
+          invalid: isInvalidRegistrationToken(result.error),
         }
       }))
       for (let index = 0; index < results.length; index += 1) {
@@ -262,9 +276,19 @@ Deno.serve(async request => {
         }
       }
     }
+    let removedInvalidDevices = 0
+    let tokenCleanupError: string | undefined
     if (invalidTokens.length) {
-      const { error } = await adminClient.from('app_push_devices').delete().in('token', invalidTokens)
-      if (error) console.error('Invalid push device tokens could not be removed:', error.message)
+      const { data, error } = await adminClient.from('app_push_devices')
+        .delete()
+        .in('token', invalidTokens)
+        .select('token')
+      if (error) {
+        tokenCleanupError = error.message
+        console.error('Invalid push device tokens could not be removed:', error.message)
+      } else {
+        removedInvalidDevices = data.length
+      }
     }
 
     const campaignStatus = sentCount === 0 ? 'failed' : failedCount === 0 ? 'sent' : 'partial'
@@ -285,7 +309,8 @@ Deno.serve(async request => {
       failed: failedCount,
       status: campaignStatus,
       failureDetails: [...failures.values()],
-      removedInvalidDevices: invalidTokens.length,
+      removedInvalidDevices,
+      ...(tokenCleanupError ? { tokenCleanupError } : {}),
     })
   } catch (error) {
     console.error('App push notification failed:', error)

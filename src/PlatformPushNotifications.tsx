@@ -5,7 +5,7 @@ import { supabase } from './lib/supabase'
 
 type AppRole = 'landlord' | 'caretaker' | 'tenant'
 type PushFailureDetail = { status: string; message: string; count: number }
-type PushResult = { sent: number; failed: number; failureDetails: PushFailureDetail[]; removedInvalidDevices: number }
+type PushResult = { sent: number; failed: number; failureDetails: PushFailureDetail[]; removedInvalidDevices: number; tokenCleanupError?: string }
 type Campaign = {
   id: string
   title: string
@@ -57,6 +57,9 @@ async function sendPushNotification(payload: { title: string; message: string; r
     removedInvalidDevices: 'removedInvalidDevices' in data && typeof data.removedInvalidDevices === 'number'
       ? data.removedInvalidDevices
       : 0,
+    tokenCleanupError: 'tokenCleanupError' in data && typeof data.tokenCleanupError === 'string'
+      ? data.tokenCleanupError
+      : undefined,
   }
 }
 
@@ -67,7 +70,10 @@ function describePushResult(result: PushResult) {
   const cleanupSummary = result.removedInvalidDevices
     ? ` Removed ${result.removedInvalidDevices} expired device registration${result.removedInvalidDevices === 1 ? '' : 's'}.`
     : ''
-  return `Sent to ${result.sent} device${result.sent === 1 ? '' : 's'}${result.failed ? `; ${result.failed} delivery${result.failed === 1 ? '' : 'ies'} failed.` : '.'}${failureSummary}${cleanupSummary}`
+  const cleanupError = result.tokenCleanupError
+    ? ` Could not remove expired device registrations: ${result.tokenCleanupError}`
+    : ''
+  return `Sent to ${result.sent} device${result.sent === 1 ? '' : 's'}${result.failed ? `; ${result.failed} deliver${result.failed === 1 ? 'y' : 'ies'} failed.` : '.'}${failureSummary}${cleanupSummary}${cleanupError}`
 }
 
 const recipientLabels: Record<AppRole, string> = {
